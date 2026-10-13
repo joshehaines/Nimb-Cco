@@ -1,0 +1,82 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sector-pub: #b45309;
+  --sector-restaurant: #c2410c;
+  --sector-hotel: #7c3aed;
+  --sector-care: #0f766e;
+  --sector-childcare: #db2777;
+  --sector-dental: #0891b2;
+  --sector-medical: #2563eb;
+  --sector-pharmacy: #16a34a;
+  --sector-retail: #ca8a04;
+  --sector-leisure: #9333ea;
+  --sector-garden: #65a30d;
+  --sector-other: #64748b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #b8c1cf transparent;
+}
+
+.maplibregl-popup-content {
+  @apply rounded-lg shadow-lg border border-ink-200 px-3 py-2 text-xs text-ink-800;
+}
+.maplibregl-ctrl-group {
+  @apply shadow-md border border-ink-200;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-ink-800 border border-ink-200 hover:bg-ink-50;
+  }
+  .btn-ghost {
+    @apply btn text-ink-700 hover:bg-ink-100;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .input {
+    @apply w-full rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400;
+  }
+  .card {
+    @apply rounded-lg border border-ink-200 bg-white shadow-sm;
+  }
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-ink-500;
+  }
+  .kv {
+    @apply grid grid-cols-[minmax(0,140px)_1fr] gap-x-3 gap-y-1.5 text-sm;
+  }
+  .kv dt {
+    @apply text-ink-500;
+  }
+  .kv dd {
+    @apply text-ink-900 font-medium break-words;
+  }
+}
