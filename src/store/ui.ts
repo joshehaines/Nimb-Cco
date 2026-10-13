@@ -25,6 +25,8 @@ export interface UiState {
   flyTo?: { lon: number; lat: number; zoom?: number; nonce: number }
   watchlist: WatchItem[]
   projects: string[]
+  highlightIds: string[]
+  highlightLabel?: string
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
   setConstraintKinds: (k: string[]) => void
@@ -41,6 +43,7 @@ export interface UiState {
   updateWatch: (id: string, patch: Partial<WatchItem>) => void
   isWatched: (entityType: WatchItem['entityType'], entityId: string) => boolean
   addProject: (p: string) => void
+  setHighlight: (ids: string[], label?: string) => void
 }
 
 export const useUi = create<UiState>()(
@@ -56,6 +59,7 @@ export const useUi = create<UiState>()(
       mapView: { lon: -1.5455, lat: 52.287, zoom: 14.2 },
       watchlist: [],
       projects: ['Midlands care disposals', 'Pubco lease expiries 2027'],
+      highlightIds: [],
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
@@ -73,6 +77,7 @@ export const useUi = create<UiState>()(
       updateWatch: (id, patch) => set((s) => ({ watchlist: s.watchlist.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
       isWatched: (entityType, entityId) => get().watchlist.some((w) => w.entityType === entityType && w.entityId === entityId),
       addProject: (p) => set((s) => (s.projects.includes(p) ? s : { projects: [...s.projects, p] })),
+      setHighlight: (highlightIds, highlightLabel) => set({ highlightIds, highlightLabel }),
     }),
     {
       name: 'cpi-ui',

@@ -1,5 +1,5 @@
 import type { Point, Polygon, Position } from 'geojson'
-import type { BoundsQuery } from '@/data/types'
+import type { BoundsQuery } from '../data/types'
 
 const R = 6371000
 

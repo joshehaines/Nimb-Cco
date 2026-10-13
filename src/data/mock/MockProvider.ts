@@ -25,9 +25,9 @@ import type {
 } from '../types'
 import { generateDataset, crmToCsv, type Dataset } from './generate'
 import { DATA_SOURCES } from './sources'
-import { centroid, haversineM, inBounds, pointInPolygon } from '@/lib/geo'
-import { monthsUntil } from '@/lib/format'
-import { extractPostcode, normaliseAddress, normaliseBusinessName, normaliseCompanyName, normalisePostcode, similarity, validCompanyNumber } from '@/lib/matching'
+import { centroid, haversineM, inBounds, pointInPolygon } from '../../lib/geo'
+import { monthsUntil } from '../../lib/format'
+import { extractPostcode, normaliseAddress, normaliseBusinessName, normaliseCompanyName, normalisePostcode, similarity, validCompanyNumber } from '../../lib/matching'
 
 const EPC_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))

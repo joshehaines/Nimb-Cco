@@ -23,6 +23,8 @@ VITE_DATA_PROVIDER=mock     # mock | http
 
 If basemap tiles are blocked by the network the map falls back to a blank canvas and still draws every data layer.
 
+`VITE_DATA_PROVIDER=http npm run dev` exercises the REST contract: the Vite dev server includes `scripts/mockApiPlugin.ts`, which serves `docs/API.md` from the same in-memory dataset, so the HTTP code path is tested before the real backend exists. The backend skeleton (FastAPI, PostGIS schema, one ingestion job stub per source) lives in `api/`.
+
 ## What is in the UI
 
 | Screen | Purpose | Nimbus equivalent |
@@ -62,7 +64,15 @@ src/
   pages/                one file per route
 docs/
   API.md                REST contract the backend must implement
-  research/             research report that led to this build (also in docs/research at repo root)
+  research/             research report that led to this build
+  screenshots/          captured by npm run e2e
+api/
+  schema.sql            PostGIS schema mirroring the TypeScript types
+  app/main.py           FastAPI service (search, map layers, titles, leases, businesses wired)
+  ingest/               one job per data source with fetch/load/diff stubs and source notes
+scripts/
+  mockApiPlugin.ts      Vite middleware serving the API contract from MockProvider
+  screenshot.mjs        headless Playwright walk-through of every page
 ```
 
 Every record carries `source`, `fetchedAt` and `licence`. The UI shows provenance everywhere and the CSV exports carry licence notices (HMLR CCOD: no direct marketing; VOA: restricted terms).

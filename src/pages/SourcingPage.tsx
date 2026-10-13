@@ -11,7 +11,7 @@ import { gbp, dateShort, monthsUntil, num } from '@/lib/format'
 type Row = { b: Business; t?: Title; h?: Hereditament }
 
 export function SourcingPage() {
-  const { filters, setShowFilters, addWatch, select, bounds, resetFilters } = useUi()
+  const { filters, setShowFilters, addWatch, select, bounds, resetFilters, setHighlight } = useUi()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [onlyMapArea, setOnlyMapArea] = useState(false)
   const [sort, setSort] = useState<'name' | 'rv' | 'lease' | 'distress'>('distress')
@@ -57,6 +57,7 @@ export function SourcingPage() {
           <select className="input w-auto py-1" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="distress">Sort: distress</option><option value="rv">Sort: rateable value</option><option value="lease">Sort: lease expiry</option><option value="name">Sort: name</option>
           </select>
+          <Button size="sm" onClick={() => { setHighlight(sorted.map(({ b }) => b.businessId), 'sourcing results'); nav('/map') }} disabled={!sorted.length}><MapPin size={13} /> Plot on map</Button>
           <Button size="sm" onClick={() => sorted.forEach(({ b }) => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name }))}><Bookmark size={13} /> Watch all</Button>
           <Button size="sm" onClick={exportCsv} disabled={!sorted.length}><Download size={13} /> CSV</Button>
         </div>

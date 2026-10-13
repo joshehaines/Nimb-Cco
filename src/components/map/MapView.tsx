@@ -100,6 +100,7 @@ function addDataLayers(map: MLMap) {
     layout: { 'text-field': ['concat', ['to-string', ['round', ['/', ['get', 'aadf'], 1000]]], 'k'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true },
     paint: { 'text-color': '#fff' },
   })
+  map.addLayer({ id: 'businesses-highlight', type: 'circle', source: 'businesses', filter: ['in', ['get', 'businessId'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 16], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'businesses-ring', type: 'circle', source: 'businesses', filter: ['==', ['get', 'distress'], true], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 7, 17, 12], 'circle-color': '#be123c', 'circle-opacity': 0.35 } })
   map.addLayer({
     id: 'businesses-points',
@@ -131,6 +132,7 @@ export function MapView() {
   const layers = useUi((s) => s.layers)
   const constraintKinds = useUi((s) => s.constraintKinds)
   const sectorFilter = useUi((s) => s.sectorFilter)
+  const highlightIds = useUi((s) => s.highlightIds)
   const selected = useUi((s) => s.selected)
   const flyTo = useUi((s) => s.flyTo)
   const select = useUi((s) => s.select)
@@ -184,6 +186,7 @@ export function MapView() {
       window.clearTimeout(fallbackTimer)
       addDataLayers(map)
       applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter)
+      map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', useUi.getState().highlightIds]])
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
       else scheduleLoad()
     })
@@ -254,6 +257,13 @@ export function MapView() {
     applyVisibility(map, layers, constraintKinds, sectorFilter)
   }, [layers, constraintKinds, sectorFilter])
 
+  // CRM / sourcing highlight
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getLayer('businesses-highlight')) return
+    map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', highlightIds]])
+  }, [highlightIds])
+
   // Basemap switch
   const satRef = useRef(layers.satellite)
   useEffect(() => {
@@ -297,7 +307,7 @@ export function MapView() {
 function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[]) {
   const vis = (ids: string[], on: boolean) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'))
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
-  vis(['businesses-points', 'businesses-labels', 'businesses-ring'], layers.businesses)
+  vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)
   vis(['traffic-points', 'traffic-labels'], layers.traffic)
   vis(['footfall-fill'], layers.footfall)

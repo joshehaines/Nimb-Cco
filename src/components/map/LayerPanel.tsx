@@ -8,7 +8,7 @@ import { CONSTRAINT_COLOURS } from './MapView'
 
 export function LayerPanel() {
   const [open, setOpen] = useState(true)
-  const { layers, toggleLayer, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters } = useUi()
+  const { layers, toggleLayer, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight } = useUi()
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length].reduce((a, b) => a + b, 0)
 
   if (!open)
@@ -35,6 +35,12 @@ export function LayerPanel() {
         </div>
       </div>
       <div className="overflow-y-auto">
+        {highlightIds.length > 0 && (
+          <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-amber-700 bg-yellow-300" />{highlightIds.length} highlighted{highlightLabel ? ` · ${highlightLabel}` : ''}</span>
+            <button className="font-medium hover:underline" onClick={() => setHighlight([])}>clear</button>
+          </div>
+        )}
         <Collapsible title="Data layers">
           <Toggle checked={layers.titles} onChange={() => toggleLayer('titles')} label="Ownership titles" hint="HMLR INSPIRE + CCOD/OCOD, coloured by proprietor type" />
           <Toggle checked={layers.businesses} onChange={() => toggleLayer('businesses')} label="Trading businesses" hint="CQC, Ofsted, FSA, NHSBSA, VOA, Companies House" />

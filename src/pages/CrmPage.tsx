@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useUi } from '@/store/ui'
 import Papa from 'papaparse'
-import { Upload, Download, Play, Check, X, Merge, FileSpreadsheet } from 'lucide-react'
+import { Upload, Download, Play, Check, X, Merge, FileSpreadsheet, MapPin } from 'lucide-react'
 import { provider, type CrmRecord, type MatchCandidate, type DuplicateGroup, type CrmIssue } from '@/data'
 import { Badge, Button, Card, Stat, Tabs, BarList, Empty, Spinner, Select, cx } from '@/components/ui'
 import { dateShort, pct } from '@/lib/format'
@@ -83,6 +84,13 @@ export function CrmPage() {
   const [tab, setTab] = useState<Tab>('queue')
   const [sourceName, setSourceName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const nav = useNavigate()
+  const setHighlight = useUi((s) => s.setHighlight)
+  const plotMatched = () => {
+    const ids = Array.from(new Set((matches ?? []).map((m) => m.businessId).filter((x): x is string => !!x)))
+    setHighlight(ids, `CRM ${sourceName}`)
+    nav('/map')
+  }
 
   const loadCsv = (text: string, name: string) => {
     const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true })
@@ -162,6 +170,7 @@ export function CrmPage() {
           <Button onClick={() => fileRef.current?.click()}><Upload size={14} /> Upload CSV</Button>
           <Button onClick={loadSample}><FileSpreadsheet size={14} /> Load sample export</Button>
           <Button variant="primary" onClick={run} disabled={!records.length} loading={running}><Play size={14} /> Run matching</Button>
+          <Button onClick={plotMatched} disabled={!matches}><MapPin size={14} /> Plot matched on map</Button>
           <Button onClick={exportCleaned} disabled={!matches}><Download size={14} /> Export cleaned CSV</Button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import type { Sector } from '@/data/types'
+import type { Sector } from '../data/types'
 
 /**
  * Sector colours. Validated with the dataviz palette validator (light surface):

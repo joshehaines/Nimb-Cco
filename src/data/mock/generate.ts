@@ -1,6 +1,6 @@
 import type { Point, Polygon } from 'geojson'
-import { Rng } from '@/lib/rng'
-import { rect, offset, centroid, polygonAreaSqm, hexagon, haversineM, point } from '@/lib/geo'
+import { Rng } from '../../lib/rng'
+import { rect, offset, centroid, polygonAreaSqm, hexagon, haversineM, point } from '../../lib/geo'
 import type {
   Alert,
   Business,
