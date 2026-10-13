@@ -20,6 +20,7 @@ function baseStyle(satellite: boolean): string | StyleSpecification {
   if (OS_KEY) {
     return {
       version: 8,
+      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
       sources: { os: { type: 'raster', tiles: [`https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=${OS_KEY}`], tileSize: 256, attribution: 'Contains OS data © Crown copyright and database right 2026', maxzoom: 20 } },
       layers: [{ id: 'os', type: 'raster', source: 'os' }],
     }
@@ -32,7 +33,7 @@ const EMPTY = { type: 'FeatureCollection', features: [] } as const
 /** Used when the basemap style cannot be fetched (offline, corporate proxy): data layers still render on a neutral canvas. */
 const BLANK_STYLE: StyleSpecification = {
   version: 8,
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sources: {},
   layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e9edf2' } }],
 }
@@ -54,7 +55,7 @@ const CONSTRAINT_COLOURS: Record<string, string> = {
 const constraintMatch = ['match', ['get', 'kind'], ...Object.entries(CONSTRAINT_COLOURS).flatMap(([k, v]) => [k, v]), '#64748b'] as unknown as maplibregl.ExpressionSpecification
 const FOOTFALL_RAMP = ['interpolate', ['linear'], ['get', 'band'], 1, '#fef3c7', 3, '#fcd34d', 5, '#f59e0b', 7, '#dc2626', 9, '#7f1d1d'] as unknown as maplibregl.ExpressionSpecification
 
-function addDataLayers(map: MLMap) {
+function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
@@ -92,7 +93,7 @@ function addDataLayers(map: MLMap) {
       'circle-stroke-width': 2,
     },
   })
-  map.addLayer({
+  if (withLabels) map.addLayer({
     id: 'traffic-labels',
     type: 'symbol',
     source: 'traffic',
@@ -113,7 +114,7 @@ function addDataLayers(map: MLMap) {
       'circle-stroke-width': 1.5,
     },
   })
-  map.addLayer({
+  if (withLabels) map.addLayer({
     id: 'businesses-labels',
     type: 'symbol',
     source: 'businesses',
@@ -139,6 +140,7 @@ export function MapView() {
   const setMapView = useUi((s) => s.setMapView)
   const initialView = useRef(useUi.getState().mapView)
   const [basemapFailed, setBasemapFailed] = useState(false)
+  const basemapFailedRef = useRef(false)
 
   // Create the map once.
   useEffect(() => {
@@ -173,6 +175,7 @@ export function MapView() {
     const fallback = () => {
       if (styleOk) return
       styleOk = true
+      basemapFailedRef.current = true
       setBasemapFailed(true)
       map.setStyle(BLANK_STYLE)
     }
@@ -184,7 +187,8 @@ export function MapView() {
     map.on('style.load', () => {
       styleOk = true
       window.clearTimeout(fallbackTimer)
-      addDataLayers(map)
+      // Symbol layers need glyphs; on the offline fallback a failed glyph fetch would drop whole tiles, so skip labels there.
+      addDataLayers(map, !basemapFailedRef.current)
       applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter)
       map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', useUi.getState().highlightIds]])
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
@@ -321,7 +325,7 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   if (map.getLayer('businesses-points')) {
     const f: maplibregl.FilterSpecification | null = sectorFilter.length ? ['in', ['get', 'sector'], ['literal', sectorFilter]] : null
     map.setFilter('businesses-points', f)
-    map.setFilter('businesses-labels', f)
+    if (map.getLayer('businesses-labels')) map.setFilter('businesses-labels', f)
     map.setFilter('businesses-ring', f ? ['all', ['==', ['get', 'distress'], true], f] : ['==', ['get', 'distress'], true])
   }
 }

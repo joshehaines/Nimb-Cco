@@ -82,6 +82,21 @@ export const useUi = create<UiState>()(
     {
       name: 'cpi-ui',
       partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters }),
+      // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<UiState>
+        return {
+          ...current,
+          ...p,
+          layers: { ...current.layers, ...(p.layers ?? {}) },
+          filters: { ...DEFAULT_FILTERS, ...(p.filters ?? {}) },
+          watchlist: Array.isArray(p.watchlist) ? p.watchlist : current.watchlist,
+          projects: Array.isArray(p.projects) ? p.projects : current.projects,
+          constraintKinds: Array.isArray(p.constraintKinds) ? p.constraintKinds : current.constraintKinds,
+          mapView: p.mapView && Number.isFinite(p.mapView.lon) ? p.mapView : current.mapView,
+          highlightIds: [],
+        }
+      },
     },
   ),
 )
