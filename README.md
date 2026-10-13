@@ -86,7 +86,18 @@ docker run -p 8080:80 cpi-web
 
 The image serves the static bundle with nginx and proxies `/api` to a backend named `api` (see `nginx.conf`). Put it behind the company SSO proxy.
 
+## Moving this app to its own repository
+
+It currently lives in a folder of the Shopify theme repository because GitHub access for repository creation was unavailable when it was built. To split it out with history preserved:
+
+```bash
+git subtree split --prefix=christie-property-intelligence -b cpi-only
+git push git@github.com:<org>/christie-property-intelligence.git cpi-only:main
+```
+
 ## Next: data collection (phase 2)
+
+See `docs/DATA-COLLECTION-PLAN.md` for the source-by-source plan, effort and the decisions needed before ingestion starts.
 
 The backend contract in `docs/API.md` maps one-to-one onto `MockProvider`. Ingestion order recommended by the research report:
 

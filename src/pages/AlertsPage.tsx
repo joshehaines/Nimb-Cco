@@ -33,12 +33,12 @@ export function AlertsPage() {
   const shown = alerts.filter((a) => (!kinds.length || kinds.includes(a.kind)) && (!unreadOnly || !a.read) && alertRules.kinds.includes(a.kind) && (!alertRules.sectors.length || !a.sector || alertRules.sectors.includes(a.sector)) && (!alertRules.watchedOnly || watchlist.some((w) => w.entityId === a.entityId)))
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-6">
         <div>
           <h1 className="text-xl font-semibold">Alerts</h1>
           <p className="text-sm text-ink-500">Changes detected across HMLR, Companies House, regulators, planning, EPC and VOA feeds for watched sites, sectors and areas.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button size="sm" onClick={() => setShowRules(!showRules)}>{showRules ? 'Hide rules' : 'Alert rules'}</Button>
           <Button size="sm" onClick={() => setUnreadOnly(!unreadOnly)}>{unreadOnly ? 'Show all' : 'Unread only'}</Button>
           <Button size="sm" onClick={async () => { for (const a of alerts) await provider.markAlertRead(a.alertId); load() }}>Mark all read</Button>
