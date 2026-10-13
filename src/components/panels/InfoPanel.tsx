@@ -18,6 +18,14 @@ export function InfoPanel() {
     select(null)
     nav('/map')
   }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) close()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <aside className="no-print flex h-full w-[440px] shrink-0 flex-col border-l border-ink-200 bg-white shadow-xl">
       {selected?.type === 'planning' && <PlanningDetail reference={selected.id} onClose={close} />}

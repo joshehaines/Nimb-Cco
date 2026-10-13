@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BoundsQuery, Sector, SourcingFilters, WatchItem } from '@/data/types'
+import type { Alert, BoundsQuery, Sector, SourcingFilters, WatchItem } from '@/data/types'
 import { DEFAULT_FILTERS } from '@/data/types'
 
 export type LayerKey = 'titles' | 'businesses' | 'planning' | 'traffic' | 'footfall' | 'constraints' | 'satellite'
@@ -27,6 +27,7 @@ export interface UiState {
   projects: string[]
   highlightIds: string[]
   highlightLabel?: string
+  alertRules: AlertRules
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
   setConstraintKinds: (k: string[]) => void
@@ -44,6 +45,25 @@ export interface UiState {
   isWatched: (entityType: WatchItem['entityType'], entityId: string) => boolean
   addProject: (p: string) => void
   setHighlight: (ids: string[], label?: string) => void
+  setAlertRules: (patch: Partial<AlertRules>) => void
+}
+
+export interface AlertRules {
+  kinds: Alert['kind'][]
+  sectors: Sector[]
+  watchedOnly: boolean
+  radiusM: number
+  digest: 'instant' | 'daily' | 'weekly'
+  channels: { email: boolean; teams: boolean }
+}
+
+export const DEFAULT_ALERT_RULES: AlertRules = {
+  kinds: ['Ownership change', 'Planning submitted', 'Planning decided', 'Rating change', 'Registration change', 'Company status', 'Late accounts', 'Lease event', 'New business', 'EPC lodged', 'VOA change'],
+  sectors: [],
+  watchedOnly: false,
+  radiusM: 500,
+  digest: 'daily',
+  channels: { email: true, teams: false },
 }
 
 export const useUi = create<UiState>()(
@@ -60,6 +80,7 @@ export const useUi = create<UiState>()(
       watchlist: [],
       projects: ['Midlands care disposals', 'Pubco lease expiries 2027'],
       highlightIds: [],
+      alertRules: DEFAULT_ALERT_RULES,
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
@@ -78,10 +99,11 @@ export const useUi = create<UiState>()(
       isWatched: (entityType, entityId) => get().watchlist.some((w) => w.entityType === entityType && w.entityId === entityId),
       addProject: (p) => set((s) => (s.projects.includes(p) ? s : { projects: [...s.projects, p] })),
       setHighlight: (highlightIds, highlightLabel) => set({ highlightIds, highlightLabel }),
+      setAlertRules: (patch) => set((s) => ({ alertRules: { ...s.alertRules, ...patch } })),
     }),
     {
       name: 'cpi-ui',
-      partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters }),
+      partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UiState>
@@ -95,6 +117,7 @@ export const useUi = create<UiState>()(
           constraintKinds: Array.isArray(p.constraintKinds) ? p.constraintKinds : current.constraintKinds,
           mapView: p.mapView && Number.isFinite(p.mapView.lon) ? p.mapView : current.mapView,
           highlightIds: [],
+          alertRules: { ...DEFAULT_ALERT_RULES, ...(p.alertRules ?? {}), channels: { ...DEFAULT_ALERT_RULES.channels, ...(p.alertRules?.channels ?? {}) } },
         }
       },
     },
