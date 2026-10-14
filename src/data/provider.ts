@@ -1,3 +1,5 @@
+import type { Point } from 'geojson'
+import type { PlaceProps, PricePaidRow } from './real'
 import type {
   Alert,
   BoundsQuery,
@@ -23,6 +25,7 @@ import type {
   Title,
   TrafficCount,
   FootfallCell,
+  Sector,
 } from './types'
 
 /**
@@ -68,6 +71,12 @@ export interface DataProvider {
   // Comparables and catchment
   getComparables(filters: ComparableFilters): Promise<{ comps: Comparable[]; stats: ComparableStats }>
   getComparable(compId: string): Promise<Comparable | undefined>
+  /** Real place (Overture Maps) by id, when open data has been collected for the area. */
+  getPoi(id: string): Promise<(PlaceProps & { location: Point }) | undefined>
+  getPoisNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(PlaceProps & { location: Point; distanceM: number })[]>
+  /** HM Land Registry price paid transaction by id. */
+  getPricePaid(id: string): Promise<PricePaidRow | undefined>
+  getPricePaidNear(lon: number, lat: number, radiusM: number, opts?: { nonResidentialOnly?: boolean; limit?: number }): Promise<(PricePaidRow & { distanceM: number })[]>
   getCatchment(lon: number, lat: number, radiusM: number): Promise<Catchment>
 
   // Alerts and documents

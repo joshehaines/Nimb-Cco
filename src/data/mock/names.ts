@@ -23,51 +23,19 @@ export const STREETS: { name: string; lon: number; lat: number; bearing: number;
   { name: 'Lillington Road', lon: -1.5300, lat: 52.2950, bearing: 40, lengthM: 500, commercial: 0.3, postcodes: ['CV32 6LN', 'CV32 6LW'] },
 ]
 
-export const PUB_NAMES = [
-  'The Royal Pug', 'The Fat Pug', 'The Benjamin Satchwell', 'The Fox and Vivian', 'The Old Fourpenny Shop', 'The Jet and Whittle',
-  'The White Horse', 'The Star and Garter', 'The Somerville Arms', 'The Drawing Board', 'The Rose and Crown', 'The Tiltyard',
-  'The Oak', 'The Cricketers Arms', 'The Lazy Cow', 'The Cape of Good Hope', 'The Hope and Anchor', 'The Clarendon', 'The Lord Leycester',
-  'The Globe', 'The Wild Boar', 'The Punch Bowl', 'The Crown and Anchor', 'The Millwright Arms', 'The Lamb', 'The Black Horse', 'The Red Lion',
-  'The Kings Head', 'The Queens Head', 'The Angel', 'The Saxon Mill', 'The Haunch of Venison', 'The Woodland Tavern', 'The Plough',
-]
-export const RESTAURANT_NAMES = [
-  'Oscar\'s French Bistro', 'Tame Hare', 'Kayal', 'La Coppola', 'Bistrot Pierre', 'Thai Elephant', 'Giggling Squid', 'Procaffeinate',
-  'Aubrey Allen Kitchen', 'The Moorings', 'Zizzi', 'Wagamama', 'Casa Brasil', 'Catalan', 'Thai Boathouse', 'Indian Edge', 'Mandap', 'Las Iguanas',
-  'Pizza Express', 'Restaurant 23', 'Micatto', 'Loxleys', 'Ask Italian', 'Cosy Club',
-]
-export const HOTEL_NAMES = [
-  'Mallory Court Hotel', 'The Angel Hotel', 'Regent Hotel', 'Episode Hotel', 'Warwick Arms Hotel', 'Lord Leycester Hotel', 'Adams Hotel',
-  'Victoria Park Hotel', 'Bubbenhall House', 'Ardencote Manor', 'The Globe Warwick', 'Charter House B&B', 'Avon Lodge Guest House',
-]
-export const CARE_NAMES = [
-  'Arden House Care Home', 'Leam Court Nursing Home', 'Warwick Lodge Care Home', 'Priory Court Care Home', 'Guys Cliffe Care Home',
-  'Milverton Grange', 'The Beeches Nursing Home', 'Newbold House', 'Hastings House Nursing Home', 'Victoria Court Residential Home',
-  'Royal Leamington Nursing Home', 'Jephson Gardens Care Home', 'Castle Brook Care Village', 'Cubbington Mill Care Home', 'Woodside Care Home',
-  'Lillington Court', 'Riverside House', 'Avon Park Care Home', 'Shrubland Hall', 'Emscote Lawns',
-]
-export const NURSERY_NAMES = [
-  'Little Acorns Day Nursery', 'Bright Horizons Leamington', 'Busy Bees Warwick', 'Kiddi Caru Day Nursery', 'Happy Days Nursery',
-  'Jigsaw Day Nursery', 'Treetops Nursery', 'Sunflowers Pre-School', 'Rainbow Corner Nursery', 'Ladybirds Day Nursery',
-  'Hatton Country Nursery', 'Tiny Toes Nursery', 'Stepping Stones Day Nursery', 'Rosebuds Nursery', 'Apple Tree Nursery', 'Wonderland Day Nursery',
-]
-export const DENTAL_NAMES = [
-  'Parade Dental Practice', 'Regent Dental Care', 'Warwick Dental Studio', 'Smile Spa Dental', 'Clarendon Dental', 'Bath Street Dental Practice',
-  'Leamington Orthodontics', 'Jury Street Dental', 'Emscote Dental Surgery', 'Dentalcare Leamington', 'Mydentist Warwick',
-]
-export const MEDICAL_NAMES = [
-  'Clarendon Lodge Medical Practice', 'Waterside Medical Centre', 'Croft Medical Centre', 'Priory Medical Centre', 'Cape Road Surgery',
-  'Warwick Gates Family Health Centre', 'Nuffield Health Warwickshire Hospital', 'Leamington Physio Clinic',
-]
-export const PHARMACY_NAMES = [
-  'Boots', 'Lloyds Pharmacy', 'Jhoots Pharmacy', 'Well Pharmacy', 'Regent Pharmacy', 'Parade Pharmacy', 'Warwick Pharmacy',
-  'Lillington Pharmacy', 'Emscote Pharmacy', 'Day Lewis Pharmacy', 'Kamsons Pharmacy', 'Sydenham Pharmacy',
-]
-export const CONVENIENCE_NAMES = [
-  'Nisa Local', 'Londis', 'Premier Stores', 'Spar', 'Co-op Food', 'Tesco Express', 'One Stop', 'Costcutter', 'McColl\'s', 'Best-one',
-  'BP Garage', 'Shell Leamington', 'Esso Tachbrook', 'Sainsbury\'s Local', 'Family Shopper', 'Budgens',
-]
-export const LEISURE_NAMES = ['Everyone Active Newbold Comyn', 'PureGym Leamington', 'Vue Cinema', 'Leamington Snooker Club', 'Anytime Fitness Warwick', 'The Loft Theatre']
-export const GARDEN_NAMES = ['Hilltop Garden Centre', 'Hatton Garden Centre', 'Dobbies Warwick']
+// Demo business names are fictional. They must not name a real trader, because the demo
+// attaches synthetic ownership, regulator and distress attributes to them.
+export const PUB_NAMES = ['The Copper Kettle', 'The Weavers Arms', 'The Nine Elms', 'The Brindled Hare', 'The Tanners Rest', 'The Saltway Inn', 'The Old Maltings', 'The Fenny Fox', 'The Wheelwright', 'The Leam Ferry', 'The Three Spires', 'The Dovecote', 'The Lantern', 'The Printers Devil', 'The Ironmonger', 'The Beacon Tavern', 'The Pump Rooms Arms', 'The Harriers', 'The Coopers Yard', 'The Woolcomber', 'The Sedge and Rush', 'The Gatehouse', 'The Mercers Arms', 'The Spinney', 'The Old Toll House', 'The Chandlers', 'The Foundry Tap', 'The Ridgeway', 'The Pear Tree', 'The Boatmans Rest', 'The Longbow', 'The Millstream', 'The Tallow Chandler', 'The Kiln House']
+export const RESTAURANT_NAMES = ['Marlowe\'s Kitchen', 'Osteria Rialto', 'The Saffron Room', 'Brasserie Vaux', 'Bombay Lantern', 'Ember & Ash', 'Taverna Kyma', 'Noodle Yard', 'The Oyster Loft', 'Casa Montero', 'Pepperpot Bistro', 'Hanoi Street Kitchen', 'The Pantry on Mill Lane', 'Trattoria Fiorelli', 'Szechuan Garden House', 'Smokehouse No. 9', 'The Greenhouse Cafe', 'Mezze Corner', 'Bramble & Thyme', 'Koji Izakaya', 'The Cutlers Table', 'Riverbank Grill', 'Cantina Luz', 'Pavilion Tea Rooms']
+export const HOTEL_NAMES = ['Harcourt Manor Hotel', 'The Crescent Hotel', 'Spa Gardens Hotel', 'Pelham House Hotel', 'The Coach House Inn', 'Beaumont Lodge', 'Riverside Court Hotel', 'Fernhill Hall', 'The Old Rectory Guest House', 'Linden Park Hotel', 'Castle View Boutique Hotel', 'Larkspur Bed & Breakfast', 'Avonbank Guest House']
+export const CARE_NAMES = ['Hawthorn Lodge Care Home', 'Meadowcroft Nursing Home', 'Elmhurst Care Home', 'Beechwood Court Care Home', 'Larchfield House', 'Orchard Rise Care Village', 'Rowan Gardens Nursing Home', 'Willowbrook House', 'Chestnut Grange Care Home', 'Linden Court Residential Home', 'Fairfield Manor Nursing Home', 'Ashgrove House Care Home', 'Sycamore Lodge', 'Cedar Hill Care Home', 'Primrose Court Care Home', 'Heather Bank', 'Mulberry House', 'Oakdene Care Home', 'Brookfield Hall', 'Lavender Lawns']
+export const NURSERY_NAMES = ['Little Otters Day Nursery', 'Honeybee Nursery', 'Puddleducks Day Nursery', 'Acorn Hollow Nursery', 'Bluebell Wood Nursery', 'Cheeky Monkeys Day Nursery', 'Oak Tree Tots', 'Daisy Chain Pre-School', 'Sunbeams Day Nursery', 'Woodpeckers Nursery', 'Hedgehog Hollow Nursery', 'Tiny Explorers Nursery', 'Pebbles Day Nursery', 'Buttercup Nursery', 'Owl Barn Day Nursery', 'Starfish Nursery']
+export const DENTAL_NAMES = ['Crescent Dental Practice', 'Spa Town Dental Care', 'Bridgewater Dental Studio', 'Willow Smile Dental', 'Priors Dental', 'Mill Lane Dental Practice', 'Avon Orthodontics', 'Castle Street Dental', 'Gatehouse Dental Surgery', 'Linden Dental Care', 'Riverside Dental Warwick']
+export const MEDICAL_NAMES = ['Spa Gardens Medical Practice', 'Millbrook Medical Centre', 'Fernhill Medical Centre', 'Priors Field Medical Centre', 'Linden Road Surgery', 'Castle Meadow Family Health Centre', 'Avonbank Private Hospital', 'Crescent Physiotherapy Clinic']
+export const PHARMACY_NAMES = ['Crescent Pharmacy', 'Spa Chemists', 'Millbrook Pharmacy', 'Harcourt Pharmacy', 'Gatehouse Pharmacy', 'Linden Pharmacy', 'Castle Meadow Pharmacy', 'Fernhill Pharmacy', 'Avonbank Pharmacy', 'Priors Pharmacy', 'Orchard Pharmacy', 'Riverside Chemist']
+export const CONVENIENCE_NAMES = ['Parkside Stores', 'Corner Larder', 'Crescent Convenience', 'Millbrook Mini Market', 'Daybreak Stores', 'Linden Local', 'The Village Pantry', 'Fernhill Food Store', 'Gatehouse Express', 'Priors Newsagent', 'Avonbank Service Station', 'Castle Meadow Filling Station', 'Orchard Stores', 'Harcourt Food & Wine', 'Riverside Stores', 'Meadow Lane Supermarket']
+export const LEISURE_NAMES = ['Spa Gardens Leisure Centre', 'Millbrook Gym', 'The Picture Palace Cinema', 'Crescent Snooker Hall', 'Castle Meadow Fitness', 'The Lantern Theatre']
+export const GARDEN_NAMES = ['Fernhill Garden Centre', 'Orchard Rise Garden Centre', 'Millbrook Nurseries']
 
 export const PUBCOS = ['Arden Inns Group Ltd', 'Midland Taverns Ltd', 'Heart of England Pub Company Ltd', 'Leam Valley Hospitality Ltd', 'Castle Taverns (Warwick) Ltd', 'Spa Town Inns Ltd', 'Greenfield Brewing Estates Ltd', 'Trent Hospitality Holdings plc']
 export const CARE_GROUPS = ['Arden Care Group Ltd', 'Heartlands Healthcare Ltd', 'Priory Court Care Ltd', 'Avon Care Homes Ltd', 'Shires Senior Living Ltd', 'Milverton Care Ltd', 'Warwickshire Nursing Homes Ltd']

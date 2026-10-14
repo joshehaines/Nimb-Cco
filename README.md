@@ -96,6 +96,10 @@ The image serves the static bundle with nginx and proxies `/api` to a backend na
 
 Pushes to `main` build, test and publish the site to the `gh-pages` branch, which GitHub Pages serves at https://joshehaines.github.io/Nimb-Cco/ (repository setting: Pages source "Deploy from a branch", `gh-pages`, root; Pages needs a public repository on a free GitHub account). For internal production use, build the Docker image and run it behind company single sign-on.
 
+## Real data already in the demo
+
+`public/data/warwick/` holds genuine open data collected by `scripts/data/` (see its README): Overture Maps roads, places and buildings for Warwick district, DfT traffic counts with history, and HM Land Registry price paid 2019 to 2025. The synthetic demo is seated on it: title parcels follow the real streets, demo businesses sit beside real ones of the same sector, traffic points are real, and three map layers (real businesses, buildings, price paid) show the collected data as is. Ownership, operators and registers remain synthetic until the licensed feeds are connected.
+
 ## Next: data collection (phase 2)
 
 See `docs/DATA-COLLECTION-PLAN.md` for the source-by-source plan, effort and the decisions needed before ingestion starts.

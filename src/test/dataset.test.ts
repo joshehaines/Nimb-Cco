@@ -29,7 +29,7 @@ describe('synthetic dataset', () => {
 describe('MockProvider', () => {
   const p = new MockProvider()
   it('searches by name and postcode', async () => {
-    const r = await p.search('pug')
+    const r = await p.search('kettle')
     expect(r.some((x) => x.kind === 'business')).toBe(true)
   })
   it('sources distressed care homes', async () => {

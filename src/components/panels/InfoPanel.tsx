@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, AlertTriangle, Printer, Copy } from 'lucide-react'
 import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary, type Comparable } from '@/data'
+import { PRICE_PAID_TYPE, type PlaceProps, type PricePaidRow } from '@/data/real'
+import type { Point } from 'geojson'
 import { useUi } from '@/store/ui'
 import { useSite, type SiteBundle } from '@/hooks/useSite'
 import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/components/ui'
@@ -31,6 +33,8 @@ export function InfoPanel() {
       {selected?.type === 'planning' && <PlanningDetail reference={selected.id} onClose={close} />}
       {selected?.type === 'traffic' && <TrafficDetail id={selected.id} onClose={close} />}
       {selected?.type === 'comparable' && <ComparableDetail id={selected.id} onClose={close} />}
+      {selected?.type === 'poi' && <PoiDetail id={selected.id} onClose={close} />}
+      {selected?.type === 'sale' && <SaleDetail id={selected.id} onClose={close} />}
       {(selected?.type === 'title' || selected?.type === 'business') && <SitePanel key={selected.id} sel={selected} onClose={close} />}
     </aside>
   )
@@ -87,7 +91,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
         title={b ? b.name : t.address}
         subtitle={b ? `${b.address} · ${t.postcode}` : `${t.postcode} · ${t.titleNumber}`}
         onClose={onClose}
-        badge={b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}
+        badge={<span className="flex items-center gap-1">{b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}<Badge tone="warning" title="Synthetic demo record: ownership, operator, registers and signals are generated, not real">Demo</Badge></span>}
       />
       <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-100 px-4 py-2">
         <Button size="sm" variant={watched ? 'secondary' : 'primary'} onClick={() => (watched ? removeWatch(watchlist.find((w) => w.entityId === t.titleNumber)!.id) : addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }))}>
@@ -509,6 +513,80 @@ function ComparableDetail({ id, onClose }: { id: string; onClose: () => void }) 
         </Section>
         <Section title="Source"><SourceTag {...c} /><div className="mt-1 text-[11px] text-ink-500">{c.contributed ? 'From Christie & Co transaction records. Internal use only.' : 'Derived from public registers; price paid as recorded by HM Land Registry.'}</div></Section>
         <Section title="Use in evidence"><Link to={`/comparables?sector=${encodeURIComponent(c.sector)}&lon=${c.location.coordinates[0]}&lat=${c.location.coordinates[1]}&radius=5000`} className="text-sm text-brand-700 hover:underline">Find similar comparables within 5 km</Link></Section>
+      </div>
+    </>
+  )
+}
+
+/** A real business from Overture Maps places. Only what the source records; no synthetic attributes. */
+function PoiDetail({ id, onClose }: { id: string; onClose: () => void }) {
+  const [p, setP] = useState<(PlaceProps & { location: Point }) | null | undefined>(undefined)
+  const [sales, setSales] = useState<(PricePaidRow & { distanceM: number })[]>([])
+  const [nearby, setNearby] = useState<(PlaceProps & { distanceM: number })[]>([])
+  const nav = useNavigate()
+  useEffect(() => {
+    provider.getPoi(id).then(async (x) => {
+      setP(x ?? null)
+      if (!x) return
+      const [lon, lat] = x.location.coordinates
+      setSales(await provider.getPricePaidNear(lon, lat, 150, { limit: 8 }))
+      setNearby((await provider.getPoisNear(lon, lat, 400, x.sector as never)).filter((n) => n.id !== x.id).slice(0, 8))
+    })
+  }, [id])
+  if (p === undefined) return <><Header title="Loading" onClose={onClose} /><Spinner /></>
+  if (!p) return <><Header title="Not found" onClose={onClose} /></>
+  const [lon, lat] = p.location.coordinates
+  const label = p.category.replace(/_/g, ' ')
+  return (
+    <>
+      <Header title={p.name ?? label} subtitle={[p.address, p.postcode].filter(Boolean).join(', ') || p.locality} onClose={onClose} badge={<Badge tone="brand">Real · Overture</Badge>} />
+      <div className="flex flex-wrap gap-1.5 border-b border-ink-100 px-4 py-2">
+        <Button size="sm" variant="secondary" onClick={() => nav(`/catchment?lon=${lon}&lat=${lat}&label=${encodeURIComponent(p.name ?? label)}`)}>Catchment</Button>
+        <Button size="sm" variant="secondary" onClick={() => useUi.getState().requestFlyTo(lon, lat, 18)}>Zoom</Button>
+        {p.website && <a className="btn text-xs" href={p.website} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Website</a>}
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <Section title="What the source records">
+          <KV rows={[['Category', `${label} (${p.sector})`], ['Brand', p.brand ?? '—'], ['Phone', p.phone ?? '—'], ['Postcode', p.postcode ?? '—'], ['Source confidence', `${Math.round(p.confidence * 100)}%`]]} />
+          <p className="mt-2 text-[11px] text-ink-500">Overture Maps places, CDLA-Permissive-2.0. Ownership, operator, regulator and rating data are not yet connected for real businesses; the Ownership and Operator tabs will populate once HM Land Registry, Companies House and the sector registers are licensed.</p>
+        </Section>
+        <Section title={`Same sector within 400 m (${nearby.length})`}>
+          {nearby.length ? <ul className="divide-y divide-ink-100 text-xs">{nearby.map((n) => <li key={n.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'poi', id: n.id }); nav(`/map/poi/${encodeURIComponent(n.id)}`) }}><span className="truncate font-medium">{n.name ?? n.category}</span><span className="shrink-0 text-ink-500">{n.distanceM} m</span></li>)}</ul> : <div className="text-xs text-ink-500">None recorded.</div>}
+        </Section>
+        <Section title={`HM Land Registry sales within 150 m (${sales.length})`}>
+          {sales.length ? <ul className="divide-y divide-ink-100 text-xs">{sales.map((r) => <li key={r.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'sale', id: r.id }); nav(`/map/sale/${encodeURIComponent(r.id)}`) }}><span className="truncate"><span className="font-medium">{gbp(r.price)}</span> · {r.address}</span><span className="shrink-0 text-ink-500">{dateShort(r.date)}{r.type === 'O' ? ' · non-res' : ''}</span></li>)}</ul> : <div className="text-xs text-ink-500">None geocoded nearby.</div>}
+        </Section>
+      </div>
+    </>
+  )
+}
+
+/** HM Land Registry price paid transaction. */
+function SaleDetail({ id, onClose }: { id: string; onClose: () => void }) {
+  const [r, setR] = useState<PricePaidRow | null | undefined>(undefined)
+  const [near, setNear] = useState<(PricePaidRow & { distanceM: number })[]>([])
+  const nav = useNavigate()
+  useEffect(() => {
+    provider.getPricePaid(id).then(async (x) => {
+      setR(x ?? null)
+      if (x && x.lon !== null && x.lat !== null) setNear((await provider.getPricePaidNear(x.lon, x.lat, 250, { limit: 12 })).filter((n) => n.id !== x.id))
+    })
+  }, [id])
+  if (r === undefined) return <><Header title="Loading" onClose={onClose} /><Spinner /></>
+  if (!r) return <><Header title="Not found" onClose={onClose} /></>
+  return (
+    <>
+      <Header title={r.address || r.postcode} subtitle={`${r.locality ? `${r.locality}, ` : ''}${r.town} ${r.postcode}`} onClose={onClose} badge={<Badge tone={r.type === 'O' ? 'brand' : 'neutral'}>{r.type === 'O' ? 'Non-residential' : 'Residential'}</Badge>} />
+      <div className="flex-1 overflow-y-auto">
+        <Section title="Transaction">
+          <div className="text-3xl font-semibold tabular-nums">{gbp(r.price)}</div>
+          <div className="text-xs text-ink-500">{r.tenure} · completed {dateShort(r.date)}{r.newBuild ? ' · new build' : ''}</div>
+          <div className="mt-3"><KV rows={[['Property type', PRICE_PAID_TYPE[r.type]], ['PPD category', r.category === 'A' ? 'A: standard price paid' : 'B: additional (repossessions, buy-to-let portfolios, transfers under a power of sale, non-market)'], ['Location', r.geocode === 'postcode' ? 'Approximate: postcode centroid' : r.geocode === 'sector' ? 'Approximate: postcode sector only' : 'Not geocoded']]} /></div>
+          <p className="mt-2 text-[11px] text-ink-500">HM Land Registry Price Paid Data, Open Government Licence v3. Contains HM Land Registry data © Crown copyright and database right 2026. Positions are approximated from the postcode until an address gazetteer (AddressBase) is licensed.</p>
+        </Section>
+        <Section title={`Other sales within 250 m (${near.length})`}>
+          {near.length ? <ul className="divide-y divide-ink-100 text-xs">{near.map((n) => <li key={n.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'sale', id: n.id }); nav(`/map/sale/${encodeURIComponent(n.id)}`) }}><span className="truncate"><span className="font-medium">{gbp(n.price)}</span> · {n.address}</span><span className="shrink-0 text-ink-500">{dateShort(n.date)}{n.type === 'O' ? ' · non-res' : ''}</span></li>)}</ul> : <div className="text-xs text-ink-500">None.</div>}
+        </Section>
       </div>
     </>
   )

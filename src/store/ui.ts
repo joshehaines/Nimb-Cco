@@ -3,11 +3,13 @@ import { persist } from 'zustand/middleware'
 import type { Alert, BoundsQuery, Campaign, PipelineStage, Sector, SourcingFilters, WatchItem } from '@/data/types'
 import { DEFAULT_FILTERS } from '@/data/types'
 
-export type LayerKey = 'titles' | 'businesses' | 'comparables' | 'planning' | 'traffic' | 'footfall' | 'constraints' | 'satellite'
+export type LayerKey = 'titles' | 'businesses' | 'poi' | 'buildings' | 'pricePaid' | 'comparables' | 'planning' | 'traffic' | 'footfall' | 'constraints' | 'satellite'
 export type Selected =
   | { type: 'title'; id: string }
   | { type: 'business'; id: string }
   | { type: 'planning'; id: string }
+  | { type: 'poi'; id: string }
+  | { type: 'sale'; id: string }
   | { type: 'traffic'; id: string }
   | { type: 'company'; id: string }
   | { type: 'comparable'; id: string }
@@ -88,7 +90,7 @@ const repairIds = (items: WatchItem[]) => {
 export const useUi = create<UiState>()(
   persist(
     (set, get) => ({
-      layers: { titles: true, businesses: true, comparables: false, planning: false, traffic: false, footfall: false, constraints: false, satellite: false },
+      layers: { titles: true, businesses: true, poi: true, buildings: false, pricePaid: false, comparables: false, planning: false, traffic: false, footfall: false, constraints: false, satellite: false },
       constraintKinds: ['Flood Zone 3', 'Flood Zone 2', 'Conservation Area', 'Listed Building', 'Article 4', 'Green Belt'],
       sectorFilter: [],
       selected: null,

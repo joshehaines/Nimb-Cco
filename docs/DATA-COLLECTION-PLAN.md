@@ -14,6 +14,22 @@ Prepared for the discussion on scraping and ingestion. Each source below has a s
 | CRM export format and cadence | Nightly CSV or API, the fields available, and whether a write-back (import) step is wanted. | Manual CSV upload through the CRM clean-up screen. |
 | Hosting | On-premise VM, Azure, or AWS; SSO provider. | Docker Compose on a single VM behind the company SSO proxy. |
 
+## Collected so far (14 October 2026)
+
+Gathered without any account from hosts that were reachable from the build environment, and now shipped with the app under `public/data/warwick/` (scripts in `scripts/data/`):
+
+| Dataset | Source and licence | What we hold | Used for |
+|---|---|---|---|
+| Road network | Overture Maps 2026-09-23.1 transportation (ODbL, OpenStreetMap contributors) | 11,876 road centrelines for Warwick district with names and classes | Demo title parcels are laid along the real streets; addresses carry real street names; schematic fallback basemap |
+| Places | Overture Maps places (CDLA-Permissive-2.0) | 1,343 real businesses in Christie sectors (192 pubs, 87 hotels, 54 care, 54 childcare, 26 pharmacies, 14 dental, 49 medical, 151 convenience, 202 leisure, 508 restaurants, 6 garden centres) with address, postcode, website, phone, brand, source confidence | Real-business map layer, catchment supply counts, siting of demo businesses, postcode geocoder |
+| Building footprints | Overture Maps buildings (ODbL) | 19,666 footprints for the Leamington and Warwick centres | Optional map layer |
+| Traffic counts | DfT Road Traffic Statistics AADF (OGL v3) | 80 count points in the area with 2000 to 2025 history; 46,754 points nationally in the processed output | Traffic layer and mobility tab now show real counts |
+| Price paid | HM Land Registry Price Paid Data (OGL v3) | 19,834 Warwick district transactions 2019 to 2025 (957 non-residential); 411,186 non-residential transactions nationally in the processed output | Price-paid map layer, sales near a site, sale detail panel |
+
+Positions for price paid are approximate: postcode centroids derived from place addresses (1,770 postcodes) or, failing that, the postcode sector. AddressBase or ONS postcode centroids will replace this once licensed.
+
+Still synthetic in the demo: ownership polygons and proprietors (INSPIRE and CCOD hosts unreachable), Companies House, CQC, Ofsted, FSA, NHSBSA, VOA, EPC, planning, footfall and demographics. Each of those hosts returned no route from the collection environment; they are open or account-based downloads that take minutes from an office machine and drop straight into `api/ingest/`.
+
 ## Sources in build order
 
 | # | Source | Access | Auth | Volume | Refresh | Parse notes | Effort |

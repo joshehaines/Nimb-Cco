@@ -49,7 +49,10 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
         )}
         <Collapsible title="Data layers">
           <Toggle checked={layers.titles} onChange={() => toggleLayer('titles')} label="Ownership titles" hint="HMLR INSPIRE + CCOD/OCOD, coloured by proprietor type" />
-          <Toggle checked={layers.businesses} onChange={() => toggleLayer('businesses')} label="Trading businesses" hint="CQC, Ofsted, FSA, NHSBSA, VOA, Companies House" />
+          <Toggle checked={layers.businesses} onChange={() => toggleLayer('businesses')} label="Demo businesses" hint="Synthetic operators with registers, ownership and distress signals" />
+          <Toggle checked={layers.poi} onChange={() => toggleLayer('poi')} label="Real businesses (Overture)" hint="Pubs, hotels, care, childcare, dental, medical, pharmacy, retail, leisure from Overture Maps places" />
+          <Toggle checked={layers.buildings} onChange={() => toggleLayer('buildings')} label="Buildings (Overture)" hint="OpenStreetMap-derived footprints, town centres" />
+          <Toggle checked={layers.pricePaid} onChange={() => toggleLayer('pricePaid')} label="Price paid (HMLR)" hint="HM Land Registry sales 2019 to 2025; location approximated from the postcode" />
           <Toggle checked={layers.comparables} onChange={() => toggleLayer('comparables')} label="Sold comparables" hint="Business sales, sized by price; dark ring" />
           <Toggle checked={layers.planning} onChange={() => toggleLayer('planning')} label="Planning applications" hint="Daily from Planning Data + PlanIt" />
           <Toggle checked={layers.traffic} onChange={() => toggleLayer('traffic')} label="Traffic counts" hint="DfT AADF, sized by vehicles per day" />

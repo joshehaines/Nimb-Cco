@@ -529,6 +529,8 @@ export interface Catchment {
   ratios: { label: string; value: number; benchmark: number; unit: string; better: 'higher' | 'lower'; note: string }[]
   footfallMonthly?: number
   trafficAadf?: number
+  /** Supply counted from real places (Overture Maps) rather than the demo businesses, when collected. */
+  realSupply?: { source: string; counts: { sector: Sector; count: number }[]; nearest: { id: string; name: string; category: string; sector: Sector; distanceM: number; address?: string; postcode?: string }[] }
   source: string
 }
 
@@ -593,6 +595,10 @@ export interface MapLayers {
   streets?: FeatureCollection<LineString, StreetFeature['properties']>
   titles: FeatureCollection<TitleFeature['geometry'], TitleFeature['properties']>
   businesses: FeatureCollection<Point, BusinessFeature['properties']>
+  /** Real places from Overture Maps (name, category, sector, address), when collected. */
+  poi?: FeatureCollection<Point, { id: string; name?: string; category: string; sector: string; confidence: number; postcode?: string }>
+  /** HM Land Registry price paid transactions, approximately geocoded by postcode. */
+  pricePaid?: FeatureCollection<Point, { id: string; price: number; date: string; type: string; address: string; postcode: string; geocode: string }>
   comparables?: FeatureCollection<Point, { compId: string; sector: Sector; price: number; date: string; name: string }>
   planning: FeatureCollection<Point, PlanningFeature['properties']>
   traffic: FeatureCollection<Point, TrafficFeature['properties']>

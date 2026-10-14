@@ -59,7 +59,14 @@ function CatchmentColumn({ site, radius, data, compare }: { site: Site; radius: 
       <Card title={`Competitors within ${radius >= 1000 ? `${radius / 1000} km` : `${radius} m`}`}>
         {data.competitors.length ? <BarList rows={data.competitors.map((c) => ({ label: `${c.sector}${c.capacity ? ` · ${num(c.capacity)} ${c.capacityLabel ?? ''}` : ''}`, value: c.count, colour: SECTOR_COLOURS[c.sector] }))} /> : <div className="text-xs text-ink-500">No tracked businesses in this radius.</div>}
       </Card>
-      <Card title="Nearest" padded={false}>
+      {data.realSupply && (
+        <Card title={`Real supply within ${radius >= 1000 ? `${radius / 1000} km` : `${radius} m`} (Overture Maps)`}>
+          {data.realSupply.counts.length ? <BarList rows={data.realSupply.counts.map((c) => ({ label: c.sector, value: c.count, colour: SECTOR_COLOURS[c.sector] }))} /> : <div className="text-xs text-ink-500">No places recorded in this radius.</div>}
+          <ul className="mt-3 divide-y divide-ink-100 text-xs">{data.realSupply.nearest.map((n) => <li key={n.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { select({ type: 'poi', id: n.id }); nav(`/map/poi/${encodeURIComponent(n.id)}`) }}><span className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: SECTOR_COLOURS[n.sector] }} /><span className="truncate"><span className="font-medium">{n.name}</span> <span className="text-ink-500">· {n.category.replace(/_/g, ' ')}</span></span></span><span className="shrink-0 text-ink-500">{n.distanceM} m</span></li>)}</ul>
+          <div className="mt-2 text-[11px] text-ink-500">Real businesses from {data.realSupply.source}. Capacities (beds, places) are not in this source, so the supply ratios above still use the demo registers.</div>
+        </Card>
+      )}
+      <Card title="Nearest demo businesses" padded={false}>
         <ul className="divide-y divide-ink-100 text-xs">{data.nearest.map((n) => <li key={n.businessId} className="flex cursor-pointer items-center justify-between px-4 py-1.5 hover:bg-ink-50" onClick={() => { select({ type: 'business', id: n.businessId }); nav(`/map/business/${n.businessId}`) }}><span className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: SECTOR_COLOURS[n.sector] }} /><span className="truncate"><span className="font-medium">{n.name}</span> <span className="text-ink-500">· {n.operatorName}</span></span></span><span className="shrink-0 text-ink-500">{n.capacity ? `${n.capacity} · ` : ''}{n.rating ? `${n.rating} · ` : ''}{n.distanceM} m</span></li>)}</ul>
       </Card>
       <Card title="Movement"><KV rows={[['Footfall (cell avg)', data.footfallMonthly ? `${num(data.footfallMonthly)} visits/month` : 'No coverage'], ['Busiest road', data.trafficAadf ? `${num(data.trafficAadf)} vehicles/day` : '—'], ['Centre', `${site.lat.toFixed(4)}, ${site.lon.toFixed(4)}`]]} /></Card>

@@ -22,6 +22,8 @@ import type {
 } from '../types'
 import * as N from './names'
 import { generateComparables } from './comparables'
+import { Grid } from '../../lib/grid'
+import type { RealLayers } from '../real'
 
 export interface Dataset {
   comparables: Comparable[]
@@ -38,6 +40,8 @@ export interface Dataset {
   alerts: Alert[]
   crm: CrmRecord[]
   centre: [number, number]
+  /** Real open data the dataset was seated on, when available. */
+  real?: RealLayers
 }
 
 
@@ -94,7 +98,7 @@ const SECTOR_PLAN: { sector: Sector; count: number; names: string[]; groups: str
   { sector: 'Garden Centre', count: 3, names: N.GARDEN_NAMES, groups: [] },
 ]
 
-export function generateDataset(seed = 20261013): Dataset {
+export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
   const rng = new Rng(seed)
   const centre: [number, number] = [-1.5455, 52.287]
 
@@ -164,52 +168,147 @@ export function generateDataset(seed = 20261013): Dataset {
   }
   let inspireCounter = 25_000_000 + rng.int(0, 500_000)
 
-  type Parcel = { title: Title; street: (typeof N.STREETS)[number]; commercial: boolean; houseNo: number; cx: number; cy: number }
+  type StreetLike = { roadId: string; name: string; lon: number; lat: number; bearing: number; lengthM: number; commercial: number; major: boolean; half: number; postcodes: string[]; town: string }
+  type Parcel = { title: Title; street: StreetLike; commercial: boolean; houseNo: number; cx: number; cy: number }
   const parcels: Parcel[] = []
+
+  // Local metre frame for all geometry tests.
+  const origin: [number, number] = real ? [-1.56, 52.285] : [N.STREETS[0].lon, N.STREETS[0].lat]
+  const mPerLon = 111_320 * Math.cos((origin[1] * Math.PI) / 180)
+  const toM = (lon: number, lat: number): [number, number] => [(lon - origin[0]) * mPerLon, (lat - origin[1]) * 111_320]
+
+  // Real places (Overture) drive where the commercial frontages are and supply real postcodes.
+  type Poi = { x: number; y: number; postcode?: string; locality?: string; sector: string }
+  const poiGrid = new Grid<Poi>(60)
+  const poisBySector = new Map<string, Poi[]>()
+  if (real) {
+    for (const f of real.places.features) {
+      const [x, y] = toM(f.geometry.coordinates[0], f.geometry.coordinates[1])
+      const poi: Poi = { x, y, postcode: f.properties.postcode, locality: f.properties.locality, sector: f.properties.sector }
+      poiGrid.add(x, y, poi)
+      const list = poisBySector.get(poi.sector) ?? []
+      list.push(poi)
+      poisBySector.set(poi.sector, list)
+    }
+    for (const [k, v] of poisBySector) poisBySector.set(k, rng.shuffle(v))
+  }
+  const townFor = (pc: string | undefined, lon: number) => (pc?.startsWith('CV34') ? 'Warwick' : pc?.startsWith('CV8') ? 'Kenilworth' : pc ? 'Leamington Spa' : lon < -1.56 ? 'Warwick' : 'Leamington Spa')
+  const nearestPostcode = (x: number, y: number): string | undefined => {
+    let best: Poi | undefined
+    let bd = 400
+    for (const p of poiGrid.near(x, y, 400)) {
+      if (!p.postcode) continue
+      const d = Math.hypot(p.x - x, p.y - y)
+      if (d < bd) {
+        bd = d
+        best = p
+      }
+    }
+    return best?.postcode
+  }
+
+  // Streets: real Overture road centrelines in the two town-centre windows (merged into
+  // straight chords), or the schematic street list when the open data is not present.
+  const streets: StreetLike[] = []
+  const blockers: StreetLike[] = [] // every road that plots must not cross, district-wide
+  const HALF: Record<string, number> = { motorway: 14, trunk: 11, primary: 9, secondary: 8, tertiary: 7, residential: 6, unclassified: 6, living_street: 5, pedestrian: 5 }
+  const WINDOWS: [number, number, number, number][] = [[-1.552, 52.277, -1.518, 52.3], [-1.6, 52.274, -1.566, 52.291]]
+  const inWindow = (lon: number, lat: number) => WINDOWS.some(([a, b, c, d]) => lon >= a && lon <= c && lat >= b && lat <= d)
+  if (real) {
+    for (const f of real.roads.features) {
+      const half = HALF[f.properties.class]
+      if (half === undefined) continue
+      const lines = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates
+      for (const line of lines) {
+        // merge near-collinear vertices into chords so plots can run along gentle curves
+        let i = 0
+        while (i < line.length - 1) {
+          let j = i + 1
+          const [x0, y0] = toM(line[i][0], line[i][1])
+          let [xj, yj] = toM(line[j][0], line[j][1])
+          let bearing = Math.atan2(xj - x0, yj - y0)
+          while (j + 1 < line.length) {
+            const [xn, yn] = toM(line[j + 1][0], line[j + 1][1])
+            const bn = Math.atan2(xn - x0, yn - y0)
+            const diff = Math.abs(((bn - bearing + Math.PI) % (2 * Math.PI)) - Math.PI)
+            if (diff > (10 * Math.PI) / 180 || Math.hypot(xn - x0, yn - y0) > 160) break
+            j++
+            ;[xj, yj] = [xn, yn]
+            bearing = Math.atan2(xj - x0, yj - y0)
+          }
+          const lengthM = Math.hypot(xj - x0, yj - y0)
+          const midLon = (line[i][0] + line[j][0]) / 2
+          const midLat = (line[i][1] + line[j][1]) / 2
+          const st: StreetLike = { roadId: f.properties.id, name: f.properties.name ?? 'Unnamed road', lon: line[i][0], lat: line[i][1], bearing: ((bearing * 180) / Math.PI + 360) % 360, lengthM, commercial: 0, major: f.properties.major, half, postcodes: [], town: '' }
+          if (lengthM >= 2) blockers.push(st)
+          if (lengthM >= 6 && inWindow(midLon, midLat)) {
+            const [mx, my] = toM(midLon, midLat)
+            const pois = poiGrid.near(mx, my, 60 + lengthM / 2).filter((q) => Math.hypot(q.x - mx, q.y - my) < 45 + lengthM / 2)
+            st.commercial = Math.min(0.95, pois.length === 0 ? (f.properties.class === 'pedestrian' ? 0.6 : 0.04) : 0.15 + 0.12 * pois.length)
+            const pcs = pois.map((q) => q.postcode).filter((q): q is string => !!q)
+            const fallback = nearestPostcode(mx, my) ?? (midLon < -1.56 ? 'CV34 4AB' : 'CV32 4AB')
+            st.postcodes = pcs.length ? pcs : [fallback]
+            st.town = townFor(st.postcodes[0], midLon)
+            streets.push(st)
+          }
+          i = j
+        }
+      }
+    }
+  } else {
+    for (const st of N.STREETS) {
+      const sl: StreetLike = { roadId: st.name, name: st.name, lon: st.lon, lat: st.lat, bearing: st.bearing, lengthM: st.lengthM, commercial: st.commercial, major: !!st.major, half: st.major ? 11 : 8, postcodes: st.postcodes, town: st.postcodes[0].startsWith('CV34') ? 'Warwick' : 'Leamington Spa' }
+      streets.push(sl)
+      blockers.push(sl)
+    }
+  }
 
   // Parcel fabric. Real INSPIRE polygons tile the land along each street frontage and
   // do not overlap, so plots are laid end to end on both sides of every street, rotated
   // to the street bearing, and dropped where they would cross another road or an
   // existing plot (junctions, back-to-back plots).
-  const streetGeom = N.STREETS.map((st) => {
+  const roadGrid = new Grid<{ st: StreetLike; x: number; y: number; dx: number; dy: number }>(40)
+  for (const st of blockers) {
+    const [x, y] = toM(st.lon, st.lat)
     const b = (st.bearing * Math.PI) / 180
-    return { st, dir: [Math.sin(b), Math.cos(b)] as const, half: st.major ? 11 : 8 }
-  })
-  const lat0 = N.STREETS[0].lat
-  const mPerLon = 111_320 * Math.cos((lat0 * Math.PI) / 180)
-  const toM = (lon: number, lat: number): [number, number] => [(lon - N.STREETS[0].lon) * mPerLon, (lat - lat0) * 111_320]
-  const nearOtherRoad = (lon: number, lat: number, self: (typeof N.STREETS)[number]) => {
+    const seg = { st, x, y, dx: Math.sin(b), dy: Math.cos(b) }
+    // register the segment in every cell it passes through
+    for (let t = 0; t <= st.lengthM; t += 30) roadGrid.add(x + seg.dx * t, y + seg.dy * t, seg)
+    roadGrid.add(x + seg.dx * st.lengthM, y + seg.dy * st.lengthM, seg)
+  }
+  const nearOtherRoad = (lon: number, lat: number, self: StreetLike) => {
     const [px, py] = toM(lon, lat)
-    for (const g of streetGeom) {
-      if (g.st === self) continue
-      const [sx, sy] = toM(g.st.lon, g.st.lat)
-      const t = Math.max(0, Math.min(g.st.lengthM, (px - sx) * g.dir[0] + (py - sy) * g.dir[1]))
-      const dx = px - (sx + g.dir[0] * t)
-      const dy = py - (sy + g.dir[1] * t)
-      if (Math.hypot(dx, dy) < g.half + 2) return true
+    const seen = new Set<StreetLike>()
+    for (const g of roadGrid.near(px, py, 40)) {
+      if (g.st.roadId === self.roadId || seen.has(g.st)) continue
+      seen.add(g.st)
+      const t = Math.max(0, Math.min(g.st.lengthM, (px - g.x) * g.dx + (py - g.y) * g.dy))
+      const dx = px - (g.x + g.dx * t)
+      const dy = py - (g.y + g.dy * t)
+      if (Math.hypot(dx, dy) < g.st.half + 2) return true
     }
     return false
   }
+  const parcelGrid = new Grid<Parcel>(50)
   const insideExisting = (lon: number, lat: number) => {
     const [px, py] = toM(lon, lat)
-    for (const q of parcels) {
-      const [qx, qy] = toM(q.cx, q.cy)
-      if (Math.abs(qx - px) > 70 || Math.abs(qy - py) > 70) continue
-      if (pointInPolygon([lon, lat], q.title.geometry as Polygon)) return true
-    }
+    for (const q of parcelGrid.near(px, py, 80)) if (pointInPolygon([lon, lat], q.title.geometry as Polygon)) return true
     return false
   }
+  const houseCounters = new Map<string, [number, number]>()
 
-  for (const street of N.STREETS) {
+  for (const street of streets) {
     const b = (street.bearing * Math.PI) / 180
     const dirX = Math.sin(b)
     const dirY = Math.cos(b)
     const perpX = Math.cos(b)
     const perpY = -Math.sin(b)
-    const half = street.major ? 11 : 8
-    let houseNo = 1
+    const half = street.half
+    const counters = houseCounters.get(street.name) ?? [1, 2]
+    houseCounters.set(street.name, counters)
     for (const side of [-1, 1]) {
       let along = 0
+      let houseNo = counters[side === -1 ? 0 : 1]
       while (along < street.lengthM) {
         const commercialStreet = street.commercial >= 0.6
         const big = rng.bool(0.07)
@@ -221,10 +320,7 @@ export function generateDataset(seed = 20261013): Dataset {
         const ring = geometry.coordinates[0]
         const swallows = () => {
           const [px, py] = toM(plon, plat)
-          return parcels.some((q) => {
-            const [qx, qy] = toM(q.cx, q.cy)
-            return Math.abs(qx - px) < 80 && Math.abs(qy - py) < 80 && pointInPolygon([q.cx, q.cy], geometry)
-          })
+          return parcelGrid.near(px, py, 80).some((q) => pointInPolygon([q.cx, q.cy], geometry))
         }
         const blocked = ring.some(([x, y]) => nearOtherRoad(x, y, street)) || insideExisting(plon, plat) || ring.slice(0, 4).some(([x, y]) => insideExisting(x, y)) || swallows()
         if (blocked) {
@@ -265,7 +361,7 @@ export function generateDataset(seed = 20261013): Dataset {
           titleNumber: tn,
           inspireId: inspireCounter++,
           tenure: 'Freehold',
-          address: `${houseNo} ${street.name}, ${street.postcodes[0].startsWith('CV34') ? 'Warwick' : 'Leamington Spa'}`,
+          address: `${houseNo} ${street.name}, ${street.town}`,
           postcode: rng.pick(street.postcodes),
           uprn: String(100070000000 + rng.int(1, 9_999_999)),
           geometry,
@@ -280,11 +376,16 @@ export function generateDataset(seed = 20261013): Dataset {
           charges: rng.bool(0.35) ? [{ lender: rng.pick(N.LENDERS), date: rng.date(2012, 2026) }] : [],
         }
         titles.set(tn, title)
-        parcels.push({ title, street, commercial, houseNo, cx: plon, cy: plat })
+        const parcel: Parcel = { title, street, commercial, houseNo, cx: plon, cy: plat }
+        parcels.push(parcel)
+        {
+          const [px, py] = toM(plon, plat)
+          parcelGrid.add(px, py, parcel)
+        }
         houseNo += 2
         along += width
       }
-      houseNo = 2
+      counters[side === -1 ? 0 : 1] = houseNo
     }
   }
 
@@ -293,8 +394,30 @@ export function generateDataset(seed = 20261013): Dataset {
   const hereditaments = new Map<string, Hereditament>()
   const epcs = new Map<string, EPC>()
   const commercialParcels = rng.shuffle(parcels.filter((p) => p.commercial))
+  const usedParcels = new Set<Parcel>()
   let parcelIdx = 0
-  const nextParcel = () => commercialParcels[parcelIdx++ % commercialParcels.length]
+  // Prefer a plot next to a real place of the same sector (so demo pubs sit where pubs are),
+  // otherwise the next unused commercial plot.
+  const nextParcel = (sector: Sector): Parcel => {
+    const pois = poisBySector.get(sector)
+    while (pois && pois.length) {
+      const poi = pois.pop()!
+      const cands = parcelGrid.near(poi.x, poi.y, 90).filter((q) => !usedParcels.has(q)).map((q) => ({ q, d: Math.hypot(toM(q.cx, q.cy)[0] - poi.x, toM(q.cx, q.cy)[1] - poi.y) })).filter((c) => c.d < 90).sort((a, b) => a.d - b.d)
+      if (cands[0]) {
+        usedParcels.add(cands[0].q)
+        cands[0].q.commercial = true
+        return cands[0].q
+      }
+    }
+    for (let i = 0; i < commercialParcels.length; i++) {
+      const q = commercialParcels[parcelIdx++ % commercialParcels.length]
+      if (!usedParcels.has(q)) {
+        usedParcels.add(q)
+        return q
+      }
+    }
+    return commercialParcels[parcelIdx++ % commercialParcels.length]
+  }
 
   const makeRegister = (sector: Sector, name: string, b: { capacity?: number; distress: boolean }): RegisterRecord[] => {
     const regs: RegisterRecord[] = []
@@ -373,14 +496,37 @@ export function generateDataset(seed = 20261013): Dataset {
   const independentCompany = (name: string, sector: Sector, distress: boolean) =>
     makeCompany(`${name.replace(/^The /, '').replace(/'/g, '')} Ltd`, sector, distress ? { status: rng.pick(['administration', 'liquidation', 'active', 'active']) } : {})
 
+  // Demo names must not coincide with a real business in the area: synthetic ownership,
+  // regulator and distress attributes would otherwise read as claims about a real trader.
+  const normName = (n: string) => n.toLowerCase().replace(/^the /, '').replace(/[^a-z0-9]/g, '')
+  const realNames = new Set((real?.places.features ?? []).map((f) => normName(f.properties.name ?? '')))
+  const SECTOR_WORD: Record<Sector, string> = { Pub: 'Arms', Restaurant: 'Kitchen', Hotel: 'House Hotel', 'Care Home': 'Lodge Care Home', Childcare: 'Day Nursery', Dental: 'Dental Practice', Medical: 'Medical Centre', Pharmacy: 'Pharmacy', 'Convenience Retail': 'Stores', Leisure: 'Leisure Club', 'Garden Centre': 'Nurseries', Other: 'Enterprises' }
+  const usedNames = new Set<string>()
+  const demoNames = (sector: Sector, pool: string[], count: number) => {
+    const out: string[] = []
+    for (const n of rng.shuffle(pool)) {
+      if (out.length >= count) break
+      if (realNames.has(normName(n)) || usedNames.has(normName(n))) continue
+      out.push(n)
+    }
+    let guard = 0
+    while (out.length < count && guard++ < 500) {
+      const n = sector === 'Pub' ? `The ${rng.pick(N.LAST_NAMES)} ${SECTOR_WORD[sector]}` : `${rng.pick(N.LAST_NAMES)} ${SECTOR_WORD[sector]}`
+      if (realNames.has(normName(n)) || usedNames.has(normName(n))) continue
+      out.push(n)
+    }
+    for (const n of out) usedNames.add(normName(n))
+    return out
+  }
+
   let bizCounter = 1
   for (const plan of SECTOR_PLAN) {
-    const names = rng.shuffle(plan.names).slice(0, plan.count)
+    const names = demoNames(plan.sector, plan.names, plan.count)
     for (const name of names) {
-      const parcel = nextParcel()
+      const sector = plan.sector
+      const parcel = nextParcel(sector)
       const title = parcel.title
       const distress = rng.bool(0.14)
-      const sector = plan.sector
       const capacity =
         sector === 'Care Home' ? rng.int(18, 84) : sector === 'Childcare' ? rng.int(24, 96) : sector === 'Hotel' ? rng.int(8, 120) : sector === 'Pub' ? (rng.bool(0.4) ? rng.int(3, 12) : undefined) : undefined
 
@@ -587,32 +733,54 @@ export function generateDataset(seed = 20261013): Dataset {
 
   // --------------------------------------------------------------------- traffic
   const traffic: TrafficCount[] = []
-  let cp = 46000
-  for (const s of N.STREETS.filter((x) => x.major)) {
-    const n = rng.int(1, 2)
-    for (let i = 0; i < n; i++) {
-      const b = (s.bearing * Math.PI) / 180
-      const along = rng.float(0.2, 0.8) * s.lengthM
-      const [lon, lat] = offset(s.lon, s.lat, Math.sin(b) * along, Math.cos(b) * along)
-      const base = s.name === 'The Parade' ? rng.int(6000, 9000) : rng.int(7000, 24000)
-      const year = rng.weighted([{ v: 2024, w: 50 }, { v: 2023, w: 25 }, { v: 2022, w: 15 }, { v: 2019, w: 10 }])
-      const history = [2018, 2019, 2021, 2022, 2023, 2024].filter((y) => y <= year).map((y) => ({ year: y, aadf: Math.round(base * rng.float(0.88, 1.08)) }))
-      const aadf = history[history.length - 1].aadf
+  if (real) {
+    for (const t of real.traffic) {
       traffic.push({
-        ...fetched('DfT Road Traffic Statistics', 'OGL', 60),
-        countPointId: String(cp++),
-        roadName: s.name.replace('Road', 'Road'),
-        roadType: 'Major',
-        location: point(lon, lat),
-        year,
-        method: year === 2024 ? 'Counted' : rng.pick(['Counted', 'Estimated']),
-        aadf,
-        cars: Math.round(aadf * 0.82),
-        lgv: Math.round(aadf * 0.13),
-        hgv: Math.round(aadf * 0.03),
-        pedalCycles: Math.round(aadf * 0.02),
-        history,
+        source: 'DfT Road Traffic Statistics',
+        licence: 'OGL',
+        fetchedAt: real.fetchedAt,
+        countPointId: t.countPointId,
+        roadName: t.startJunction && t.endJunction ? `${t.roadName} (${t.startJunction} to ${t.endJunction})` : t.roadName,
+        roadType: t.roadType,
+        location: point(t.lon, t.lat),
+        year: t.year,
+        method: t.method,
+        aadf: t.aadf,
+        cars: t.cars,
+        lgv: t.lgv,
+        hgv: t.hgv,
+        pedalCycles: t.pedalCycles,
+        history: t.history,
       })
+    }
+  } else {
+    let cp = 46000
+    for (const s of N.STREETS.filter((x) => x.major)) {
+      const n = rng.int(1, 2)
+      for (let i = 0; i < n; i++) {
+        const b = (s.bearing * Math.PI) / 180
+        const along = rng.float(0.2, 0.8) * s.lengthM
+        const [lon, lat] = offset(s.lon, s.lat, Math.sin(b) * along, Math.cos(b) * along)
+        const base = s.name === 'The Parade' ? rng.int(6000, 9000) : rng.int(7000, 24000)
+        const year = rng.weighted([{ v: 2024, w: 50 }, { v: 2023, w: 25 }, { v: 2022, w: 15 }, { v: 2019, w: 10 }])
+        const history = [2018, 2019, 2021, 2022, 2023, 2024].filter((y) => y <= year).map((y) => ({ year: y, aadf: Math.round(base * rng.float(0.88, 1.08)) }))
+        const aadf = history[history.length - 1].aadf
+        traffic.push({
+          ...fetched('DfT Road Traffic Statistics', 'OGL', 60),
+          countPointId: String(cp++),
+          roadName: s.name,
+          roadType: 'Major',
+          location: point(lon, lat),
+          year,
+          method: year === 2024 ? 'Counted' : rng.pick(['Counted', 'Estimated']),
+          aadf,
+          cars: Math.round(aadf * 0.82),
+          lgv: Math.round(aadf * 0.13),
+          hgv: Math.round(aadf * 0.03),
+          pedalCycles: Math.round(aadf * 0.02),
+          history,
+        })
+      }
     }
   }
 
@@ -720,13 +888,18 @@ export function generateDataset(seed = 20261013): Dataset {
     crm.push({ recordId: `CRM-${rid++}`, office: rng.pick(offices), businessName: rng.pick(['The Old Bell', 'Spa Fish Bar', 'Avonside Care Home', 'Jubilee Day Nursery', 'Crown Pharmacy', 'The Railway Tavern']), address: p.title.address, postcode: p.title.postcode, companyName: rng.pick(['Old Bell Inns Ltd', 'Avonside Care Ltd', 'Jubilee Childcare Ltd']), companyNumber: String(rng.int(3_000_000, 9_000_000)).padStart(8, '0'), sector: rng.pick(['Pub', 'Care Home', 'Childcare', 'Pharmacy']), lastContact: rng.date(2014, 2019), raw: {} })
   }
 
-  const streets = N.STREETS.map((s) => {
-    const b = (s.bearing * Math.PI) / 180
-    const end = offset(s.lon, s.lat, Math.sin(b) * s.lengthM, Math.cos(b) * s.lengthM)
-    return { name: s.name, major: !!s.major, coordinates: [[s.lon, s.lat], end] as [number, number][] }
-  })
+  const streetsOut: Dataset['streets'] = real
+    ? real.roads.features.flatMap((f) => {
+        const lines = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates
+        return lines.filter((l) => l.some(([lon, lat]) => inWindow(lon, lat))).map((l) => ({ name: f.properties.name ?? '', major: f.properties.major, coordinates: l as [number, number][] }))
+      })
+    : N.STREETS.map((s) => {
+        const b = (s.bearing * Math.PI) / 180
+        const end = offset(s.lon, s.lat, Math.sin(b) * s.lengthM, Math.cos(b) * s.lengthM)
+        return { name: s.name, major: !!s.major, coordinates: [[s.lon, s.lat], end] as [number, number][] }
+      })
   const comparables = generateComparables(rng, bizList)
-  return { comparables, streets, titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre }
+  return { comparables, streets: streetsOut, titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre, real }
 }
 
 export function crmToCsv(rows: CrmRecord[]): string {

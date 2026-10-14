@@ -1,6 +1,20 @@
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { MockProvider } from '../src/data/mock/MockProvider'
+import { setRealLayersSource, type RealLayers } from '../src/data/real'
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+
+// In node the collected open data is read from disk rather than fetched.
+setRealLayersSource(async () => {
+  try {
+    const dir = resolve(process.cwd(), 'public/data/warwick')
+    const j = async <T,>(f: string) => JSON.parse(await readFile(resolve(dir, f), 'utf8')) as T
+    return { roads: await j<RealLayers['roads']>('roads.geojson'), places: await j<RealLayers['places']>('places.geojson'), traffic: await j<RealLayers['traffic']>('traffic.json'), pricePaid: await j<RealLayers['pricePaid']>('price_paid.json'), postcodes: await j<RealLayers['postcodes']>('postcodes.json'), fetchedAt: new Date().toISOString() }
+  } catch {
+    return undefined
+  }
+})
 import type { DocumentOrder } from '../src/data/types'
 
 /**
@@ -68,6 +82,10 @@ export function mockApiPlugin(): Plugin {
           if (path === '/comparables/search' && req.method === 'POST') { const b = await readBody(req); return json(res, await p.getComparables(b.filters as never)) }
           if ((m = path.match(/^\/comparables\/([^/]+)$/))) return json(res, (await p.getComparable(m[1])) ?? null)
           if (path === '/catchment') return json(res, await p.getCatchment(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 1000)))
+          if (path === '/places') return json(res, await p.getPoisNear(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 1000), (q.get('sector') as never) ?? undefined))
+          if (path.startsWith('/places/')) return json(res, await p.getPoi(decodeURIComponent(path.slice('/places/'.length))))
+          if (path === '/price-paid') return json(res, await p.getPricePaidNear(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 500), { nonResidentialOnly: q.get('type') === 'O', limit: Number(q.get('limit') ?? 50) }))
+          if (path.startsWith('/price-paid/')) return json(res, await p.getPricePaid(decodeURIComponent(path.slice('/price-paid/'.length))))
           if (path === '/alerts' && req.method === 'GET') return json(res, await p.getAlerts())
           if ((m = path.match(/^\/alerts\/([^/]+)\/read$/)) && req.method === 'POST') { await p.markAlertRead(m[1]); return json(res, {}) }
           if (path === '/documents/orders' && req.method === 'GET') return json(res, await p.getDocumentOrders())

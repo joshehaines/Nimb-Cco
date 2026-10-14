@@ -120,7 +120,7 @@ export function AppShell() {
             {!collapsed && (
               <div className="px-1 text-[11px] text-ink-500">
                 <div className="font-medium text-ink-700">Data provider: {provider.name}</div>
-                <div>Demo area: Leamington Spa &amp; Warwick (synthetic)</div>
+                <div>Demo area: Leamington Spa &amp; Warwick · real roads, places, traffic and price paid; synthetic ownership and operators</div>
               </div>
             )}
             <ThemeToggle compact={collapsed} />

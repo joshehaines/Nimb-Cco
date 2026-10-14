@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { REAL_DATA_BASE } from '@/data/real'
 import maplibregl, { type Map as MLMap, type MapMouseEvent, type StyleSpecification } from 'maplibre-gl'
 import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
@@ -60,13 +61,15 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
-  ;['streets', 'footfall', 'constraints', 'titles', 'planning', 'traffic', 'comparables', 'businesses'].forEach(src)
+  ;['streets', 'buildings', 'footfall', 'constraints', 'titles', 'pricePaid', 'planning', 'traffic', 'comparables', 'poi', 'businesses'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
   const dk = isDark()
   map.addLayer({ id: 'streets-casing', type: 'line', source: 'streets', paint: { 'line-color': dk ? '#2a3242' : '#cfd6e0', 'line-width': ['case', ['==', ['get', 'major'], true], 14, 9], 'line-opacity': 0.9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
   map.addLayer({ id: 'streets-fill', type: 'line', source: 'streets', paint: { 'line-color': dk ? '#3a4356' : '#ffffff', 'line-width': ['case', ['==', ['get', 'major'], true], 10, 6] }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
   if (withLabels) map.addLayer({ id: 'streets-labels', type: 'symbol', source: 'streets', layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': dk ? '#aab4c5' : '#67748c', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
+  map.addLayer({ id: 'buildings-fill', type: 'fill', source: 'buildings', paint: { 'fill-color': dk ? '#3a4556' : '#d6dce6', 'fill-opacity': 0.55 } })
+  map.addLayer({ id: 'buildings-line', type: 'line', source: 'buildings', paint: { 'line-color': dk ? '#55617a' : '#aab4c5', 'line-width': 0.5 } })
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
@@ -106,6 +109,9 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
     layout: { 'text-field': ['concat', ['to-string', ['round', ['/', ['get', 'aadf'], 1000]]], 'k'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true },
     paint: { 'text-color': '#fff' },
   })
+  map.addLayer({ id: 'pricePaid-points', type: 'circle', source: 'pricePaid', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 3, 2000000, 9, 20000000, 14], 'circle-color': ['case', ['==', ['get', 'type'], 'O'], '#7c3aed', '#94a3b8'], 'circle-opacity': 0.6, 'circle-stroke-color': dk ? '#161b26' : '#fff', 'circle-stroke-width': 1 } })
+  map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 15, 3.5, 18, 6], 'circle-color': sectorMatch, 'circle-opacity': 0.95, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 1 } })
+  if (withLabels) map.addLayer({ id: 'poi-labels', type: 'symbol', source: 'poi', minzoom: 16.5, layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': dk ? '#c3cad6' : '#4b5563', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'comparables-points', type: 'circle', source: 'comparables', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 5, 5000000, 13], 'circle-color': sectorMatch, 'circle-opacity': 0.55, 'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 } })
   map.addLayer({ id: 'businesses-highlight', type: 'circle', source: 'businesses', filter: ['in', ['get', 'businessId'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 16], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'businesses-ring', type: 'circle', source: 'businesses', filter: ['==', ['get', 'distress'], true], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 7, 17, 12], 'circle-color': '#be123c', 'circle-opacity': 0.35 } })
@@ -137,6 +143,20 @@ export function MapView() {
   const dataRef = useRef<MapLayers | null>(null)
   const nav = useNavigate()
   const layers = useUi((s) => s.layers)
+  const buildingsLoadedRef = useRef(false)
+  // Building footprints are 8 MB, so they are fetched only when the layer is first switched on.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!layers.buildings || buildingsLoadedRef.current || !map) return
+    buildingsLoadedRef.current = true
+    fetch(`${REAL_DATA_BASE}buildings.geojson`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((fc) => {
+        const src = map.getSource('buildings') as maplibregl.GeoJSONSource | undefined
+        if (fc && src) src.setData(fc)
+      })
+      .catch(() => undefined)
+  }, [layers.buildings])
   const constraintKinds = useUi((s) => s.constraintKinds)
   const sectorFilter = useUi((s) => s.sectorFilter)
   const highlightIds = useUi((s) => s.highlightIds)
@@ -207,7 +227,7 @@ export function MapView() {
       scheduleLoad()
     })
 
-    const clickable = ['businesses-points', 'comparables-points', 'planning-points', 'traffic-points', 'titles-fill']
+    const clickable = ['businesses-points', 'poi-points', 'comparables-points', 'pricePaid-points', 'planning-points', 'traffic-points', 'titles-fill']
     const onClick = (e: MapMouseEvent) => {
       const feats = map.queryRenderedFeatures(e.point, { layers: clickable.filter((l) => map.getLayer(l)) })
       if (!feats.length) {
@@ -220,6 +240,12 @@ export function MapView() {
       if (f.layer.id === 'businesses-points') {
         select({ type: 'business', id: p.businessId })
         nav(`/map/business/${p.businessId}`)
+      } else if (f.layer.id === 'poi-points') {
+        select({ type: 'poi', id: p.id })
+        nav(`/map/poi/${encodeURIComponent(p.id)}`)
+      } else if (f.layer.id === 'pricePaid-points') {
+        select({ type: 'sale', id: p.id })
+        nav(`/map/sale/${encodeURIComponent(p.id)}`)
       } else if (f.layer.id === 'comparables-points') {
         select({ type: 'comparable', id: p.compId })
         nav(`/map/comparable/${p.compId}`)
@@ -249,6 +275,8 @@ export function MapView() {
       const p = f.properties as Record<string, string | number | boolean>
       let html = ''
       if (f.layer.id === 'businesses-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">${p.sector}${p.rating ? ' · rated ' + p.rating : ''}${p.distress ? ' · <span style="color:#be123c">distress signals</span>' : ''}</span>`
+      else if (f.layer.id === 'poi-points') html = `<strong>${p.name ?? p.category}</strong><br/><span style="color:#67748c">${String(p.category).replace(/_/g, ' ')} · ${p.sector} · Overture Maps</span>`
+      else if (f.layer.id === 'pricePaid-points') html = `<strong>£${Number(p.price).toLocaleString()}</strong> · ${String(p.date).slice(0, 7)}<br/><span style="color:#67748c">${p.address} · HM Land Registry${p.geocode === 'sector' ? ' · approx. location' : ''}</span>`
       else if (f.layer.id === 'comparables-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">Sold £${Number(p.price).toLocaleString()} · ${String(p.date).slice(0, 7)} · ${p.sector}</span>`
       else if (f.layer.id === 'planning-points') html = `<strong>${p.reference}</strong><br/><span style="color:#67748c">${p.type} · ${p.status}</span>`
       else if (f.layer.id === 'traffic-points') html = `<strong>${Number(p.aadf).toLocaleString()} vehicles/day</strong><br/><span style="color:#67748c">DfT count point ${p.countPointId} · ${p.year} ${p.method}</span>`
@@ -329,6 +357,9 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
   vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)
+  vis(['poi-points', 'poi-labels'], layers.poi)
+  vis(['buildings-fill', 'buildings-line'], layers.buildings)
+  vis(['pricePaid-points'], layers.pricePaid)
   vis(['comparables-points'], layers.comparables)
   vis(['traffic-points', 'traffic-labels'], layers.traffic)
   vis(['footfall-fill'], layers.footfall)
@@ -343,6 +374,8 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
     const f: maplibregl.FilterSpecification | null = sectorFilter.length ? ['in', ['get', 'sector'], ['literal', sectorFilter]] : null
     map.setFilter('businesses-points', f)
     if (map.getLayer('businesses-labels')) map.setFilter('businesses-labels', f)
+    if (map.getLayer('poi-points')) map.setFilter('poi-points', f)
+    if (map.getLayer('poi-labels')) map.setFilter('poi-labels', f)
     map.setFilter('businesses-ring', f ? ['all', ['==', ['get', 'distress'], true], f] : ['==', ['get', 'distress'], true])
   }
 }

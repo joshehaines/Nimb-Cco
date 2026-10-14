@@ -29,7 +29,11 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | POST | `/sourcing/titles` | `{ filters, bounds? }` | `Title[]` |
 | POST | `/comparables/search` | `{ filters: ComparableFilters }` | `{ comps: Comparable[], stats: ComparableStats }` |
 | GET | `/comparables/{id}` | | `Comparable` |
-| GET | `/catchment` | `lon`, `lat`, `radius` | `Catchment` (demographics, competitor supply, ratios) |
+| GET | `/catchment` | `lon`, `lat`, `radius` | `Catchment` (demographics, competitor supply, ratios, `realSupply` from collected places) |
+| GET | `/places` | `lon`, `lat`, `radius`, `sector?` | Real places (Overture Maps) within the radius, nearest first |
+| GET | `/places/:id` | | One real place with its location |
+| GET | `/price-paid` | `lon`, `lat`, `radius`, `type=O?`, `limit?` | HM Land Registry price paid transactions within the radius |
+| GET | `/price-paid/:id` | | One transaction |
 | GET | `/alerts` | | `Alert[]` (newest first) |
 | POST | `/alerts/{id}/read` | | `{}` |
 | POST | `/documents/orders` | `{ titleNumber, kind }` | `DocumentOrder` (status transitions Queued → Downloading → Stored → Parsed) |

@@ -1,4 +1,4 @@
-import type { Polygon } from 'geojson'
+import type { Point, Polygon } from 'geojson'
 import type { DataProvider } from '../provider'
 import type {
   Alert,
@@ -30,6 +30,7 @@ import type {
 } from '../types'
 import { generateDataset, crmToCsv, type Dataset } from './generate'
 import { DATA_SOURCES } from './sources'
+import { loadRealLayers, type RealLayers, type PlaceProps, type PricePaidRow } from '../real'
 import { centroid, haversineM, inBounds, pointInPolygon } from '../../lib/geo'
 import { monthsUntil } from '../../lib/format'
 import { median, quantile } from '../../lib/stats'
@@ -44,8 +45,16 @@ export class MockProvider implements DataProvider {
   private orders: DocumentOrder[] = []
   private orderCounter = 1
 
+  /** Resolves once the collected open data (if present) has been loaded and the dataset re-seated on it. */
+  readonly ready: Promise<void>
+  real?: RealLayers
   constructor(seed?: number) {
     this.ds = generateDataset(seed)
+    this.ready = loadRealLayers().then((real) => {
+      if (!real) return
+      this.real = real
+      this.ds = generateDataset(seed, real)
+    })
   }
 
   get dataset() {
@@ -53,6 +62,7 @@ export class MockProvider implements DataProvider {
   }
 
   async search(query: string, limit = 12): Promise<SearchResult[]> {
+    await this.ready
     const q = query.trim().toLowerCase()
     if (!q) return []
     const out: SearchResult[] = []
@@ -77,6 +87,7 @@ export class MockProvider implements DataProvider {
   }
 
   async getMapLayers(bounds: BoundsQuery): Promise<MapLayers> {
+    await this.ready
     const bizByTitle = new Map<string, Business>()
     for (const b of this.ds.businesses.values()) if (b.titleNumber) bizByTitle.set(b.titleNumber, b)
     const titles = Array.from(this.ds.titles.values())
@@ -98,7 +109,15 @@ export class MockProvider implements DataProvider {
     const traffic = this.ds.traffic.filter((t) => inBounds(t.location.coordinates, bounds)).map((t) => ({ type: 'Feature' as const, geometry: t.location, properties: { countPointId: t.countPointId, aadf: t.aadf, year: t.year, method: t.method } }))
     const footfall = this.ds.footfall.map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { h3: f.h3, band: f.band, monthlyVisits: f.monthlyVisits } }))
     const constraints = this.ds.constraints.map((c) => ({ type: 'Feature' as const, geometry: c.geometry, properties: { id: c.id, kind: c.kind, name: c.name } }))
+    const poi = this.real
+      ? this.real.places.features.filter((f) => inBounds(f.geometry.coordinates, bounds)).map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { id: f.properties.id, name: f.properties.name, category: f.properties.category, sector: f.properties.sector, confidence: f.properties.confidence, postcode: f.properties.postcode } }))
+      : []
+    const pricePaid = this.real
+      ? this.real.pricePaid.filter((r) => r.lon !== null && r.lat !== null && inBounds([r.lon, r.lat], bounds)).map((r) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [r.lon!, r.lat!] }, properties: { id: r.id, price: r.price, date: r.date, type: r.type, address: r.address, postcode: r.postcode, geocode: r.geocode ?? '' } }))
+      : []
     return {
+      poi: { type: 'FeatureCollection', features: poi },
+      pricePaid: { type: 'FeatureCollection', features: pricePaid },
       streets: { type: 'FeatureCollection', features: this.ds.streets.map((s) => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: s.coordinates }, properties: { name: s.name, major: s.major } })) },
       titles: { type: 'FeatureCollection', features: titles },
       businesses: { type: 'FeatureCollection', features: businesses },
@@ -111,26 +130,33 @@ export class MockProvider implements DataProvider {
   }
 
   async getTitle(titleNumber: string) {
+    await this.ready
     return this.ds.titles.get(titleNumber)
   }
   async getTitlesForCompany(companyNumber: string) {
+    await this.ready
     const group = new Set((await this.getCompanyGroup(companyNumber)).map((c) => c.companyNumber))
     return Array.from(this.ds.titles.values()).filter((t) => t.proprietors.some((p) => p.companyNumber && group.has(p.companyNumber)))
   }
   async getBusiness(businessId: string) {
+    await this.ready
     return this.ds.businesses.get(businessId)
   }
   async getBusinessesForTitle(titleNumber: string) {
+    await this.ready
     return Array.from(this.ds.businesses.values()).filter((b) => b.titleNumber === titleNumber)
   }
   async getBusinessesForCompany(companyNumber: string) {
+    await this.ready
     const group = new Set((await this.getCompanyGroup(companyNumber)).map((c) => c.companyNumber))
     return Array.from(this.ds.businesses.values()).filter((b) => (b.operatorCompanyNumber && group.has(b.operatorCompanyNumber)) || (b.freeholderCompanyNumber && group.has(b.freeholderCompanyNumber)))
   }
   async getCompany(companyNumber: string) {
+    await this.ready
     return this.ds.companies.get(companyNumber)
   }
   async getCompanyGroup(companyNumber: string) {
+    await this.ready
     const c = this.ds.companies.get(companyNumber)
     if (!c) return []
     const root = c.parentCompanyNumber ? this.ds.companies.get(c.parentCompanyNumber) ?? c : c
@@ -138,22 +164,27 @@ export class MockProvider implements DataProvider {
     return members
   }
   async getHereditament(uarn: string) {
+    await this.ready
     return this.ds.hereditaments.get(uarn)
   }
   async getHereditamentsForTitle(titleNumber: string) {
+    await this.ready
     const t = this.ds.titles.get(titleNumber)
     if (!t) return []
     return Array.from(this.ds.hereditaments.values()).filter((h) => h.uprn === t.uprn)
   }
   async getEpc(certificateId: string) {
+    await this.ready
     return this.ds.epcs.get(certificateId)
   }
   async getEpcsForTitle(titleNumber: string) {
+    await this.ready
     const t = this.ds.titles.get(titleNumber)
     if (!t) return []
     return Array.from(this.ds.epcs.values()).filter((e) => e.uprn === t.uprn)
   }
   async getPlanningForTitle(titleNumber: string, radiusM = 0) {
+    await this.ready
     const t = this.ds.titles.get(titleNumber)
     if (!t) return []
     const c = centroid(t.geometry as Polygon)
@@ -162,9 +193,11 @@ export class MockProvider implements DataProvider {
       .sort((a, b) => b.receivedDate.localeCompare(a.receivedDate))
   }
   async getPlanning(reference: string) {
+    await this.ready
     return this.ds.planning.get(reference)
   }
   async getConstraintsForTitle(titleNumber: string) {
+    await this.ready
     const t = this.ds.titles.get(titleNumber)
     if (!t) return []
     const c = centroid(t.geometry as Polygon)
@@ -175,13 +208,45 @@ export class MockProvider implements DataProvider {
     })
   }
   async getTrafficNear(lon: number, lat: number, radiusM: number) {
+    await this.ready
     return this.ds.traffic.filter((t) => haversineM([lon, lat], t.location.coordinates) <= radiusM).sort((a, b) => haversineM([lon, lat], a.location.coordinates) - haversineM([lon, lat], b.location.coordinates))
   }
   async getFootfallNear(lon: number, lat: number, radiusM: number) {
+    await this.ready
     return this.ds.footfall.filter((f) => haversineM([lon, lat], centroid(f.geometry)) <= radiusM)
   }
   async getLeasesForTitle(titleNumber: string) {
+    await this.ready
     return this.ds.titles.get(titleNumber)?.leases ?? []
+  }
+
+  async getPoi(id: string): Promise<(PlaceProps & { location: Point }) | undefined> {
+    await this.ready
+    const f = this.real?.places.features.find((x) => x.properties.id === id)
+    return f ? { ...f.properties, location: f.geometry } : undefined
+  }
+  async getPoisNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(PlaceProps & { location: Point; distanceM: number })[]> {
+    await this.ready
+    if (!this.real) return []
+    return this.real.places.features
+      .filter((f) => !sector || f.properties.sector === sector)
+      .map((f) => ({ ...f.properties, location: f.geometry, distanceM: Math.round(haversineM([lon, lat], f.geometry.coordinates)) }))
+      .filter((x) => x.distanceM <= radiusM)
+      .sort((a, b) => a.distanceM - b.distanceM)
+  }
+  async getPricePaid(id: string): Promise<PricePaidRow | undefined> {
+    await this.ready
+    return this.real?.pricePaid.find((r) => r.id === id)
+  }
+  async getPricePaidNear(lon: number, lat: number, radiusM: number, opts: { nonResidentialOnly?: boolean; limit?: number } = {}): Promise<(PricePaidRow & { distanceM: number })[]> {
+    await this.ready
+    if (!this.real) return []
+    return this.real.pricePaid
+      .filter((r) => r.lon !== null && r.lat !== null && (!opts.nonResidentialOnly || r.type === 'O'))
+      .map((r) => ({ ...r, distanceM: Math.round(haversineM([lon, lat], [r.lon!, r.lat!])) }))
+      .filter((r) => r.distanceM <= radiusM)
+      .sort((a, b) => a.distanceM - b.distanceM || b.date.localeCompare(a.date))
+      .slice(0, opts.limit ?? 50)
   }
 
   private matchesFilters(b: Business, f: SourcingFilters, t?: Title, h?: Hereditament, e?: EPC): boolean {
@@ -210,6 +275,7 @@ export class MockProvider implements DataProvider {
   }
 
   async sourceBusinesses(filters: SourcingFilters, bounds?: BoundsQuery) {
+    await this.ready
     const out: Business[] = []
     for (const b of this.ds.businesses.values()) {
       if (bounds && !inBounds(b.location.coordinates, bounds)) continue
@@ -232,6 +298,7 @@ export class MockProvider implements DataProvider {
   }
 
   async sourceTitles(filters: SourcingFilters, bounds?: BoundsQuery) {
+    await this.ready
     const out: Title[] = []
     for (const t of this.ds.titles.values()) {
       if (bounds && !inBounds(centroid(t.geometry as Polygon), bounds)) continue
@@ -247,6 +314,7 @@ export class MockProvider implements DataProvider {
 
   // ---------------------------------------------------------------- comparables
   async getComparables(f: ComparableFilters) {
+    await this.ready
     const comps = this.ds.comparables.filter((c) => {
       if (f.sectors.length && !f.sectors.includes(c.sector)) return false
       if (f.tenure && c.tenure !== f.tenure) return false
@@ -283,11 +351,13 @@ export class MockProvider implements DataProvider {
     return { comps: withDist, stats }
   }
   async getComparable(compId: string) {
+    await this.ready
     return this.ds.comparables.find((c) => c.compId === compId)
   }
 
   // ------------------------------------------------------------------ catchment
   async getCatchment(lon: number, lat: number, radiusM: number): Promise<Catchment> {
+    await this.ready
     const centre: [number, number] = [lon, lat]
     const areaKm2 = Math.PI * (radiusM / 1000) ** 2
     // Synthetic ONS-like demographics: density falls off from the town centres.
@@ -344,19 +414,34 @@ export class MockProvider implements DataProvider {
       ],
       footfallMonthly: ff.length ? Math.round(ff.reduce((s, f) => s + f.monthlyVisits, 0) / ff.length) : undefined,
       trafficAadf: tr[0]?.aadf,
+      realSupply: this.real
+        ? (() => {
+            const near = this.real!.places.features.map((f) => ({ f, d: haversineM(centre, f.geometry.coordinates) })).filter((x) => x.d <= radiusM).sort((a, b) => a.d - b.d)
+            const counts = new Map<Sector, number>()
+            for (const { f } of near) counts.set(f.properties.sector as Sector, (counts.get(f.properties.sector as Sector) ?? 0) + 1)
+            return {
+              source: 'Overture Maps places (OpenStreetMap, Meta and Microsoft contributions), CDLA-Permissive-2.0',
+              counts: Array.from(counts.entries()).map(([sector, count]) => ({ sector, count })).sort((a, b) => b.count - a.count),
+              nearest: near.slice(0, 12).map(({ f, d }) => ({ id: f.properties.id, name: f.properties.name ?? f.properties.category, category: f.properties.category, sector: f.properties.sector as Sector, distanceM: Math.round(d), address: f.properties.address, postcode: f.properties.postcode })),
+            }
+          })()
+        : undefined,
       source: 'ONS Census 2021 mid-year estimates (synthetic in demo), registers, DfT, footfall vendor',
     }
   }
 
   async getAlerts() {
+    await this.ready
     return this.ds.alerts
   }
   async markAlertRead(alertId: string) {
+    await this.ready
     const a = this.ds.alerts.find((x) => x.alertId === alertId)
     if (a) a.read = true
   }
 
   async orderDocument(titleNumber: string, kind: DocumentOrder['kind']) {
+    await this.ready
     const order: DocumentOrder = { orderId: `DOC-${String(this.orderCounter++).padStart(5, '0')}`, titleNumber, kind, fee: 7, orderedAt: new Date().toISOString(), status: 'Queued' }
     this.orders.unshift(order)
     // Simulate Business Gateway fulfilment and LLM parsing.
@@ -392,11 +477,13 @@ export class MockProvider implements DataProvider {
     return order
   }
   async getDocumentOrders() {
+    await this.ready
     return this.orders
   }
 
   // ------------------------------------------------------------------ CRM clean-up
   async matchCrmRecords(records: CrmRecord[]): Promise<MatchCandidate[]> {
+    await this.ready
     const businesses = Array.from(this.ds.businesses.values())
     const byPostcode = new Map<string, Business[]>()
     for (const b of businesses) {
@@ -458,6 +545,7 @@ export class MockProvider implements DataProvider {
   }
 
   async findDuplicates(records: CrmRecord[]): Promise<DuplicateGroup[]> {
+    await this.ready
     const groups: DuplicateGroup[] = []
     const used = new Set<string>()
     const prepared = records.map((r) => ({ r, name: normaliseBusinessName(r.businessName), addr: normaliseAddress(r.address), pc: normalisePostcode(r.postcode) ?? extractPostcode(r.address), cn: validCompanyNumber(r.companyNumber) }))
@@ -488,11 +576,22 @@ export class MockProvider implements DataProvider {
   }
 
   async sampleCrmCsv() {
+    await this.ready
     return crmToCsv(this.ds.crm)
   }
 
   async getDataSources(): Promise<DataSourceStatus[]> {
-    return DATA_SOURCES
+    await this.ready
+    if (!this.real) return DATA_SOURCES
+    const real = this.real
+    const collected: DataSourceStatus[] = [
+      { id: 'overture-roads', name: 'Road network (Overture Maps transportation)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: real.roads.features.length, note: 'Collected: real centrelines for Warwick district (ODbL, OpenStreetMap contributors). Demo title parcels are laid along these streets.', docsUrl: 'https://docs.overturemaps.org/guides/transportation/' },
+      { id: 'overture-places', name: 'Places (Overture Maps)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: real.places.features.length, note: 'Collected: real businesses in Christie sectors for Warwick district (CDLA-Permissive-2.0). Used for the real-business layer and catchment supply.', docsUrl: 'https://docs.overturemaps.org/guides/places/' },
+      { id: 'overture-buildings', name: 'Building footprints (Overture Maps)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: 19666, note: 'Collected: town-centre footprints (ODbL). Shown as an optional map layer.', docsUrl: 'https://docs.overturemaps.org/guides/buildings/' },
+      { id: 'dft-aadf-real', name: 'DfT traffic counts (collected)', provider: 'Department for Transport', licence: 'OGL', cadence: 'Annual', lastRun: real.fetchedAt, status: 'ok', records: real.traffic.length, note: 'Collected: every count point in the demo area with its 2000 to 2025 AADF history; 46,754 points nationally held in scripts/data output.', docsUrl: 'https://roadtraffic.dft.gov.uk/downloads' },
+      { id: 'hmlr-ppd-real', name: 'HM Land Registry price paid (collected)', provider: 'HM Land Registry', licence: 'OGL', cadence: 'Monthly', lastRun: real.fetchedAt, status: 'ok', records: real.pricePaid.length, note: 'Collected: all Warwick district transactions 2019 to 2025, geocoded approximately by postcode; 411,186 non-residential transactions nationally held in scripts/data output.', docsUrl: 'https://www.gov.uk/government/collections/price-paid-data' },
+    ]
+    return [...collected, ...DATA_SOURCES]
   }
 
   // Convenience for pages that need whole collections (mock only).
