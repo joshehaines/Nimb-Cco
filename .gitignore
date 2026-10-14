@@ -6,3 +6,6 @@ dist
 .DS_Store
 # raw open-data downloads (hundreds of MB); processed extracts live in public/data
 scripts/data/raw/
+__pycache__/
+*.pyc
+*.tsbuildinfo
