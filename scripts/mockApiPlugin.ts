@@ -11,7 +11,8 @@ setRealLayersSource(async () => {
     const dir = resolve(process.cwd(), 'public/data/warwick')
     const j = async <T,>(f: string) => JSON.parse(await readFile(resolve(dir, f), 'utf8')) as T
     const areas = JSON.parse(await readFile(resolve(process.cwd(), 'public/data/areas.json'), 'utf8')).areas as RealLayers['areas']
-    return { areas: areas.filter((a) => a.id === 'warwick'), roads: await j<RealLayers['roads']>('roads.geojson'), places: await j<RealLayers['places']>('places.geojson'), traffic: await j<RealLayers['traffic']>('traffic.json'), pricePaid: await j<RealLayers['pricePaid']>('price_paid.json'), postcodes: await j<RealLayers['postcodes']>('postcodes.json'), fetchedAt: new Date().toISOString() }
+    const parcels = await j<NonNullable<RealLayers['parcels']>>('parcels.geojson').catch(() => undefined)
+    return { areas: areas.filter((a) => a.id === 'warwick'), parcels, roads: await j<RealLayers['roads']>('roads.geojson'), places: await j<RealLayers['places']>('places.geojson'), traffic: await j<RealLayers['traffic']>('traffic.json'), pricePaid: await j<RealLayers['pricePaid']>('price_paid.json'), postcodes: await j<RealLayers['postcodes']>('postcodes.json'), fetchedAt: new Date().toISOString() }
   } catch {
     return undefined
   }

@@ -8,7 +8,7 @@ import { CONSTRAINT_COLOURS } from './MapView'
 
 export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
-  const { layers, toggleLayer, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight } = useUi()
+  const { layers, toggleLayer, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi()
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length].reduce((a, b) => a + b, 0)
 
   if (hidden) return null
@@ -58,7 +58,6 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
           <Toggle checked={layers.traffic} onChange={() => toggleLayer('traffic')} label="Traffic counts" hint="DfT AADF, sized by vehicles per day" />
           <Toggle checked={layers.footfall} onChange={() => toggleLayer('footfall')} label="Footfall heatmap" hint="Vendor mobile-location cells (demo data)" />
           <Toggle checked={layers.constraints} onChange={() => toggleLayer('constraints')} label="Planning constraints" hint="Flood, heritage, Green Belt, Article 4" />
-          <Toggle checked={layers.satellite} onChange={() => toggleLayer('satellite')} label="Aerial imagery" />
         </Collapsible>
         <Collapsible title="Sectors" right={sectorFilter.length ? <button className="text-[11px] text-brand-700" onClick={(e) => { e.stopPropagation(); setSectorFilter([]) }}>clear</button> : undefined}>
           <div className="flex flex-wrap gap-1.5">
@@ -77,15 +76,18 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
             </div>
           </Collapsible>
         )}
-        <Collapsible title="Ownership legend" defaultOpen={false}>
-          <ul className="space-y-1 text-xs">
+        <Collapsible title="Title colouring" defaultOpen={false}>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {([['none', 'Plain'], ['owner', 'Proprietor type'], ['tenure', 'Tenure']] as const).map(([v, l]) => <Chip key={v} label={l} selected={titleColour === v} onClick={() => setTitleColour(v)} />)}
+          </div>
+          <ul className={cx('space-y-1 text-xs', titleColour !== 'owner' && 'hidden')}>
             {Object.entries(OWNER_CATEGORY_COLOURS).map(([k, c]) => (
               <li key={k} className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-sm border border-black/10" style={{ background: c }} /> {k}
               </li>
             ))}
-            <li className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border-2 border-rose-700" /> Distressed occupier or owner</li>
           </ul>
+          <ul className="mt-1 space-y-1 text-xs"><li className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border-2 border-dashed border-rose-700" /> Dashed red: distress signal on occupier or owner (zoom 16+)</li><li className="text-ink-500">Titles draw from zoom 14.5; outlines follow the real building footprints in the demo areas.</li></ul>
         </Collapsible>
         {layers.footfall && (
           <Collapsible title="Footfall legend" defaultOpen>

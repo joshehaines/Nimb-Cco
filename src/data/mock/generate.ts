@@ -298,7 +298,95 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
   }
   const houseCounters = new Map<string, [number, number]>()
 
-  for (const street of streets) {
+  // Fast path: when prepared building-footprint parcels exist for the demo areas, the titles take
+  // those real shapes (ordered along each street for house numbering) and the rectangle fabric is
+  // only used where no footprints were prepared.
+  const makeTitle = (geometry: Polygon, street: StreetLike, houseNo: number, commercial: boolean): Title => {
+    const tn = titleNumber()
+    const catRoll = rng.next()
+    let proprietors: Proprietor[]
+    let category: Proprietor['category']
+    if (!commercial && catRoll < 0.8) category = 'Private Individual'
+    else if (catRoll < 0.5) category = 'Limited Company or Public Limited Company'
+    else if (catRoll < 0.78) category = 'Private Individual'
+    else if (catRoll < 0.84) category = 'Local Authority'
+    else if (catRoll < 0.9) category = 'Charity'
+    else if (catRoll < 0.94) category = 'Overseas Company'
+    else category = 'Limited Company or Public Limited Company'
+    if (category === 'Private Individual') proprietors = Array.from({ length: rng.int(1, 2) }, () => ({ name: personName(), category, redacted: true }))
+    else if (category === 'Local Authority') proprietors = [{ name: rng.pick(N.LOCAL_AUTHORITIES), category }]
+    else if (category === 'Charity') proprietors = [{ name: rng.pick(N.CHARITIES), category }]
+    else if (category === 'Overseas Company') {
+      const c = rng.pick(overseas)
+      proprietors = [{ name: c.name, category, companyNumber: c.companyNumber, address: c.registeredAddress }]
+    } else {
+      const c = rng.pick(propcos)
+      proprietors = [{ name: c.name, category, companyNumber: c.companyNumber, address: c.registeredAddress }]
+    }
+    const pricePaidDate = rng.bool(0.7) ? rng.date(1996, 2025) : undefined
+    const areaSqm = Math.round(polygonAreaSqm(geometry))
+    return {
+      ...fetched(category === 'Private Individual' ? 'HMLR INSPIRE' : 'HMLR CCOD', category === 'Private Individual' ? 'OGL' : 'HMLR-CCOD', 9),
+      titleNumber: tn,
+      inspireId: inspireCounter++,
+      tenure: 'Freehold',
+      address: `${houseNo} ${street.name}, ${street.town}`,
+      postcode: rng.pick(street.postcodes),
+      uprn: String(100070000000 + rng.int(1, 9_999_999)),
+      geometry,
+      areaSqm,
+      proprietors,
+      pricePaid: pricePaidDate ? Math.round(areaSqm * rng.float(commercial ? 1800 : 2600, commercial ? 6500 : 7800) / 100) * 100 : undefined,
+      pricePaidDate,
+      dateProprietorAdded: pricePaidDate ?? rng.date(1990, 2020),
+      leases: [],
+      registerPurchased: false,
+      titlePlanPurchased: false,
+      charges: rng.bool(0.35) ? [{ lender: rng.pick(N.LENDERS), date: rng.date(2012, 2026) }] : [],
+    }
+  }
+  const coveredWindows = new Set<number>()
+  if (real?.parcels) {
+    const byStreet = new Map<string, typeof real.parcels.features>()
+    for (const f of real.parcels.features) {
+      const key = f.properties.street
+      const list = byStreet.get(key) ?? []
+      list.push(f)
+      byStreet.set(key, list)
+    }
+    for (const [name, feats] of byStreet) {
+      feats.sort((a, b) => a.properties.along - b.properties.along)
+      const counters: [number, number] = [1, 2]
+      const [lon0, lat0] = centroid(feats[0].geometry)
+      const pcs = Array.from(new Set(feats.map((f) => f.properties.postcode).filter((x): x is string => !!x)))
+      const locality = feats.find((f) => f.properties.locality)?.properties.locality ?? undefined
+      const commercialShare = feats.filter((f) => f.properties.pois > 0).length / feats.length
+      const street: StreetLike = { roadId: name, name, lon: lon0, lat: lat0, bearing: 0, lengthM: 0, commercial: commercialShare, major: false, half: 0, postcodes: pcs.length ? pcs : [nearestPostcode(...toM(lon0, lat0)) ?? 'CV32 4AB'], town: townFor(pcs[0], lon0, locality) }
+      for (const f of feats) {
+        const sideIdx = f.properties.side === 1 ? 1 : 0
+        const houseNo = counters[sideIdx]
+        counters[sideIdx] += 2
+        const commercial = f.properties.pois > 0 ? rng.bool(Math.min(0.95, 0.45 + 0.15 * f.properties.pois)) : rng.bool(0.04)
+        const title = makeTitle(f.geometry, street, houseNo, commercial)
+        titles.set(title.titleNumber, title)
+        const [cx, cy] = centroid(f.geometry)
+        const parcel: Parcel = { title, street, commercial, houseNo, cx, cy }
+        parcels.push(parcel)
+        const [px, py] = toM(cx, cy)
+        parcelGrid.add(px, py, parcel)
+        WINDOWS.forEach((w, i) => {
+          if (cx >= w[0] && cx <= w[2] && cy >= w[1] && cy <= w[3]) coveredWindows.add(i)
+        })
+      }
+    }
+  }
+  const rectStreets = streets.filter((st) => {
+    const [mx, my] = [st.lon, st.lat]
+    const idx = WINDOWS.findIndex((w) => mx >= w[0] && mx <= w[2] && my >= w[1] && my <= w[3])
+    return idx === -1 || !coveredWindows.has(idx)
+  })
+
+  for (const street of rectStreets) {
     const b = (street.bearing * Math.PI) / 180
     const dirX = Math.sin(b)
     const dirY = Math.cos(b)
@@ -722,7 +810,8 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
   constraints.push({ ...fetched('Warwick DC', 'OGL', 14), id: 'A4-1', kind: 'Article 4', name: 'Leamington HMO Article 4 Direction', geometry: rect(-1.531, 52.2835, 700, 500, 0) })
   constraints.push({ ...fetched('MHCLG', 'OGL', 120), id: 'GB-1', kind: 'Green Belt', name: 'West Midlands Green Belt', geometry: rect(-1.6, 52.297, 1800, 600, 0) })
   for (let i = 0; i < 48; i++) {
-    const p = rng.pick(parcels.filter((x) => x.street.commercial > 0.7))
+    const commercialPool = parcels.filter((x) => x.street.commercial > 0.7)
+    const p = rng.pick(commercialPool.length ? commercialPool : parcels.filter((x) => x.commercial))
     const c = centroid(p.title.geometry as Polygon)
     constraints.push({ ...fetched('Historic England NHLE', 'OGL', 14), id: `LB-${1000000 + i}`, kind: 'Listed Building', name: `${p.title.address}`, grade: rng.weighted([{ v: 'II', w: 85 }, { v: 'II*', w: 12 }, { v: 'I', w: 3 }]), geometry: point(c[0], c[1]) })
   }

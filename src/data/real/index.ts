@@ -1,4 +1,4 @@
-import type { FeatureCollection, LineString, MultiLineString, Point } from 'geojson'
+import type { FeatureCollection, LineString, MultiLineString, Point, Polygon } from 'geojson'
 
 /**
  * Real open data for the demo area (Warwick district), collected by scripts/data/* and
@@ -12,7 +12,7 @@ export interface PlaceProps { id: string; name?: string; category: string; secto
 export interface RealTraffic { countPointId: string; roadName: string; roadType: 'Major' | 'Minor'; roadCategory: string; startJunction?: string | null; endJunction?: string | null; localAuthority: string; lon: number; lat: number; year: number; method: 'Counted' | 'Estimated'; aadf: number; cars: number; lgv: number; hgv: number; buses: number; pedalCycles: number; history: { year: number; aadf: number }[] }
 export interface PricePaidRow { id: string; price: number; date: string; postcode: string; type: 'D' | 'S' | 'T' | 'F' | 'O'; newBuild: boolean; tenure: 'Freehold' | 'Leasehold'; address: string; locality: string; town: string; category: 'A' | 'B'; lon: number | null; lat: number | null; geocode: 'postcode' | 'sector' | null }
 
-export interface DemoArea { id: string; name: string; centre: [number, number]; windows: [number, number, number, number][]; authority: string; files: Partial<Record<'roads' | 'places' | 'buildings' | 'traffic' | 'pricePaid' | 'postcodes', string>> }
+export interface DemoArea { id: string; name: string; centre: [number, number]; windows: [number, number, number, number][]; authority: string; files: Partial<Record<'roads' | 'places' | 'buildings' | 'traffic' | 'pricePaid' | 'postcodes' | 'parcels', string>> }
 
 /** Areas with the synthetic overlay seated on real streets. Filled from data/areas.json on load; this default covers the first paint. */
 export const DEMO_AREAS: DemoArea[] = [
@@ -20,8 +20,12 @@ export const DEMO_AREAS: DemoArea[] = [
   { id: 'bristol', name: 'Bristol', centre: [-2.5945, 51.455], windows: [[-2.612, 51.443, -2.568, 51.468]], authority: 'Bristol City Council', files: {} },
 ]
 
+export interface ParcelProps { id: string; street: string; along: number; side: 1 | -1; postcode?: string | null; locality?: string | null; pois: number; areaSqm: number; height?: number | null; levels?: number | null }
+
 export interface RealLayers {
   areas: DemoArea[]
+  /** Real building footprints prepared as parcel shapes for the demo titles (scripts/data/build_parcels.py). */
+  parcels?: FeatureCollection<Polygon, ParcelProps>
   roads: FeatureCollection<LineString | MultiLineString, RoadProps>
   places: FeatureCollection<Point, PlaceProps>
   traffic: RealTraffic[]
@@ -65,14 +69,17 @@ export function loadRealLayers(): Promise<RealLayers | undefined> {
       let traffic: RealTraffic[] = []
       let pricePaid: PricePaidRow[] = []
       const postcodes: RealLayers['postcodes'] = { postcodes: {}, sectors: {} }
+      const parcels: NonNullable<RealLayers['parcels']> = { type: 'FeatureCollection', features: [] }
       for (const a of areas) {
-        const [r, p, t, pp, pc] = await Promise.all([
+        const [r, p, t, pp, pc, pa] = await Promise.all([
           a.files.roads ? get<RealLayers['roads']>(a.files.roads) : undefined,
           a.files.places ? get<RealLayers['places']>(a.files.places) : undefined,
           a.files.traffic ? get<RealTraffic[]>(a.files.traffic) : undefined,
           a.files.pricePaid ? get<PricePaidRow[]>(a.files.pricePaid) : undefined,
           a.files.postcodes ? get<RealLayers['postcodes']>(a.files.postcodes) : undefined,
+          a.files.parcels ? get<NonNullable<RealLayers['parcels']>>(a.files.parcels).catch(() => undefined) : undefined,
         ])
+        if (pa) parcels.features.push(...pa.features)
         if (r) roads.features.push(...r.features)
         if (p) places.features.push(...p.features)
         if (t) traffic = traffic.concat(t)
@@ -83,7 +90,7 @@ export function loadRealLayers(): Promise<RealLayers | undefined> {
         }
       }
       if (!roads.features.length) throw new Error('no road data')
-      return { areas, roads, places, traffic, pricePaid, postcodes, fetchedAt: new Date().toISOString() }
+      return { areas, roads, places, traffic, pricePaid, postcodes, parcels: parcels.features.length ? parcels : undefined, fetchedAt: new Date().toISOString() }
     } catch (e) {
       console.info('Real open data not available, using synthetic streets:', (e as Error).message)
       return undefined

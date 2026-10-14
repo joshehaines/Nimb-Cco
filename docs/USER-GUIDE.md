@@ -8,6 +8,9 @@ Use the search bar at the top (or press ⌘K / Ctrl+K). It accepts an address, p
 
 ## Reading the map
 
+The basemap picker at the top right of the map offers Streets, Minimal (grey), Dark, Satellite, Hybrid (imagery with roads and labels) and, once an Ordnance Survey key is set in Settings, OS Light and OS Road. Title outlines are plain by default and draw from zoom 14.5; **Title colouring** in the layer panel switches them to proprietor type or tenure, and a dashed red outline marks a distress signal from zoom 16. In the demo areas the titles follow the real building footprints.
+
+
 - **Ownership titles** are shaded by proprietor type: blue for companies, grey for private individuals, green for local authorities, pink for charities, purple for overseas companies. A red outline means the occupier or owner has a distress signal.
 - **Trading businesses** are dots coloured by sector. A red halo marks distress. Zoom in for names.
 - **Planning applications** are dots coloured by status (blue pending, green approved, red refused).

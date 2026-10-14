@@ -30,7 +30,7 @@ If basemap tiles are blocked by the network the map falls back to a blank canvas
 | Screen | Purpose | Nimbus equivalent |
 |---|---|---|
 | Dashboard | KPIs, latest alerts, distressed operators, lease expiries, sector mix, My Sites | none |
-| Map | Ownership polygons by proprietor type, trading businesses by sector with distress halo, planning points by status, DfT traffic pins sized by AADF, footfall hex heatmap, constraints (flood, conservation, listed, Green Belt, Article 4, TPO), aerial toggle, hover popups, click-to-open | Map, layers |
+| Map | Basemap picker (Streets, Minimal, Dark, Satellite, Hybrid, OS Light and OS Road with a key), ownership titles on real building footprints in the demo areas with plain, proprietor-type or tenure colouring, trading businesses by sector with distress halo, planning points by status, DfT traffic pins sized by AADF, footfall hex heatmap, constraints (flood, conservation, listed, Green Belt, Article 4, TPO), aerial toggle, hover popups, click-to-open | Map, layers |
 | Info panel | Overview, Ownership (CCOD, charges, register and plan ordering at £7), Leases & docs (registered leases, lease purchase and LLM-extracted rent/breaks/reviews, document store), Operator (Companies House plus every sector register record), Planning (on title and within 250 m), Rates & EPC (VOA summary valuation floors, MEES), Mobility (footfall cells, DfT counts with sparklines), Constraints | Info panel |
 | Sourcing | Strategy presets, 15 filters across sectors, tenure, owner type, RV, area, EPC, lease expiry, distress signals, regulator rating, constraints exclusion, planning activity; results table with CSV export and bulk watch | Site sourcing |
 | My Sites | Watchlist with projects and notes, related alerts | My Sites |

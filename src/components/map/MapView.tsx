@@ -3,31 +3,44 @@ import { DATA_BASE, DEMO_AREAS } from '@/data/real'
 import maplibregl, { type Map as MLMap, type MapMouseEvent, type StyleSpecification } from 'maplibre-gl'
 import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
-import { useUi } from '@/store/ui'
+import { useUi, type BasemapId, type TitleColour } from '@/store/ui'
+import { BasemapControl } from './BasemapControl'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 
 const osKey = () => useUi.getState().osKey || (import.meta.env.VITE_OS_API_KEY as string | undefined)
 
-function baseStyle(satellite: boolean, dark = false): string | StyleSpecification {
-  if (satellite) {
+const SAT_SOURCE = { type: 'raster' as const, tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics', maxzoom: 19 }
+const REF_SOURCE = { type: 'raster' as const, tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 19 }
+const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf'
+
+/** Resolve the user's basemap choice; "Streets" follows the light or dark theme. */
+export function effectiveBasemap(b: BasemapId, dark: boolean): BasemapId {
+  if ((b === 'os-light' || b === 'os-road') && !osKey()) return dark ? 'dark' : 'light'
+  if (b === 'light' && dark) return 'dark'
+  return b
+}
+export const isImagery = (b: BasemapId) => b === 'satellite' || b === 'hybrid'
+
+function baseStyle(basemap: BasemapId, dark = false): string | StyleSpecification {
+  const b = effectiveBasemap(basemap, dark)
+  if (b === 'satellite' || b === 'hybrid') {
     return {
       version: 8,
-      sources: {
-        sat: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' },
-      },
-      layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
+      glyphs: GLYPHS,
+      sources: b === 'hybrid' ? { sat: SAT_SOURCE, ref: { ...REF_SOURCE, tiles: [REF_SOURCE.tiles[0]] }, roads: { ...REF_SOURCE, tiles: [REF_SOURCE.tiles[1]] } } : { sat: SAT_SOURCE },
+      layers: b === 'hybrid' ? [{ id: 'sat', type: 'raster', source: 'sat' }, { id: 'roads', type: 'raster', source: 'roads', paint: { 'raster-opacity': 0.9 } }, { id: 'ref', type: 'raster', source: 'ref' }] : [{ id: 'sat', type: 'raster', source: 'sat' }],
     }
   }
-  const OS_KEY = osKey()
-  if (OS_KEY) {
+  if (b === 'os-light' || b === 'os-road') {
     return {
       version: 8,
-      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-      sources: { os: { type: 'raster', tiles: [`https://api.os.uk/maps/raster/v1/zxy/${dark ? 'Road_3857' : 'Light_3857'}/{z}/{x}/{y}.png?key=${OS_KEY}`], tileSize: 256, attribution: 'Contains OS data © Crown copyright and database right 2026', maxzoom: 20 } },
+      glyphs: GLYPHS,
+      sources: { os: { type: 'raster', tiles: [`https://api.os.uk/maps/raster/v1/zxy/${b === 'os-road' ? 'Road_3857' : 'Light_3857'}/{z}/{x}/{y}.png?key=${osKey()}`], tileSize: 256, attribution: 'Contains OS data © Crown copyright and database right 2026', maxzoom: 20 } },
       layers: [{ id: 'os', type: 'raster', source: 'os' }],
     }
   }
-  return dark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/liberty'
+  if (b === 'minimal') return 'https://tiles.openfreemap.org/styles/positron'
+  return b === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/liberty'
 }
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const
@@ -74,10 +87,10 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
-  map.addLayer({ id: 'titles-fill', type: 'fill', source: 'titles', paint: { 'fill-color': ownerMatch, 'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.4, dk ? 0.14 : 0.1] } })
-  map.addLayer({ id: 'titles-line', type: 'line', source: 'titles', paint: { 'line-color': ownerMatch, 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 17, 1], 'line-opacity': 0.85 } })
-  map.addLayer({ id: 'titles-distress', type: 'line', source: 'titles', filter: ['==', ['get', 'distress'], true], paint: { 'line-color': '#be123c', 'line-width': 1.5, 'line-opacity': 0.9 } })
-  map.addLayer({ id: 'titles-selected', type: 'line', source: 'titles', filter: ['==', ['get', 'titleNumber'], ''], paint: { 'line-color': '#0f2340', 'line-width': 3 } })
+  map.addLayer({ id: 'titles-fill', type: 'fill', source: 'titles', minzoom: 14.5, paint: { 'fill-color': '#2f64b4', 'fill-opacity': 0.07 } })
+  map.addLayer({ id: 'titles-line', type: 'line', source: 'titles', minzoom: 14.5, paint: { 'line-color': '#5b7db8', 'line-width': ['interpolate', ['linear'], ['zoom'], 14.5, 0.3, 16, 0.8, 18, 1.4], 'line-opacity': 0.9 }, layout: { 'line-join': 'round' } })
+  map.addLayer({ id: 'titles-distress', type: 'line', source: 'titles', minzoom: 15.5, filter: ['==', ['get', 'distress'], true], paint: { 'line-color': '#be123c', 'line-width': 1.3, 'line-dasharray': [2, 1.5], 'line-opacity': 0.9 } })
+  map.addLayer({ id: 'titles-selected', type: 'line', source: 'titles', filter: ['==', ['get', 'titleNumber'], ''], paint: { 'line-color': '#0f2340', 'line-width': 2.5 } })
   map.addLayer({ id: 'constraints-points', type: 'circle', source: 'constraints', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': constraintMatch, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } })
   map.addLayer({
     id: 'planning-points',
@@ -111,7 +124,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
     paint: { 'text-color': '#fff' },
   })
   map.addLayer({ id: 'pricePaid-points', type: 'circle', source: 'pricePaid', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 3, 2000000, 9, 20000000, 14], 'circle-color': ['case', ['==', ['get', 'type'], 'O'], '#7c3aed', '#94a3b8'], 'circle-opacity': 0.6, 'circle-stroke-color': dk ? '#161b26' : '#fff', 'circle-stroke-width': 1 } })
-  map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 15, 3.5, 18, 6], 'circle-color': sectorMatch, 'circle-opacity': 0.95, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 1 } })
+  map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', minzoom: 13, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 15, 2.5, 17, 4.5, 19, 6], 'circle-color': sectorMatch, 'circle-opacity': 0.9, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 0.8 } })
   if (withLabels) map.addLayer({ id: 'poi-labels', type: 'symbol', source: 'poi', minzoom: 16.5, layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': dk ? '#c3cad6' : '#4b5563', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'comparables-points', type: 'circle', source: 'comparables', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 5, 5000000, 13], 'circle-color': sectorMatch, 'circle-opacity': 0.55, 'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 } })
   map.addLayer({ id: 'businesses-highlight', type: 'circle', source: 'businesses', filter: ['in', ['get', 'businessId'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 16], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
@@ -174,14 +187,14 @@ export function MapView() {
     if (!containerRef.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: baseStyle(false, isDark()),
+      style: baseStyle(useUi.getState().basemap, isDark()),
       center: [initialView.current.lon, initialView.current.lat],
       zoom: initialView.current.zoom,
       attributionControl: { compact: true },
       maxZoom: 20,
     })
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'bottom-right')
-    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left')
+    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right')
     mapRef.current = map
 
     const load = async () => {
@@ -217,6 +230,7 @@ export function MapView() {
       // Symbol layers need glyphs; on the offline fallback a failed glyph fetch would drop whole tiles, so skip labels there.
       addDataLayers(map, !basemapFailedRef.current)
       applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter, basemapFailedRef.current)
+      applyTitleStyle(map, useUi.getState().titleColour, isDark(), isImagery(effectiveBasemap(useUi.getState().basemap, isDark())) && !basemapFailedRef.current)
       map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', useUi.getState().highlightIds]])
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
       else scheduleLoad()
@@ -307,19 +321,26 @@ export function MapView() {
     map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', highlightIds]])
   }, [highlightIds])
 
-  // Basemap switch (satellite toggle or theme change)
+  // Basemap switch (picker or theme change) and title colouring
   const theme = useUi((s) => s.theme)
-  const satRef = useRef(layers.satellite)
+  const basemap = useUi((s) => s.basemap)
+  const titleColour = useUi((s) => s.titleColour)
+  const baseRef = useRef(basemap)
   const themeRef = useRef(theme)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    if (satRef.current === layers.satellite && themeRef.current === theme) return
-    satRef.current = layers.satellite
+    if (baseRef.current === basemap && themeRef.current === theme) return
+    baseRef.current = basemap
     themeRef.current = theme
     // Give the theme hook a tick to update the html class before reading it.
-    window.setTimeout(() => map.setStyle((basemapFailed && !layers.satellite ? blankStyle(isDark()) : baseStyle(layers.satellite, isDark())) as never), 50)
-  }, [layers.satellite, theme, basemapFailed])
+    window.setTimeout(() => map.setStyle((basemapFailed && !isImagery(basemap) ? blankStyle(isDark()) : baseStyle(basemap, isDark())) as never), 50)
+  }, [basemap, theme, basemapFailed])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    applyTitleStyle(map, titleColour, isDark(), isImagery(effectiveBasemap(basemap, isDark())) && !basemapFailed)
+  }, [titleColour, basemap, theme, basemapFailed])
 
   // Selection highlight
   useEffect(() => {
@@ -337,12 +358,14 @@ export function MapView() {
   // Fly-to requests
   useEffect(() => {
     if (!flyTo || !mapRef.current) return
-    mapRef.current.flyTo({ center: [flyTo.lon, flyTo.lat], zoom: flyTo.zoom ?? Math.max(mapRef.current.getZoom(), 16.5), speed: 1.4 })
+    // Short hops animate; long ones (another town) cut to the destination so the data is on screen at once.
+    mapRef.current.flyTo({ center: [flyTo.lon, flyTo.lat], zoom: flyTo.zoom ?? Math.max(mapRef.current.getZoom(), 16.5), speed: 1.4, maxDuration: 1800 })
   }, [flyTo])
 
   return (
     <>
       <div ref={containerRef} className="h-full w-full" />
+      <BasemapControl hasOsKey={!!osKey()} />
       {basemapFailed && (
         <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-center text-[11px] text-amber-900 dark:text-amber-200 shadow">
           Street tiles blocked on this network; showing data layers over a schematic street outline.
@@ -350,6 +373,30 @@ export function MapView() {
       )}
     </>
   )
+}
+
+/** Title colouring: neutral by default; by proprietor type or tenure on request; white outlines over imagery. */
+function applyTitleStyle(map: MLMap, mode: TitleColour, dark: boolean, imagery: boolean) {
+  if (!map.getLayer('titles-fill')) return
+  const tenureMatch = ['match', ['get', 'tenure'], 'Freehold', '#2f64b4', 'Leasehold', '#c2410c', '#64748b'] as unknown as maplibregl.ExpressionSpecification
+  const hover = (base: number) => ['case', ['boolean', ['feature-state', 'hover'], false], Math.min(0.45, base + 0.25), base] as unknown as maplibregl.ExpressionSpecification
+  if (mode === 'owner') {
+    map.setPaintProperty('titles-fill', 'fill-color', ownerMatch)
+    map.setPaintProperty('titles-fill', 'fill-opacity', hover(imagery ? 0.22 : 0.16))
+    map.setPaintProperty('titles-line', 'line-color', ownerMatch)
+    map.setPaintProperty('titles-line', 'line-opacity', 0.95)
+  } else if (mode === 'tenure') {
+    map.setPaintProperty('titles-fill', 'fill-color', tenureMatch)
+    map.setPaintProperty('titles-fill', 'fill-opacity', hover(imagery ? 0.22 : 0.14))
+    map.setPaintProperty('titles-line', 'line-color', tenureMatch)
+    map.setPaintProperty('titles-line', 'line-opacity', 0.95)
+  } else {
+    map.setPaintProperty('titles-fill', 'fill-color', imagery ? '#ffffff' : dark ? '#9db7e6' : '#2f64b4')
+    map.setPaintProperty('titles-fill', 'fill-opacity', hover(imagery ? 0.1 : dark ? 0.1 : 0.07))
+    map.setPaintProperty('titles-line', 'line-color', imagery ? '#ffffff' : dark ? '#8aa6d8' : '#5b7db8')
+    map.setPaintProperty('titles-line', 'line-opacity', imagery ? 0.8 : 0.9)
+  }
+  map.setPaintProperty('titles-selected', 'line-color', imagery || dark ? '#fde047' : '#0f2340')
 }
 
 function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[], schematic = false) {

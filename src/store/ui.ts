@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 import type { Alert, AuditEvent, BoundsQuery, Campaign, CrmRecord, PipelineStage, Sector, SourcingFilters, WatchItem } from '@/data/types'
 import { DEFAULT_FILTERS } from '@/data/types'
 
+export type BasemapId = 'light' | 'minimal' | 'dark' | 'satellite' | 'hybrid' | 'os-light' | 'os-road'
+export type TitleColour = 'none' | 'owner' | 'tenure'
 export type LayerKey = 'titles' | 'businesses' | 'poi' | 'buildings' | 'pricePaid' | 'comparables' | 'planning' | 'traffic' | 'footfall' | 'constraints' | 'satellite'
 export type Selected =
   | { type: 'title'; id: string }
@@ -42,6 +44,8 @@ export interface UiState {
   crmTemplates: Record<string, Record<string, Record<string, string>>>
   tourDone: boolean
   osKey?: string
+  basemap: BasemapId
+  titleColour: TitleColour
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
   setConstraintKinds: (k: string[]) => void
@@ -70,6 +74,8 @@ export interface UiState {
   setCrmTemplate: (preset: string, object: string, field: string, header: string) => void
   setTourDone: (v: boolean) => void
   setOsKey: (k?: string) => void
+  setBasemap: (b: BasemapId) => void
+  setTitleColour: (c: TitleColour) => void
 }
 
 export interface AlertRules {
@@ -112,7 +118,7 @@ export const useUi = create<UiState>()(
       hovered: null,
       filters: DEFAULT_FILTERS,
       showFilters: false,
-      mapView: { lon: -1.5455, lat: 52.287, zoom: 14.2 },
+      mapView: { lon: -1.5365, lat: 52.2888, zoom: 15.7 },
       watchlist: [],
       projects: ['Midlands care disposals', 'Pubco lease expiries 2027'],
       highlightIds: [],
@@ -124,6 +130,8 @@ export const useUi = create<UiState>()(
       crmTemplates: {},
       tourDone: false,
       osKey: undefined,
+      basemap: 'light',
+      titleColour: 'none',
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
@@ -153,10 +161,12 @@ export const useUi = create<UiState>()(
       setCrmTemplate: (preset, object, field, header) => set((s) => ({ crmTemplates: { ...s.crmTemplates, [preset]: { ...(s.crmTemplates[preset] ?? {}), [object]: { ...((s.crmTemplates[preset] ?? {})[object] ?? {}), [field]: header } } } })),
       setTourDone: (tourDone) => set({ tourDone }),
       setOsKey: (osKey) => set({ osKey: osKey || undefined }),
+      setBasemap: (basemap) => set({ basemap }),
+      setTitleColour: (titleColour) => set({ titleColour }),
     }),
     {
       name: 'cpi-ui',
-      partialize: (s) => ({ audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
+      partialize: (s) => ({ basemap: s.basemap, titleColour: s.titleColour, audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UiState>
@@ -174,6 +184,8 @@ export const useUi = create<UiState>()(
           crmTemplates: p.crmTemplates && typeof p.crmTemplates === 'object' ? p.crmTemplates : {},
           crmRecords: [],
           tourDone: !!p.tourDone,
+          basemap: p.basemap ?? 'light',
+          titleColour: p.titleColour ?? 'none',
           theme: p.theme === 'light' || p.theme === 'dark' ? p.theme : 'system',
           campaigns: Array.isArray(p.campaigns) ? p.campaigns : [],
           alertRules: { ...DEFAULT_ALERT_RULES, ...(p.alertRules ?? {}), channels: { ...DEFAULT_ALERT_RULES.channels, ...(p.alertRules?.channels ?? {}) } },
