@@ -19,7 +19,7 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![Export to CRM with the licence gate](crm-export.png) | ![Audit log](audit.png) |
 | ![Bristol demo area on real streets](bristol.png) | ![Branded site report](report-frame.png) |
 | ![Guided tour](tour.png) | ![Map landing: title plans only, no pins](map-landing.png) |
-| ![Layer tick boxes: real businesses, price paid and traffic ticked](map-layers-ticked.png) | |
+| ![Layer tick boxes: real businesses, price paid and traffic ticked](map-layers-ticked.png) | ![Real businesses centred on their footprints, roads clear](map-real-businesses.png) |
 | ![Basemap picker](basemaps.png) | ![Title colouring by proprietor type](title-colouring.png) |
 
 Full printable site report: [report.png](report.png)

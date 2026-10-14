@@ -8,7 +8,8 @@ import type { FeatureCollection, LineString, MultiLineString, Point, Polygon } f
  * until the licensed feeds are connected.
  */
 export interface RoadProps { id: string; name?: string; class: string; major: boolean; source: string }
-export interface PlaceProps { id: string; name?: string; category: string; sector: string; confidence: number; address?: string; postcode?: string; locality?: string; website?: string; phone?: string; brand?: string; source: string }
+/** `placed` says where the pin sits: 'building' = centre of the title/building footprint (scripts/data/snap_places.py), 'listed' = the point the listing gave. `orig` keeps the listed point when the pin moved. */
+export interface PlaceProps { id: string; name?: string; category: string; sector: string; confidence: number; address?: string; postcode?: string; locality?: string; website?: string; phone?: string; brand?: string; source: string; placed?: 'building' | 'listed'; orig?: [number, number] }
 export interface RealTraffic { countPointId: string; roadName: string; roadType: 'Major' | 'Minor'; roadCategory: string; startJunction?: string | null; endJunction?: string | null; localAuthority: string; lon: number; lat: number; year: number; method: 'Counted' | 'Estimated'; aadf: number; cars: number; lgv: number; hgv: number; buses: number; pedalCycles: number; history: { year: number; aadf: number }[] }
 export interface PricePaidRow { id: string; price: number; date: string; postcode: string; type: 'D' | 'S' | 'T' | 'F' | 'O'; newBuild: boolean; tenure: 'Freehold' | 'Leasehold'; address: string; locality: string; town: string; category: 'A' | 'B'; lon: number | null; lat: number | null; geocode: 'postcode' | 'sector' | null }
 

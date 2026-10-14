@@ -10,6 +10,7 @@ import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/compon
 import { SECTOR_COLOURS, SECTOR_ICON } from '@/lib/sectors'
 import { gbp, num, sqm, sqft, dateShort, ago, monthsUntil, pct } from '@/lib/format'
 import { dealScore } from '@/lib/dealScore'
+import { haversineM } from '@/lib/geo'
 import { logAudit } from '@/lib/audit'
 import { mock } from '@/data'
 
@@ -578,6 +579,7 @@ function PoiDetail({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title="What the source records">
           <KV rows={[['Category', `${label} (${p.sector})`], ['Brand', p.brand ?? '—'], ['Phone', p.phone ?? '—'], ['Postcode', p.postcode ?? '—'], ['Source confidence', `${Math.round(p.confidence * 100)}%`]]} />
+          {p.placed === 'building' && <p className="mt-2 text-[11px] text-ink-500">Pin placed at the centre of the building footprint{p.orig ? `; the listing's own point is ${Math.round(haversineM(p.orig, p.location.coordinates))} m away, on the street frontage` : ''}.</p>}
           <p className="mt-2 text-[11px] text-ink-500">Overture Maps places, CDLA-Permissive-2.0. Ownership, operator, regulator and rating data are not yet connected for real businesses; the Ownership and Operator tabs will populate once HM Land Registry, Companies House and the sector registers are licensed.</p>
         </Section>
         <Section title={`Same sector within 400 m (${nearby.length})`}>
