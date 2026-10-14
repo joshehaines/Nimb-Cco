@@ -100,6 +100,14 @@ Pushes to `main` build, test and publish the site to the `gh-pages` branch, whic
 
 `public/data/warwick/` holds genuine open data collected by `scripts/data/` (see its README): Overture Maps roads, places and buildings for Warwick district, DfT traffic counts with history, and HM Land Registry price paid 2019 to 2025. The synthetic demo is seated on it: title parcels follow the real streets, demo businesses sit beside real ones of the same sector, traffic points are real, and three map layers (real businesses, buildings, price paid) show the collected data as is. Ownership, operators and registers remain synthetic until the licensed feeds are connected.
 
+### National coverage
+
+`public/data/gb/` holds gzipped 0.5° tiles for the whole of Great Britain: 654,420 real places in Christie sectors, 149,153 non-residential HM Land Registry transactions since 2023 and all 46,754 DfT count points. The map loads the cells in view, so the real-business, price-paid and traffic layers, the catchment supply counts and the price-paid evidence on the Comparables page work anywhere in the country. Only the Warwick district has the synthetic demo overlay (titles, operators, registers).
+
+### Backend
+
+`api/` is a FastAPI service over PostGIS with the collected data loaded by `ingest.open_data` and parsers for every bulk source (`api/ingest/parsers`, tested against fixtures). `docker compose --profile load up loader` creates the schema and loads `public/data`; `docker compose up` then serves the UI, the API and the database. See `api/README.md`.
+
 ## Next: data collection (phase 2)
 
 See `docs/DATA-COLLECTION-PLAN.md` for the source-by-source plan, effort and the decisions needed before ingestion starts.

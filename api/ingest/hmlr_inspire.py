@@ -6,6 +6,7 @@ Notes: Monthly GML zip per local authority. OGL with OS attribution. Load into t
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,19 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "hmlr_inspire")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("hmlr_inspire.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    """Upsert INSPIRE polygons as titles keyed by INSPIRE id until the CCOD title number is known."""
+    from .parsers import inspire
+    from ._upsert import run
+
+    n = 0
+    for rec in inspire.parse(path):
+        await run(conn, """insert into titles (title_number, inspire_id, tenure, geom, area_sqm, source, licence)
+                     values ($1,$2,'Freehold',ST_SetSRID(ST_GeomFromGeoJSON($3),4326),ST_Area(ST_SetSRID(ST_GeomFromGeoJSON($3),4326)::geography),$4,$5)
+                     on conflict (title_number) do update set geom=excluded.geom, area_sqm=excluded.area_sqm, fetched_at=now()""",
+            f"INSPIRE{rec['inspire_id']}", rec["inspire_id"], json.dumps(rec["geometry"]), rec["source"], rec["licence"])
+        n += 1
+    return n
 
 
 def diff(conn) -> int:

@@ -6,6 +6,7 @@ Notes: Entity API by dataset (planning-application, conservation-area, article-4
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,17 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "planning_pdg")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("planning_pdg.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    from .parsers import planning_data
+    from ._upsert import run
+
+    n = 0
+    for rec in planning_data.parse(path):
+        await run(conn, """insert into constraints (id, kind, name, grade, geom, source, licence) values ($1,$2,$3,$4,ST_SetSRID(ST_GeomFromGeoJSON($5),4326),$6,$7)
+                     on conflict (id) do update set kind=excluded.kind, name=excluded.name, grade=excluded.grade, geom=excluded.geom, fetched_at=now()""",
+            rec["id"], rec["kind"], rec["name"], rec["grade"], json.dumps(rec["geometry"]), rec["source"], rec["licence"])
+        n += 1
+    return n
 
 
 def diff(conn) -> int:

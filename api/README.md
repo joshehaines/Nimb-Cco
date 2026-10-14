@@ -10,14 +10,25 @@ api/
   requirements.txt
 ```
 
+## What is implemented
+
+- `app/main.py`: search, map layers, titles, leases, businesses, plus the collected open data: `/api/places`, `/api/places/{id}`, `/api/price-paid`, `/api/price-paid/{id}`, `/api/traffic`, `/api/map/open-data`, `/api/admin/sources`, `/api/health`.
+- `ingest/parsers/`: pure parsers for CCOD/OCOD, INSPIRE GML (reprojected from EPSG:27700), CQC (API JSON and weekly CSV), Ofsted, FSA FHRS XML, NHSBSA list and dispensing, VOA list entries and summary valuations, EPC (domestic and non-domestic), Companies House BasicCompanyData, planning.data.gov.uk entities, HMLR price paid and DfT AADF. Each ingest module's `load()` upserts through them.
+- `ingest/open_data.py`: loads `public/data/warwick` and the national tiles into `places`, `roads`, `buildings`, `traffic_counts`, `price_paid` and `postcode_centroids`.
+- `tests/`: 32 tests. Parsers run against fixtures in `tests/fixtures` (fictional records in the published layouts); API handlers run against a scripted fake pool; loaders run against a recording connection. Integration against a live PostGIS needs Docker (`docker compose up db`), which was not available where this was written, so run `pytest` plus one manual load before relying on the SQL.
+
 ## Run
 
 ```bash
-docker compose up db                      # PostGIS on 5432 (from repo root compose file)
+docker compose --profile load up loader   # schema + collected open data, then exits
+docker compose up                         # web :8080, api :8000, db :5432
+# or locally
 pip install -r api/requirements.txt
 psql postgresql://cpi:cpi@localhost:5432/cpi -f api/schema.sql
+python -m ingest.open_data --public ../public/data [--ppd-dir raw/ppd --dft raw/dft_traffic_counts_aadf.csv]
 uvicorn app.main:app --app-dir api --reload --port 8000
-VITE_DATA_PROVIDER=http npm run dev       # UI against the API
+cd api && python -m pytest -q             # 32 tests, no database needed
+VITE_DATA_PROVIDER=http npm run dev       # UI against the API (synthetic entities 501 until their feeds load)
 ```
 
 ## Ingestion jobs (`api/ingest`)

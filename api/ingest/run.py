@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
+import inspect
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,8 +25,8 @@ async def main() -> None:
     status, records, note = "ok", None, None
     try:
         path = mod.fetch(Path(args.workdir))
-        records = mod.load(conn, path)
-        raised = mod.diff(conn)
+        records = await mod.load(conn, path) if inspect.iscoroutinefunction(mod.load) else mod.load(conn, path)
+        raised = await mod.diff(conn) if inspect.iscoroutinefunction(mod.diff) else mod.diff(conn)
         note = f"{records} records, {raised} alerts"
     except NotImplementedError as e:
         status, note = "not-configured", str(e)

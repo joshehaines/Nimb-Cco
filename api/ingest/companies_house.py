@@ -6,6 +6,7 @@ Notes: BasicCompanyData monthly zip; streaming API for live changes; REST for of
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,19 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "companies_house")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("companies_house.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    from .parsers import companies_house
+    from ._upsert import run
+
+    n = 0
+    for rec in companies_house.parse(path):
+        await run(conn, """insert into companies (company_number, name, status, incorporated, registered_address, sic_codes, sector, accounts_overdue, accounts_next_due, charges_outstanding, source, licence)
+                     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (company_number) do update set name=excluded.name, status=excluded.status,
+                     registered_address=excluded.registered_address, sic_codes=excluded.sic_codes, sector=excluded.sector, accounts_overdue=excluded.accounts_overdue,
+                     accounts_next_due=excluded.accounts_next_due, charges_outstanding=excluded.charges_outstanding, fetched_at=now()""",
+            rec["company_number"], rec["name"], rec["status"], rec["incorporated"], rec["registered_address"], rec["sic_codes"], rec["sector"], rec["accounts_overdue"], rec["accounts_next_due"], rec["charges_outstanding"], rec["source"], rec["licence"])
+        n += 1
+    return n
 
 
 def diff(conn) -> int:

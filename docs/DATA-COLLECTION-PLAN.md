@@ -26,6 +26,8 @@ Gathered without any account from hosts that were reachable from the build envir
 | Traffic counts | DfT Road Traffic Statistics AADF (OGL v3) | 80 count points in the area with 2000 to 2025 history; 46,754 points nationally in the processed output | Traffic layer and mobility tab now show real counts |
 | Price paid | HM Land Registry Price Paid Data (OGL v3) | 19,834 Warwick district transactions 2019 to 2025 (957 non-residential); 411,186 non-residential transactions nationally in the processed output | Price-paid map layer, sales near a site, sale detail panel |
 
+Nationally (`public/data/gb`, loaded per 0.5° cell): 654,420 Overture places in Christie sectors, 149,153 non-residential price paid transactions since 2023 and all 46,754 DfT count points, so the real layers, catchment supply and price-paid evidence work anywhere in Great Britain.
+
 Positions for price paid are approximate: postcode centroids derived from place addresses (1,770 postcodes) or, failing that, the postcode sector. AddressBase or ONS postcode centroids will replace this once licensed.
 
 Still synthetic in the demo: ownership polygons and proprietors (INSPIRE and CCOD hosts unreachable), Companies House, CQC, Ofsted, FSA, NHSBSA, VOA, EPC, planning, footfall and demographics. Each of those hosts returned no route from the collection environment; they are open or account-based downloads that take minutes from an office machine and drop straight into `api/ingest/`.

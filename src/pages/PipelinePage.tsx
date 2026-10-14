@@ -79,9 +79,9 @@ export function PipelinePage() {
           <h1 className="text-lg font-semibold">Deal pipeline</h1>
           <p className="text-xs text-ink-500">Drag cards between stages. Each stage prints as a client-ready stage report.</p>
         </div>
-        <Select value={filterOffice} onChange={(e) => setFilterOffice(e.target.value)} className="w-auto py-1 text-xs"><option value="">All offices</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
-        <Select value={filterSector} onChange={(e) => setFilterSector(e.target.value)} className="w-auto py-1 text-xs"><option value="">All sectors</option>{SECTORS.map((s) => <option key={s}>{s}</option>)}</Select>
-        <Select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-auto py-1 text-xs"><option value="">All projects</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
+        <Select aria-label="Filter by office" value={filterOffice} onChange={(e) => setFilterOffice(e.target.value)} className="w-auto py-1 text-xs"><option value="">All offices</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
+        <Select aria-label="Filter by sector" value={filterSector} onChange={(e) => setFilterSector(e.target.value)} className="w-auto py-1 text-xs"><option value="">All sectors</option>{SECTORS.map((s) => <option key={s}>{s}</option>)}</Select>
+        <Select aria-label="Filter by project" value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-auto py-1 text-xs"><option value="">All projects</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="primary" onClick={() => setAdding(!adding)}><Plus size={14} /> Add site</Button>
         </div>
@@ -139,7 +139,7 @@ export function PipelinePage() {
                         {b && b.distressFlags.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{b.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div>}
                         {editing === w.id ? (
                           <div className="mt-2 space-y-1.5 text-xs">
-                            <Select value={w.office ?? ''} onChange={(e) => updateWatch(w.id, { office: e.target.value || undefined })} className="py-1 text-xs"><option value="">Office</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
+                            <Select aria-label="Office" value={w.office ?? ''} onChange={(e) => updateWatch(w.id, { office: e.target.value || undefined })} className="py-1 text-xs"><option value="">Office</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
                             <Input placeholder="Assignee" value={w.assignee ?? ''} onChange={(e) => updateWatch(w.id, { assignee: e.target.value })} className="py-1 text-xs" />
                             <div className="grid grid-cols-2 gap-1.5">
                               <Input type="number" placeholder="Guide price £" value={w.guidePrice ?? ''} onChange={(e) => updateWatch(w.id, { guidePrice: e.target.value ? Number(e.target.value) : undefined })} className="py-1 text-xs" />
@@ -147,7 +147,7 @@ export function PipelinePage() {
                             </div>
                             <Input placeholder="Next action" value={w.nextAction ?? ''} onChange={(e) => updateWatch(w.id, { nextAction: e.target.value })} className="py-1 text-xs" />
                             <Input type="date" value={w.nextActionDate ?? ''} onChange={(e) => updateWatch(w.id, { nextActionDate: e.target.value || undefined })} className="py-1 text-xs" />
-                            <Select value={w.project ?? ''} onChange={(e) => updateWatch(w.id, { project: e.target.value || undefined })} className="py-1 text-xs"><option value="">No project</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
+                            <Select aria-label="Project" value={w.project ?? ''} onChange={(e) => updateWatch(w.id, { project: e.target.value || undefined })} className="py-1 text-xs"><option value="">No project</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
                             <textarea placeholder="Notes" value={w.notes ?? ''} onChange={(e) => updateWatch(w.id, { notes: e.target.value })} className="input py-1 text-xs" rows={2} />
                             <div className="flex justify-between"><button className="text-rose-700 dark:text-rose-300 hover:underline" onClick={() => removeWatch(w.id)}>Remove</button><button className="text-brand-700 hover:underline" onClick={() => setEditing(null)}>Done</button></div>
                           </div>

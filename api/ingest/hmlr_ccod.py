@@ -6,6 +6,7 @@ Notes: Monthly full CSV plus change-only CSV, API key required. Columns: Title N
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,26 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "hmlr_ccod")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("hmlr_ccod.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    """Upsert titles and proprietors from a CCOD/OCOD full or change-only file."""
+    from .parsers import ccod
+    from ._upsert import run
+
+    n = 0
+    for rec in ccod.parse(path):
+        if rec.get("change_indicator") == "D":
+            await run(conn, "delete from proprietors where title_number = $1", rec["title_number"])
+            continue
+        await run(conn, """insert into titles (title_number, tenure, address, postcode, price_paid, date_proprietor_added, source, licence)
+                     values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (title_number) do update set tenure=excluded.tenure, address=excluded.address,
+                     postcode=excluded.postcode, price_paid=excluded.price_paid, date_proprietor_added=excluded.date_proprietor_added, fetched_at=now()""",
+            rec["title_number"], rec["tenure"], rec["address"], rec["postcode"], rec["price_paid"], rec["date_proprietor_added"], rec["source"], rec["licence"])
+        await run(conn, "delete from proprietors where title_number = $1", rec["title_number"])
+        for p in rec["proprietors"]:
+            await run(conn, "insert into proprietors (title_number, seq, name, category, company_number, address, redacted) values ($1,$2,$3,$4,$5,$6,false)",
+                rec["title_number"], p["seq"], p["name"], p["category"], p["company_number"], p["address"])
+        n += 1
+    return n
 
 
 def diff(conn) -> int:

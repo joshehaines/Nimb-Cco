@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FHRSEstablishment>
+  <Header><ExtractDate>2026-10-01</ExtractDate><ItemCount>2</ItemCount><ReturnCode>Success</ReturnCode></Header>
+  <EstablishmentCollection>
+    <EstablishmentDetail>
+      <FHRSID>1234567</FHRSID><LocalAuthorityBusinessID>PI/000012345</LocalAuthorityBusinessID>
+      <BusinessName>The Copper Kettle</BusinessName><BusinessType>Pub/bar/nightclub</BusinessType><BusinessTypeID>7843</BusinessTypeID>
+      <AddressLine1>12 Mill Lane</AddressLine1><AddressLine2></AddressLine2><AddressLine3>Leamington Spa</AddressLine3><AddressLine4>Warwickshire</AddressLine4><PostCode>CV32 4AB</PostCode>
+      <RatingValue>5</RatingValue><RatingKey>fhrs_5_en-gb</RatingKey><RatingDate>2024-03-01</RatingDate>
+      <LocalAuthorityCode>423</LocalAuthorityCode><LocalAuthorityName>Warwick</LocalAuthorityName>
+      <Scores><Hygiene>0</Hygiene><Structural>5</Structural><ConfidenceInManagement>5</ConfidenceInManagement></Scores>
+      <SchemeType>FHRS</SchemeType><NewRatingPending>False</NewRatingPending>
+      <Geocode><Longitude>-1.5365</Longitude><Latitude>52.2890</Latitude></Geocode>
+    </EstablishmentDetail>
+    <EstablishmentDetail>
+      <FHRSID>2345678</FHRSID><BusinessName>Hawthorn Lodge</BusinessName><BusinessType>Hospitals/Childcare/Caring Premises</BusinessType><BusinessTypeID>5</BusinessTypeID>
+      <AddressLine1>Church Road</AddressLine1><AddressLine2>Warwick</AddressLine2><PostCode>CV34 4AB</PostCode>
+      <RatingValue>3</RatingValue><RatingDate>2025-07-14</RatingDate><LocalAuthorityName>Warwick</LocalAuthorityName>
+      <Scores><Hygiene>10</Hygiene><Structural>10</Structural><ConfidenceInManagement>10</ConfidenceInManagement></Scores>
+      <NewRatingPending>True</NewRatingPending>
+      <Geocode><Longitude>-1.5839</Longitude><Latitude>52.2826</Latitude></Geocode>
+    </EstablishmentDetail>
+  </EstablishmentCollection>
+</FHRSEstablishment>

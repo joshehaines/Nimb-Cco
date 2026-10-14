@@ -6,6 +6,7 @@ Notes: XML per local authority (or JSON API, no key). Business type, rating, add
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,11 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "fsa")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("fsa.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    from .parsers import fsa
+    from ._upsert import upsert_register
+
+    return await upsert_register(conn, fsa.parse(path))
 
 
 def diff(conn) -> int:

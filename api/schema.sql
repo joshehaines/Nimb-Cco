@@ -381,3 +381,94 @@ CREATE TABLE data_sources (
 -- Snapshot tables used by the alert generator to diff proprietors and register ratings between runs.
 CREATE TABLE snapshot_proprietors (LIKE proprietors INCLUDING ALL);
 CREATE TABLE snapshot_register_records (LIKE register_records INCLUDING ALL);
+
+-- ---------------------------------------------------------------- Collected open data (phase 2a)
+-- Real datasets gathered by scripts/data and loaded by ingest.open_data. Overture tables are ODbL /
+-- CDLA-Permissive; attribution is carried in source.
+CREATE TABLE places (
+  place_id      text PRIMARY KEY,
+  name          text,
+  category      text,
+  sector        text,
+  confidence    real,
+  address       text,
+  postcode      text,
+  locality      text,
+  website       text,
+  phone         text,
+  brand         text,
+  geom          geometry(Point, 4326) NOT NULL,
+  source        text NOT NULL DEFAULT 'Overture Maps places (CDLA-Permissive-2.0)',
+  licence       licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX places_geom_gix ON places USING gist (geom);
+CREATE INDEX places_sector_idx ON places (sector);
+CREATE INDEX places_postcode_idx ON places (postcode);
+
+CREATE TABLE roads (
+  road_id       text PRIMARY KEY,
+  name          text,
+  class         text,
+  major         boolean NOT NULL DEFAULT false,
+  geom          geometry(Geometry, 4326) NOT NULL,
+  source        text NOT NULL DEFAULT 'Overture Maps transportation (ODbL, OpenStreetMap contributors)',
+  licence       licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX roads_geom_gix ON roads USING gist (geom);
+
+CREATE TABLE buildings (
+  building_id   text PRIMARY KEY,
+  name          text,
+  class         text,
+  subtype       text,
+  height_m      real,
+  levels        smallint,
+  geom          geometry(Geometry, 4326) NOT NULL,
+  source        text NOT NULL DEFAULT 'Overture Maps buildings (ODbL)',
+  licence       licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX buildings_geom_gix ON buildings USING gist (geom);
+
+CREATE TABLE price_paid (
+  transaction_id text PRIMARY KEY,
+  price          bigint NOT NULL,
+  sale_date      date NOT NULL,
+  postcode       text,
+  property_type  char(1) NOT NULL,          -- D S T F O
+  new_build      boolean NOT NULL DEFAULT false,
+  tenure         text,
+  address        text,
+  locality       text,
+  town           text,
+  district       text,
+  county         text,
+  ppd_category   char(1) NOT NULL DEFAULT 'A',
+  geocode        text,                      -- postcode | sector | uprn | null
+  geom           geometry(Point, 4326),
+  source         text NOT NULL DEFAULT 'HMLR Price Paid',
+  licence        licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX price_paid_geom_gix ON price_paid USING gist (geom);
+CREATE INDEX price_paid_postcode_idx ON price_paid (postcode);
+CREATE INDEX price_paid_date_idx ON price_paid (sale_date);
+CREATE INDEX price_paid_type_idx ON price_paid (property_type);
+
+CREATE TABLE postcode_centroids (
+  postcode   text PRIMARY KEY,
+  geom       geometry(Point, 4326) NOT NULL,
+  method     text NOT NULL DEFAULT 'overture-places',   -- replace with ONSPD / AddressBase once licensed
+  samples    integer
+);
+CREATE INDEX postcode_centroids_sector_idx ON postcode_centroids (left(postcode, length(postcode) - 2));
+
+INSERT INTO data_sources (id, name, provider, licence, cadence, status, docs_url) VALUES
+  ('overture-places', 'Places (Overture Maps)', 'Overture Maps Foundation', 'OGL', 'Monthly release', 'not-configured', 'https://docs.overturemaps.org/guides/places/'),
+  ('overture-roads', 'Road network (Overture Maps)', 'Overture Maps Foundation', 'OGL', 'Monthly release', 'not-configured', 'https://docs.overturemaps.org/guides/transportation/'),
+  ('overture-buildings', 'Building footprints (Overture Maps)', 'Overture Maps Foundation', 'OGL', 'Monthly release', 'not-configured', 'https://docs.overturemaps.org/guides/buildings/'),
+  ('hmlr-ppd', 'HM Land Registry price paid', 'HM Land Registry', 'OGL', 'Monthly', 'not-configured', 'https://www.gov.uk/government/collections/price-paid-data'),
+  ('dft-aadf', 'DfT traffic counts', 'Department for Transport', 'OGL', 'Annual', 'not-configured', 'https://roadtraffic.dft.gov.uk/downloads')
+ON CONFLICT (id) DO NOTHING;

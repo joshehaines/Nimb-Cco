@@ -6,6 +6,7 @@ Notes: Public API (locations, providers, inspection areas) plus weekly 'Location
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,12 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "cqc")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("cqc.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    from .parsers import cqc
+    from ._upsert import upsert_register
+
+    rows = cqc.parse_csv(path) if str(path).lower().endswith(".csv") else cqc.parse_api(path)
+    return await upsert_register(conn, rows)
 
 
 def diff(conn) -> int:

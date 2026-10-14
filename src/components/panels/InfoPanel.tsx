@@ -9,6 +9,8 @@ import { useSite, type SiteBundle } from '@/hooks/useSite'
 import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/components/ui'
 import { SECTOR_COLOURS, SECTOR_ICON } from '@/lib/sectors'
 import { gbp, num, sqm, sqft, dateShort, ago, monthsUntil, pct } from '@/lib/format'
+import { dealScore } from '@/lib/dealScore'
+import { mock } from '@/data'
 
 type Tab = 'overview' | 'ownership' | 'leases' | 'operator' | 'planning' | 'rates' | 'mobility' | 'constraints'
 
@@ -105,7 +107,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
         {distress.length > 0 && <Badge tone="critical" className="ml-auto"><AlertTriangle size={11} /> {distress.length} signal{distress.length > 1 ? 's' : ''}</Badge>}
       </div>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         {tab === 'overview' && <Overview bundle={bundle} b={b} />}
         {tab === 'ownership' && <Ownership bundle={bundle} onOrdered={() => setRefresh((r) => r + 1)} />}
         {tab === 'leases' && <Leases bundle={bundle} onOrdered={() => setRefresh((r) => r + 1)} />}
@@ -153,6 +155,7 @@ function Overview({ bundle, b }: { bundle: SiteBundle; b: Business | null }) {
       <Section title="At a glance">
         <KV
           rows={[
+            ...(b ? [['Likely to transact', (() => { const d = dealScore(b, t, h, e, bundle.operatorCompanies.find((c) => c.companyNumber === b.operatorCompanyNumber), bundle.planning.length); return <span className="flex flex-wrap items-center gap-1.5" title={d.reasons.join('\n')}><Badge tone={d.band === 'High' ? 'critical' : d.band === 'Medium' ? 'warning' : 'neutral'}>{d.band} · {d.score}</Badge><span className="text-xs text-ink-500">{d.reasons.slice(0, 2).map((r) => r.replace(/^[+-]\d+ /, '')).join('; ') || 'no active signals'}</span></span> })()] as [string, React.ReactNode]] : []),
             ['Freeholder', t.proprietors.map((p) => (p.redacted ? 'Private individual (buy register)' : p.name)).join(', ')],
             ['Occupier', b ? `${b.operatorName} (${b.tenure})` : h ? h.description : '—'],
             ['Rateable value', h ? `${gbp(h.rateableValue)} (${h.listYear} list)` : '—'],
@@ -388,10 +391,36 @@ function PlanningList({ apps }: { apps: PlanningApplication[] }) {
 }
 
 function Planning({ bundle }: { bundle: SiteBundle }) {
+  const authority = bundle.planning[0]?.authority ?? bundle.nearbyPlanning[0]?.authority
+  const stats = useMemo(() => {
+    if (!authority || !mock) return undefined
+    const apps = mock.allPlanning().filter((p) => p.authority === authority)
+    const decided = apps.filter((p) => p.decisionDate)
+    const approved = decided.filter((p) => p.status === 'Approved').length
+    const refused = decided.filter((p) => p.status === 'Refused').length
+    const appeals = apps.filter((p) => p.status.startsWith('Appeal'))
+    const allowed = appeals.filter((p) => p.status === 'Appeal Allowed').length
+    const weeks = decided.map((p) => (new Date(p.decisionDate!).getTime() - new Date(p.receivedDate).getTime()) / (7 * 86400000)).sort((a, b) => a - b)
+    const byType = new Map<string, { n: number; approved: number }>()
+    for (const p of decided) {
+      const cur = byType.get(p.type) ?? { n: 0, approved: 0 }
+      cur.n += 1
+      if (p.status === 'Approved') cur.approved += 1
+      byType.set(p.type, cur)
+    }
+    return { total: apps.length, decided: decided.length, approvalRate: decided.length ? approved / decided.length : 0, refused, appeals: appeals.length, allowed, medianWeeks: weeks.length ? weeks[Math.floor(weeks.length / 2)] : undefined, byType: Array.from(byType.entries()).sort((a, b) => b[1].n - a[1].n) }
+  }, [authority])
   return (
     <>
       <Section title="Applications on this title"><PlanningList apps={bundle.planning} /></Section>
       <Section title="Within 250 m"><PlanningList apps={bundle.nearbyPlanning.slice(0, 15)} /></Section>
+      {stats && authority && (
+        <Section title={`${authority}: decision statistics`}>
+          <KV rows={[['Applications tracked', num(stats.total)], ['Approval rate', `${pct(stats.approvalRate)} of ${num(stats.decided)} decided`], ['Refusals', num(stats.refused)], ['Appeals', `${stats.appeals} lodged · ${stats.allowed} allowed${stats.appeals ? ` (${pct(stats.allowed / stats.appeals)})` : ''}`], ['Median time to decision', stats.medianWeeks !== undefined ? `${Math.round(stats.medianWeeks)} weeks` : '—']]} />
+          <table className="mt-2 w-full text-xs"><thead className="text-left text-ink-500"><tr><th className="font-medium">Type</th><th className="text-right font-medium">Decided</th><th className="text-right font-medium">Approved</th></tr></thead><tbody>{stats.byType.map(([type, v]) => <tr key={type} className="border-t border-ink-100"><td className="py-1">{type}</td><td className="text-right tabular-nums">{v.n}</td><td className="text-right tabular-nums">{pct(v.approved / v.n)}</td></tr>)}</tbody></table>
+          <p className="mt-2 text-[11px] text-ink-500">Computed from the applications loaded for this authority (demo data until the planning feed is connected). Landstack and Searchland publish the equivalent as appeal trackers; here it sits beside the site.</p>
+        </Section>
+      )}
     </>
   )
 }
@@ -483,7 +512,7 @@ function PlanningDetail({ reference, onClose }: { reference: string; onClose: ()
   return (
     <>
       <Header title={p.reference} subtitle={p.address} onClose={onClose} badge={<Badge tone={statusTone(p.status)}>{p.status}</Badge>} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title="Proposal"><p className="text-sm">{p.description}</p></Section>
         <Section title="Details">
           <KV rows={[['Authority', p.authority], ['Type', p.type], ['Received', dateShort(p.receivedDate)], ['Decided', dateShort(p.decisionDate)], ['Applicant', p.applicant], ['Agent', p.agent], ['Title(s)', p.titleNumbers.map((t) => <button key={t} className="text-brand-700 hover:underline" onClick={() => { select({ type: 'title', id: t }); nav(`/map/title/${t}`) }}>{t}</button>)]]} />
@@ -505,7 +534,7 @@ function ComparableDetail({ id, onClose }: { id: string; onClose: () => void }) 
   return (
     <>
       <Header title={c.name} subtitle={`${c.address}, ${c.postcode}`} onClose={onClose} badge={<Badge tone={c.contributed ? 'brand' : 'neutral'}>{c.contributed ? 'Christie deal' : c.confidence}</Badge>} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title="Transaction">
           <div className="text-3xl font-semibold tabular-nums">{gbp(c.price)}</div>
           <div className="text-xs text-ink-500">{c.tenure} · sold {dateShort(c.date)} · buyer: {c.buyerType}</div>
@@ -545,7 +574,7 @@ function PoiDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Button size="sm" variant="secondary" onClick={() => useUi.getState().requestFlyTo(lon, lat, 18)}>Zoom</Button>
         {p.website && <a className="btn text-xs" href={p.website} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Website</a>}
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title="What the source records">
           <KV rows={[['Category', `${label} (${p.sector})`], ['Brand', p.brand ?? '—'], ['Phone', p.phone ?? '—'], ['Postcode', p.postcode ?? '—'], ['Source confidence', `${Math.round(p.confidence * 100)}%`]]} />
           <p className="mt-2 text-[11px] text-ink-500">Overture Maps places, CDLA-Permissive-2.0. Ownership, operator, regulator and rating data are not yet connected for real businesses; the Ownership and Operator tabs will populate once HM Land Registry, Companies House and the sector registers are licensed.</p>
@@ -577,7 +606,7 @@ function SaleDetail({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <>
       <Header title={r.address || r.postcode} subtitle={`${r.locality ? `${r.locality}, ` : ''}${r.town} ${r.postcode}`} onClose={onClose} badge={<Badge tone={r.type === 'O' ? 'brand' : 'neutral'}>{r.type === 'O' ? 'Non-residential' : 'Residential'}</Badge>} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title="Transaction">
           <div className="text-3xl font-semibold tabular-nums">{gbp(r.price)}</div>
           <div className="text-xs text-ink-500">{r.tenure} · completed {dateShort(r.date)}{r.newBuild ? ' · new build' : ''}</div>
@@ -602,7 +631,7 @@ function TrafficDetail({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <>
       <Header title={t.roadName} subtitle={`DfT count point ${t.countPointId} · ${t.roadType} road`} onClose={onClose} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" tabIndex={0}>
         <Section title={`Annual average daily flow (${t.year}, ${t.method})`}>
           <div className="text-3xl font-semibold tabular-nums">{num(t.aadf)}</div>
           <div className="text-xs text-ink-500">vehicles per day, both directions</div>

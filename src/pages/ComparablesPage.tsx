@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Download, MapPin, Scale } from 'lucide-react'
 import { provider, SECTORS, DEFAULT_COMP_FILTERS, type Comparable, type ComparableFilters, type ComparableStats, type Sector, type SearchResult } from '@/data'
+import type { PricePaidRow } from '@/data/real'
 import { Badge, Button, Card, Chip, Input, Select, Stat, Spinner, Empty, BarList } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { gbp, dateShort, num } from '@/lib/format'
@@ -22,6 +23,11 @@ export function ComparablesPage() {
   }))
   const [centreLabel, setCentreLabel] = useState(params.get('label') ?? (params.get('lon') ? 'selected point' : ''))
   const [result, setResult] = useState<{ comps: Comparable[]; stats: ComparableStats } | null>(null)
+  const [ppd, setPpd] = useState<(PricePaidRow & { distanceM: number })[] | null>(null)
+  useEffect(() => {
+    if (!filters.centre) return setPpd(null)
+    provider.getPricePaidNear(filters.centre[0], filters.centre[1], filters.radiusM ?? 2000, { nonResidentialOnly: true, limit: 60 }).then(setPpd)
+  }, [filters.centre, filters.radiusM])
   const [sort, setSort] = useState<'date' | 'price' | 'ppu' | 'distance'>('date')
   const [q, setQ] = useState('')
   const [qResults, setQResults] = useState<SearchResult[]>([])
@@ -133,9 +139,20 @@ export function ComparablesPage() {
             <Stat label="Median EBITDA multiple" value={stats!.medianEbitdaMultiple ? `${stats!.medianEbitdaMultiple.toFixed(1)}x` : '—'} />
             <Stat label="Freehold share" value={`${Math.round((result.comps.filter((c) => c.tenure === 'Freehold').length / result.comps.length) * 100)}%`} />
           </div>
+          {ppd && (
+            <Card title={`HM Land Registry price paid, non-residential, within ${(filters.radiusM ?? 2000) >= 1000 ? `${(filters.radiusM ?? 2000) / 1000} km` : `${filters.radiusM} m`} · ${ppd.length}`} padded={false}>
+              {ppd.length ? (
+                <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-xs">
+                  <thead className="bg-ink-50 text-left text-ink-500"><tr><th className="font-medium">Address</th><th className="font-medium">Completed</th><th className="font-medium text-right">Price</th><th className="font-medium">Tenure</th><th className="font-medium">Category</th><th className="font-medium text-right">Dist.</th></tr></thead>
+                  <tbody>{ppd.map((r) => <tr key={r.id} className="border-t border-ink-100 hover:bg-ink-50 cursor-pointer" onClick={() => { select({ type: 'sale', id: r.id }); setLayer('pricePaid', true); nav(`/map/sale/${encodeURIComponent(r.id)}`) }}><td className="font-medium">{r.address || r.postcode}<div className="font-normal text-ink-500">{r.town} {r.postcode}{r.geocode === 'sector' ? ' · approx. location' : ''}</div></td><td>{dateShort(r.date)}</td><td className="text-right font-medium tabular-nums">{gbp(r.price)}</td><td>{r.tenure}</td><td>{r.category === 'B' ? 'B (non-market or portfolio)' : 'A'}</td><td className="text-right tabular-nums">{r.distanceM >= 1000 ? `${(r.distanceM / 1000).toFixed(1)} km` : `${r.distanceM} m`}</td></tr>)}</tbody>
+                </table></div>
+              ) : <div className="p-4 text-xs text-ink-500">No geocoded non-residential transactions in this radius.</div>}
+              <div className="px-4 py-2 text-[11px] text-ink-500">Real transactions from HM Land Registry Price Paid Data (property type O: non-residential or mixed use), 2019 onwards for Warwick district and 2023 onwards nationally. The register does not record the business sold, so treat these as property evidence beside the trading comparables above. Positions are postcode centroids.</div>
+            </Card>
+          )}
           <div className="grid gap-4 xl:grid-cols-3">
             <Card title="Median price by year"><BarList rows={stats!.byYear.map((y) => ({ label: `${y.year} (${y.count})`, value: y.medianPrice }))} format={(n) => gbp(n, { compact: true })} /></Card>
-            <Card title={`Schedule · ${sorted.length}`} className="overflow-x-auto xl:col-span-2" padded={false} actions={<Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto py-1 text-xs"><option value="date">Newest</option><option value="price">Price</option><option value="ppu">£ per unit</option>{filters.centre && <option value="distance">Distance</option>}</Select>}>
+            <Card title={`Schedule · ${sorted.length}`} className="overflow-x-auto xl:col-span-2" padded={false} actions={<Select aria-label="Sort schedule" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto py-1 text-xs"><option value="date">Newest</option><option value="price">Price</option><option value="ppu">£ per unit</option>{filters.centre && <option value="distance">Distance</option>}</Select>}>
               <table className="w-full min-w-[640px] text-xs">
                 <thead className="bg-ink-50 text-left text-ink-500"><tr><th className="font-medium">Business</th><th className="font-medium">Sold</th><th className="font-medium text-right">Price</th><th className="font-medium">Tenure</th><th className="font-medium text-right">Capacity</th><th className="font-medium text-right">£/unit</th><th className="font-medium text-right">RV x</th><th className="font-medium text-right">EBITDA x</th><th className="hidden font-medium xl:table-cell">Buyer</th>{filters.centre && <th className="font-medium text-right">Dist.</th>}<th className="hidden font-medium lg:table-cell">Source</th></tr></thead>
                 <tbody>

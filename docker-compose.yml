@@ -5,20 +5,40 @@ services:
       - "8080:80"
     depends_on:
       - api
-  # Phase 2 backend. Replace the image with the FastAPI service once built.
   api:
-    image: python:3.12-slim
-    command: ["python", "-m", "http.server", "8000"]
+    build: ./api
     environment:
       DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+  # One-shot: creates the schema and loads the collected open data from public/data, then exits.
+  loader:
+    build: ./api
+    command: >
+      sh -c "psql $$DATABASE_URL -v ON_ERROR_STOP=0 -f schema.sql >/dev/null 2>&1;
+             python -m ingest.open_data --public /data"
+    environment:
+      DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
+    volumes:
+      - ./public/data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["load"]
   db:
     image: postgis/postgis:16-3.4
     environment:
       POSTGRES_USER: cpi
       POSTGRES_PASSWORD: cpi
       POSTGRES_DB: cpi
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpi -d cpi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     volumes:
       - pgdata:/var/lib/postgresql/data
 volumes:

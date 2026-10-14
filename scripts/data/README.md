@@ -24,6 +24,21 @@ python overture_to_geojson.py buildings raw/buildings.parquet ../../public/data/
 python build_warwick.py raw/   # expects dft_traffic_counts_aadf.csv and pp-YYYY.csv in raw/
 ```
 
+## National tiles (`public/data/gb`)
+
+`build_national_tiles.py` turns the Great Britain extracts into 0.5° cells per theme, gzipped, with an `index.json` of non-empty cells. The app loads cells on demand as the map moves, so the whole country is covered without a backend:
+
+| Theme | Rows | Size | Notes |
+|---|---|---|---|
+| places | 654,420 | 50 MB | Every Overture place in a Christie sector, GB-wide |
+| price_paid | 149,153 | 6 MB | HM Land Registry property type O (non-residential or mixed) from 2023, geocoded to postcode centroids derived from 868,817 place postcodes; 4% not geocodable |
+| traffic | 46,754 | 5 MB | Every DfT count point, latest year with history |
+
+```bash
+python overture_extract.py places/place -8.7 49.8 1.8 60.9 raw/places_gb.parquet      # ~400 MB, a few minutes
+python build_national_tiles.py raw/places_gb.parquet raw/dft_traffic_counts_aadf.csv raw/ppd 2023
+```
+
 ## What is still synthetic
 
 Ownership polygons and proprietors, operators, Companies House, CQC, Ofsted, FSA, NHSBSA, VOA, EPC, planning, footfall and demographics. The hosts for those feeds (use-land-property-data.service.gov.uk, api.cqc.org.uk, download.companieshouse.gov.uk, voaratinglists.blob.core.windows.net, epc.opendatacommunities.org, planning.data.gov.uk, nomisweb.co.uk, api.os.uk and others) were not reachable from the collection environment. The ingestion plan for them is in `docs/DATA-COLLECTION-PLAN.md`; the parsers in `api/ingest/` are ready for the files once downloaded from a machine with access.

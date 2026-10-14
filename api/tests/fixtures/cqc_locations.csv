@@ -1,0 +1,3 @@
+Location ID,Location HSCA start date,Dormant (Y/N),Care home?,Location Name,Location Street Address,Location City,Location Postal Code,Location Latest Overall Rating,Publication Date,Care homes beds,Provider ID,Provider Name,Location Latitude,Location Longitude,Service type - Care home service with nursing,Service type - Dental service
+1-100000001,16/04/2012,N,Y,Hawthorn Lodge,Church Road,Warwick,CV34 4AB,Good,12/09/2023,42,1-200000001,Meadow Care Group Limited,52.2826,-1.5839,Y,
+1-100000002,01/06/2015,N,N,Crescent Dental Practice,2 The Crescent,Leamington Spa,CV32 5NN,,,,1-200000002,Crescent Dental Limited,52.2905,-1.5375,,Y

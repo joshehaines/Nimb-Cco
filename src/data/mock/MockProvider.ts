@@ -30,7 +30,8 @@ import type {
 } from '../types'
 import { generateDataset, crmToCsv, type Dataset } from './generate'
 import { DATA_SOURCES } from './sources'
-import { loadRealLayers, type RealLayers, type PlaceProps, type PricePaidRow } from '../real'
+import { loadRealLayers, type RealLayers, type PlaceProps, type PricePaidRow, type RealTraffic } from '../real'
+import { rowsForBounds, rowsForRadius, findLoaded, tileTotals, type GbPlace } from '../real/tiles'
 import { centroid, haversineM, inBounds, pointInPolygon } from '../../lib/geo'
 import { monthsUntil } from '../../lib/format'
 import { median, quantile } from '../../lib/stats'
@@ -50,11 +51,34 @@ export class MockProvider implements DataProvider {
   real?: RealLayers
   constructor(seed?: number) {
     this.ds = generateDataset(seed)
-    this.ready = loadRealLayers().then((real) => {
-      if (!real) return
-      this.real = real
-      this.ds = generateDataset(seed, real)
-    })
+    this.ready = loadRealLayers().then(
+      (real) =>
+        new Promise<void>((resolve) => {
+          if (!real) return resolve()
+          const sync = () => {
+            this.ds = generateDataset(seed, real)
+            this.real = real
+            resolve()
+          }
+          if (typeof Worker === 'undefined') return sync()
+          try {
+            const w = new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' })
+            w.onmessage = (ev: MessageEvent<Omit<Dataset, 'real'>>) => {
+              this.ds = { ...ev.data, real }
+              this.real = real
+              w.terminate()
+              resolve()
+            }
+            w.onerror = () => {
+              w.terminate()
+              sync()
+            }
+            w.postMessage({ seed, real })
+          } catch {
+            sync()
+          }
+        }),
+    )
   }
 
   get dataset() {
@@ -109,12 +133,19 @@ export class MockProvider implements DataProvider {
     const traffic = this.ds.traffic.filter((t) => inBounds(t.location.coordinates, bounds)).map((t) => ({ type: 'Feature' as const, geometry: t.location, properties: { countPointId: t.countPointId, aadf: t.aadf, year: t.year, method: t.method } }))
     const footfall = this.ds.footfall.map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { h3: f.h3, band: f.band, monthlyVisits: f.monthlyVisits } }))
     const constraints = this.ds.constraints.map((c) => ({ type: 'Feature' as const, geometry: c.geometry, properties: { id: c.id, kind: c.kind, name: c.name } }))
-    const poi = this.real
-      ? this.real.places.features.filter((f) => inBounds(f.geometry.coordinates, bounds)).map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { id: f.properties.id, name: f.properties.name, category: f.properties.category, sector: f.properties.sector, confidence: f.properties.confidence, postcode: f.properties.postcode } }))
-      : []
-    const pricePaid = this.real
-      ? this.real.pricePaid.filter((r) => r.lon !== null && r.lat !== null && inBounds([r.lon, r.lat], bounds)).map((r) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [r.lon!, r.lat!] }, properties: { id: r.id, price: r.price, date: r.date, type: r.type, address: r.address, postcode: r.postcode, geocode: r.geocode ?? '' } }))
-      : []
+    // Real layers: the Warwick files plus the national 0.5 degree tiles for the cells in view.
+    const [tilePlaces, tileSales, tileTraffic] = await Promise.all([rowsForBounds('places', bounds), rowsForBounds('price_paid', bounds), rowsForBounds('traffic', bounds)])
+    const poiIds = new Set<string>()
+    const poi = [
+      ...(this.real?.places.features ?? []).filter((f) => inBounds(f.geometry.coordinates, bounds)).map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { id: f.properties.id, name: f.properties.name, category: f.properties.category, sector: f.properties.sector, confidence: f.properties.confidence, postcode: f.properties.postcode } })),
+      ...tilePlaces.filter((r) => inBounds([r.lon, r.lat], bounds)).map((r) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [r.lon, r.lat] }, properties: { id: r.id, name: r.name, category: r.category, sector: r.sector, confidence: r.confidence, postcode: r.postcode } })),
+    ].filter((f) => !poiIds.has(f.properties.id) && poiIds.add(f.properties.id))
+    const saleIds = new Set<string>()
+    const pricePaid = [...(this.real?.pricePaid ?? []), ...tileSales]
+      .filter((r) => r.lon !== null && r.lat !== null && inBounds([r.lon, r.lat], bounds) && !saleIds.has(r.id) && saleIds.add(r.id))
+      .map((r) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [r.lon!, r.lat!] }, properties: { id: r.id, price: r.price, date: r.date, type: r.type, address: r.address, postcode: r.postcode, geocode: r.geocode ?? '' } }))
+    const trafficIds = new Set(this.ds.traffic.map((t) => t.countPointId))
+    const trafficExtra = tileTraffic.filter((t) => !trafficIds.has(t.countPointId) && inBounds([t.lon, t.lat], bounds)).map((t) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [t.lon, t.lat] }, properties: { countPointId: t.countPointId, aadf: t.aadf, year: t.year, method: t.method } }))
     return {
       poi: { type: 'FeatureCollection', features: poi },
       pricePaid: { type: 'FeatureCollection', features: pricePaid },
@@ -123,7 +154,7 @@ export class MockProvider implements DataProvider {
       businesses: { type: 'FeatureCollection', features: businesses },
       comparables: { type: 'FeatureCollection', features: this.ds.comparables.filter((c) => inBounds(c.location.coordinates, bounds)).map((c) => ({ type: 'Feature' as const, geometry: c.location, properties: { compId: c.compId, sector: c.sector, price: c.price, date: c.date, name: c.name } })) },
       planning: { type: 'FeatureCollection', features: planning },
-      traffic: { type: 'FeatureCollection', features: traffic },
+      traffic: { type: 'FeatureCollection', features: [...traffic, ...trafficExtra] },
       footfall: { type: 'FeatureCollection', features: footfall },
       constraints: { type: 'FeatureCollection', features: constraints },
     }
@@ -209,7 +240,10 @@ export class MockProvider implements DataProvider {
   }
   async getTrafficNear(lon: number, lat: number, radiusM: number) {
     await this.ready
-    return this.ds.traffic.filter((t) => haversineM([lon, lat], t.location.coordinates) <= radiusM).sort((a, b) => haversineM([lon, lat], a.location.coordinates) - haversineM([lon, lat], b.location.coordinates))
+    const seen = new Set(this.ds.traffic.map((t) => t.countPointId))
+    const extra = (await rowsForRadius('traffic', lon, lat, radiusM)).filter((t) => !seen.has(t.countPointId)).map((t) => this.trafficFromTile(t))
+    const local = this.ds.traffic.filter((t) => haversineM([lon, lat], t.location.coordinates) <= radiusM)
+    return [...local, ...extra.filter((t) => haversineM([lon, lat], t.location.coordinates) <= radiusM)].sort((a, b) => haversineM([lon, lat], a.location.coordinates) - haversineM([lon, lat], b.location.coordinates))
   }
   async getFootfallNear(lon: number, lat: number, radiusM: number) {
     await this.ready
@@ -220,29 +254,45 @@ export class MockProvider implements DataProvider {
     return this.ds.titles.get(titleNumber)?.leases ?? []
   }
 
+  private placeFromTile(r: GbPlace): PlaceProps & { location: Point } {
+    return { id: r.id, name: r.name, category: r.category, sector: r.sector, confidence: r.confidence, address: r.address, postcode: r.postcode, locality: r.locality, website: r.website, phone: r.phone, brand: r.brand, source: 'Overture Maps places (CDLA-Permissive-2.0)', location: { type: 'Point', coordinates: [r.lon, r.lat] } }
+  }
+  private trafficFromTile(t: RealTraffic): TrafficCount {
+    return { source: 'DfT Road Traffic Statistics', licence: 'OGL', fetchedAt: this.real?.fetchedAt ?? new Date().toISOString(), countPointId: t.countPointId, roadName: t.startJunction && t.endJunction ? `${t.roadName} (${t.startJunction} to ${t.endJunction})` : t.roadName, roadType: t.roadType, location: { type: 'Point', coordinates: [t.lon, t.lat] }, year: t.year, method: t.method, aadf: t.aadf, cars: t.cars, lgv: t.lgv, hgv: t.hgv, pedalCycles: t.pedalCycles, history: t.history }
+  }
   async getPoi(id: string): Promise<(PlaceProps & { location: Point }) | undefined> {
     await this.ready
     const f = this.real?.places.features.find((x) => x.properties.id === id)
-    return f ? { ...f.properties, location: f.geometry } : undefined
+    if (f) return { ...f.properties, location: f.geometry }
+    const r = await findLoaded('places', id, 'id')
+    return r ? this.placeFromTile(r) : undefined
   }
   async getPoisNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(PlaceProps & { location: Point; distanceM: number })[]> {
     await this.ready
-    if (!this.real) return []
-    return this.real.places.features
-      .filter((f) => !sector || f.properties.sector === sector)
-      .map((f) => ({ ...f.properties, location: f.geometry, distanceM: Math.round(haversineM([lon, lat], f.geometry.coordinates)) }))
-      .filter((x) => x.distanceM <= radiusM)
-      .sort((a, b) => a.distanceM - b.distanceM)
+    const seen = new Set<string>()
+    const out: (PlaceProps & { location: Point; distanceM: number })[] = []
+    const push = (p: PlaceProps & { location: Point }) => {
+      if (seen.has(p.id) || (sector && p.sector !== sector)) return
+      const d = Math.round(haversineM([lon, lat], p.location.coordinates))
+      if (d <= radiusM) {
+        seen.add(p.id)
+        out.push({ ...p, distanceM: d })
+      }
+    }
+    for (const r of await rowsForRadius('places', lon, lat, radiusM)) push(this.placeFromTile(r))
+    for (const f of this.real?.places.features ?? []) push({ ...f.properties, location: f.geometry })
+    return out.sort((a, b) => a.distanceM - b.distanceM)
   }
   async getPricePaid(id: string): Promise<PricePaidRow | undefined> {
     await this.ready
-    return this.real?.pricePaid.find((r) => r.id === id)
+    return this.real?.pricePaid.find((r) => r.id === id) ?? (await findLoaded('price_paid', id, 'id'))
   }
   async getPricePaidNear(lon: number, lat: number, radiusM: number, opts: { nonResidentialOnly?: boolean; limit?: number } = {}): Promise<(PricePaidRow & { distanceM: number })[]> {
     await this.ready
-    if (!this.real) return []
-    return this.real.pricePaid
-      .filter((r) => r.lon !== null && r.lat !== null && (!opts.nonResidentialOnly || r.type === 'O'))
+    const seen = new Set<string>()
+    const rows: PricePaidRow[] = [...(this.real?.pricePaid ?? []), ...(await rowsForRadius('price_paid', lon, lat, radiusM))]
+    return rows
+      .filter((r) => r.lon !== null && r.lat !== null && (!opts.nonResidentialOnly || r.type === 'O') && !seen.has(r.id) && seen.add(r.id))
       .map((r) => ({ ...r, distanceM: Math.round(haversineM([lon, lat], [r.lon!, r.lat!])) }))
       .filter((r) => r.distanceM <= radiusM)
       .sort((a, b) => a.distanceM - b.distanceM || b.date.localeCompare(a.date))
@@ -390,7 +440,8 @@ export class MockProvider implements DataProvider {
     const pharmacies = bySector.get('Pharmacy')?.count ?? 0
     const dentists = bySector.get('Dental')?.count ?? 0
     const ff = this.ds.footfall.filter((f) => haversineM(centre, centroid(f.geometry)) <= Math.min(radiusM, 600))
-    const tr = this.ds.traffic.filter((t) => haversineM(centre, t.location.coordinates) <= Math.max(radiusM, 800)).sort((a, b) => b.aadf - a.aadf)
+    const tr = (await this.getTrafficNear(lon, lat, Math.max(radiusM, 800))).sort((a, b) => b.aadf - a.aadf)
+    const realNear = await this.getPoisNear(lon, lat, radiusM)
     return {
       centre,
       radiusM,
@@ -414,17 +465,12 @@ export class MockProvider implements DataProvider {
       ],
       footfallMonthly: ff.length ? Math.round(ff.reduce((s, f) => s + f.monthlyVisits, 0) / ff.length) : undefined,
       trafficAadf: tr[0]?.aadf,
-      realSupply: this.real
-        ? (() => {
-            const near = this.real!.places.features.map((f) => ({ f, d: haversineM(centre, f.geometry.coordinates) })).filter((x) => x.d <= radiusM).sort((a, b) => a.d - b.d)
-            const counts = new Map<Sector, number>()
-            for (const { f } of near) counts.set(f.properties.sector as Sector, (counts.get(f.properties.sector as Sector) ?? 0) + 1)
-            return {
-              source: 'Overture Maps places (OpenStreetMap, Meta and Microsoft contributions), CDLA-Permissive-2.0',
-              counts: Array.from(counts.entries()).map(([sector, count]) => ({ sector, count })).sort((a, b) => b.count - a.count),
-              nearest: near.slice(0, 12).map(({ f, d }) => ({ id: f.properties.id, name: f.properties.name ?? f.properties.category, category: f.properties.category, sector: f.properties.sector as Sector, distanceM: Math.round(d), address: f.properties.address, postcode: f.properties.postcode })),
-            }
-          })()
+      realSupply: realNear.length
+        ? {
+            source: 'Overture Maps places (OpenStreetMap, Meta and Microsoft contributions), CDLA-Permissive-2.0',
+            counts: Array.from(realNear.reduce((m, p) => m.set(p.sector as Sector, (m.get(p.sector as Sector) ?? 0) + 1), new Map<Sector, number>()).entries()).map(([sector, count]) => ({ sector, count })).sort((a, b) => b.count - a.count),
+            nearest: realNear.slice(0, 12).map((p) => ({ id: p.id, name: p.name ?? p.category, category: p.category, sector: p.sector as Sector, distanceM: p.distanceM, address: p.address, postcode: p.postcode })),
+          }
         : undefined,
       source: 'ONS Census 2021 mid-year estimates (synthetic in demo), registers, DfT, footfall vendor',
     }
@@ -584,7 +630,9 @@ export class MockProvider implements DataProvider {
     await this.ready
     if (!this.real) return DATA_SOURCES
     const real = this.real
+    const gb = await tileTotals()
     const collected: DataSourceStatus[] = [
+      { id: 'gb-tiles', name: 'Great Britain open-data tiles', provider: 'Overture Maps, HM Land Registry, DfT', licence: 'OGL', cadence: 'Rebuilt by scripts/data/build_national_tiles.py', lastRun: real.fetchedAt, status: gb.places ? 'ok' : 'not-configured', records: gb.places + gb.price_paid + gb.traffic, note: `National coverage loaded on demand per 0.5° cell: ${gb.places.toLocaleString()} places in Christie sectors, ${gb.price_paid.toLocaleString()} non-residential price paid transactions since 2023, ${gb.traffic.toLocaleString()} DfT count points.` },
       { id: 'overture-roads', name: 'Road network (Overture Maps transportation)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: real.roads.features.length, note: 'Collected: real centrelines for Warwick district (ODbL, OpenStreetMap contributors). Demo title parcels are laid along these streets.', docsUrl: 'https://docs.overturemaps.org/guides/transportation/' },
       { id: 'overture-places', name: 'Places (Overture Maps)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: real.places.features.length, note: 'Collected: real businesses in Christie sectors for Warwick district (CDLA-Permissive-2.0). Used for the real-business layer and catchment supply.', docsUrl: 'https://docs.overturemaps.org/guides/places/' },
       { id: 'overture-buildings', name: 'Building footprints (Overture Maps)', provider: 'Overture Maps Foundation', licence: 'OGL', cadence: 'Monthly release', lastRun: real.fetchedAt, status: 'ok', records: 19666, note: 'Collected: town-centre footprints (ODbL). Shown as an optional map layer.', docsUrl: 'https://docs.overturemaps.org/guides/buildings/' },

@@ -6,6 +6,7 @@ Notes: Registered childcare CSV (URN, provider, setting, places) plus twice-year
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .base import download
@@ -21,9 +22,11 @@ def fetch(workdir: Path) -> Path:
     return download(SOURCE_URL, workdir / "ofsted")
 
 
-def load(conn, path: Path) -> int:
-    """Parse the downloaded file(s) and upsert into the schema. Return rows written."""
-    raise NotImplementedError("ofsted.load: implement parser and upsert (see docstring)")
+async def load(conn, path: Path) -> int:
+    from .parsers import ofsted
+    from ._upsert import upsert_register
+
+    return await upsert_register(conn, ofsted.parse(path))
 
 
 def diff(conn) -> int:

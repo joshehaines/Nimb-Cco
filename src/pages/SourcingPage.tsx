@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { dealScore } from '@/lib/dealScore'
 import { useNavigate } from 'react-router-dom'
 import { SlidersHorizontal, Download, Bookmark, MapPin } from 'lucide-react'
 import { provider, type Business, type Hereditament, type Title } from '@/data'
@@ -15,7 +16,7 @@ export function SourcingPage() {
   const { filters, setShowFilters, addWatch, select, bounds, resetFilters, setHighlight } = useUi()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [onlyMapArea, setOnlyMapArea] = useState(false)
-  const [sort, setSort] = useState<'name' | 'rv' | 'lease' | 'distress'>('distress')
+  const [sort, setSort] = useState<'name' | 'rv' | 'lease' | 'distress' | 'score'>('score')
   const nav = useNavigate()
   useEffect(() => {
     setRows(null)
@@ -29,6 +30,7 @@ export function SourcingPage() {
     if (!rows) return []
     const c = [...rows]
     c.sort((x, y) => {
+      if (sort === 'score') return dealScore(y.b, y.t, y.h).score - dealScore(x.b, x.t, x.h).score
       if (sort === 'name') return x.b.name.localeCompare(y.b.name)
       if (sort === 'rv') return (y.h?.rateableValue ?? 0) - (x.h?.rateableValue ?? 0)
       if (sort === 'lease') return (monthsUntil(x.t?.leases[0]?.expiryDate) ?? 9999) - (monthsUntil(y.t?.leases[0]?.expiryDate) ?? 9999)
@@ -37,7 +39,7 @@ export function SourcingPage() {
     return c
   }, [rows, sort])
   const exportCsv = () => {
-    const cols = ['Business', 'Sector', 'Address', 'Postcode', 'Tenure', 'Operator', 'Operator company no', 'Freeholder', 'Title', 'UPRN', 'Rateable value', 'Floor area m2', 'Lease expiry', 'Distress flags', 'Register', 'Register ID', 'Rating']
+    const cols = ['Business', 'Sector', 'Address', 'Postcode', 'Tenure', 'Operator', 'Operator company no', 'Freeholder', 'Title', 'UPRN', 'Rateable value', 'Floor area m2', 'Lease expiry', 'Distress flags', 'Register', 'Register ID', 'Rating', 'Transact score']
     const lines = sorted.map(({ b, t, h }) => [b.name, b.sector, b.address, b.postcode, b.tenure, b.operatorName, b.operatorCompanyNumber, b.freeholderName, b.titleNumber, b.uprn, h?.rateableValue, h?.totalAreaSqm, t?.leases[0]?.expiryDate, b.distressFlags.join('; '), b.registers[0]?.register, b.registers[0]?.registerId, b.registers[0]?.rating].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([`# Export contains HMLR CCOD (no direct marketing) and VOA restricted data. Internal use only.\n${cols.join(',')}\n${lines.join('\n')}`], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -55,8 +57,8 @@ export function SourcingPage() {
         {active.length > 0 && <button className="text-xs text-ink-500 hover:underline" onClick={resetFilters}>clear</button>}
         <div className="ml-auto flex items-center gap-2 text-xs">
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={onlyMapArea} onChange={(e) => setOnlyMapArea(e.target.checked)} /> Current map area only</label>
-          <select className="input w-auto py-1" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="distress">Sort: distress</option><option value="rv">Sort: rateable value</option><option value="lease">Sort: lease expiry</option><option value="name">Sort: name</option>
+          <select className="input w-auto py-1" aria-label="Sort results" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+            <option value="score">Sort: likely to transact</option><option value="distress">Sort: distress</option><option value="rv">Sort: rateable value</option><option value="lease">Sort: lease expiry</option><option value="name">Sort: name</option>
           </select>
           <Button size="sm" onClick={() => { setHighlight(sorted.map(({ b }) => b.businessId), 'sourcing results'); nav('/map') }} disabled={!sorted.length}><MapPin size={13} /> Plot on map</Button>
           <Button size="sm" onClick={() => sorted.forEach(({ b }) => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name }))}><Bookmark size={13} /> Watch all</Button>
@@ -70,7 +72,7 @@ export function SourcingPage() {
             <div className="card overflow-x-auto">
               <table className="w-full min-w-[1100px] text-sm">
                 <thead className="bg-ink-50 text-left text-xs text-ink-500 whitespace-nowrap">
-                  <tr><th className="px-3 py-2 font-medium">Business</th><th className="font-medium">Operator</th><th className="font-medium">Freeholder</th><th className="font-medium">Tenure</th><th className="font-medium text-right">RV</th><th className="font-medium text-right">Area m²</th><th className="font-medium">Lease expiry</th><th className="font-medium">Register</th><th className="font-medium">Signals</th><th></th></tr>
+                  <tr><th className="px-3 py-2 font-medium">Business</th><th className="font-medium">Operator</th><th className="font-medium">Freeholder</th><th className="font-medium">Tenure</th><th className="font-medium text-right">RV</th><th className="font-medium text-right">Area m²</th><th className="font-medium">Lease expiry</th><th className="font-medium">Register</th><th className="font-medium">Signals</th><th className="font-medium text-right" title="Likely-to-transact score from the signals held: insolvency, lease events, EPC, tenure length, charges, regulator ratings">Score</th><th></th></tr>
                 </thead>
                 <tbody>
                   {sorted.map(({ b, t, h }) => {
@@ -87,6 +89,7 @@ export function SourcingPage() {
                         <td className="text-right text-xs tabular-nums">{num(h?.totalAreaSqm)}</td>
                         <td className="text-xs">{lease ? <span className={m !== undefined && m <= 24 ? 'font-medium text-amber-700 dark:text-amber-300' : ''}>{dateShort(lease.expiryDate)}</span> : '—'}</td>
                         <td className="text-xs">{reg ? `${reg.register}${reg.rating ? ` · ${reg.rating}` : ''}${reg.capacity ? ` · ${reg.capacity} ${reg.capacityLabel}` : ''}` : '—'}</td>
+                        <td className="text-right"><ScoreBadge b={b} t={t} h={h} /></td>
                         <td><div className="flex flex-wrap gap-1">{b.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}{b.distressFlags.length > 2 && <Badge>+{b.distressFlags.length - 2}</Badge>}</div></td>
                         <td className="pr-2"><div className="flex gap-1"><button className="btn-ghost btn-sm" title="Show on map" onClick={() => { select({ type: 'business', id: b.businessId }); useUi.getState().requestFlyTo(b.location.coordinates[0], b.location.coordinates[1], 17.5); nav(`/map/business/${b.businessId}`) }}><MapPin size={14} /></button><button className="btn-ghost btn-sm" title="Watch" onClick={() => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name })}><Bookmark size={14} /></button></div></td>
                       </tr>
@@ -101,4 +104,9 @@ export function SourcingPage() {
       <SourcingDrawer />
     </div>
   )
+}
+
+function ScoreBadge({ b, t, h }: { b: Business; t?: Title; h?: Hereditament }) {
+  const d = dealScore(b, t, h)
+  return <span title={d.reasons.join('\n') || 'No signals'} className={`inline-block min-w-[2.5rem] rounded px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums ${d.band === 'High' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200' : d.band === 'Medium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200' : 'bg-ink-100 text-ink-600'}`}>{d.score}</span>
 }

@@ -34,6 +34,9 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET | `/places/:id` | | One real place with its location |
 | GET | `/price-paid` | `lon`, `lat`, `radius`, `type=O?`, `limit?` | HM Land Registry price paid transactions within the radius |
 | GET | `/price-paid/:id` | | One transaction |
+| GET | `/traffic` | `lon`, `lat`, `radius`, `limit?` | DfT count points within the radius with AADF history |
+| GET | `/map/open-data` | `bbox`, `buildings?` | Real layers for the viewport: `poi`, `pricePaid` and optionally `buildings` feature collections |
+| GET | `/admin/sources` | | Data source status rows, including the collected open data |
 | GET | `/alerts` | | `Alert[]` (newest first) |
 | POST | `/alerts/{id}/read` | | `{}` |
 | POST | `/documents/orders` | `{ titleNumber, kind }` | `DocumentOrder` (status transitions Queued → Downloading → Stored → Parsed) |
