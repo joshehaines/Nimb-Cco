@@ -34,6 +34,33 @@ You need: a Windows or Mac laptop on the company network with Python 3.11+ and a
 
 What this unlocks: real titles and owners nationwide, real regulator records, real rateable values and EPCs, real planning, and the Location Analysis rows that currently say "not collected".
 
+## Option: do steps 1 and 2 on a Hostinger VPS instead (recommended)
+
+A virtual server avoids the laptop entirely: fast datacentre downloads, always on, a fixed address, and the firm can take it over later. Hostinger's KVM VPS plans work; pick one with at least 4 vCPU, 16 GB RAM and 200 GB of NVMe disk (the raw downloads alone are about 60 GB), the Ubuntu 24.04 with Docker template, and a London or Amsterdam location. Turn on their automatic backups.
+
+1. In hPanel create the VPS, set a root password or SSH key, and note the IP address. If you have a domain at Hostinger, add an A record such as `pi.yourdomain.com` pointing at that IP.
+2. Connect from a Mac or Windows terminal: `ssh root@<ip>`.
+3. Paste:
+   ```
+   apt-get update && apt-get install -y git python3-pip
+   git clone https://github.com/joshehaines/Nimb-Cco.git /opt/Nimb-Cco && cd /opt/Nimb-Cco
+   cp .env.example .env && nano .env        # set DOMAIN=pi.yourdomain.com and any keys you have; Ctrl-O, Enter, Ctrl-X to save
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   docker compose --profile load run --rm loader
+   ```
+   After a few minutes https://pi.yourdomain.com (or http://<ip> without a domain) shows the sign-in page, with a certificate issued automatically.
+4. Run the step 1 downloads on the server itself (much faster than at home):
+   ```
+   pip3 install -r api/requirements.txt
+   export HMLR_API_KEY=... EPC_AUTH=you@email:key CH_MONTH=2026-10-01
+   nohup bash scripts/data/fetch_sources.sh scripts/data/raw > fetch.log 2>&1 &
+   ```
+   Come back in a few hours; `tail fetch.log` shows progress. Then load with the job loop in step 2 below.
+5. Nightly backups: `crontab -e` and add `0 2 * * * /opt/Nimb-Cco/scripts/backup-db.sh`. Hostinger's own VPS backups cover the disk as well.
+6. Firewall: in hPanel allow only ports 22, 80 and 443. The database and API are not exposed; everything goes through the HTTPS proxy.
+
+Who can get in: anyone with the address can reach the sign-in page, which on the demo build lets them choose a persona. Before sharing the address beyond a few trusted colleagues, ask me to turn on per-user passwords (a day's work, no IT needed) or connect single sign-on (needs IT).
+
 ## Step 2. Stand up the backend once (an hour)
 
 Why: the API, PostGIS database and alert worker are written but have never run against a real database, because my environment has no Docker. The first start is the integration test.

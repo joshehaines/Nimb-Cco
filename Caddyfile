@@ -1,0 +1,6 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt). DOMAIN comes from .env, e.g. pi.example.com.
+# Until a domain points at the server, Caddy serves on :80 for http://<server-ip>.
+{$DOMAIN::80} {
+  encode gzip
+  reverse_proxy web:80
+}
