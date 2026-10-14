@@ -18,7 +18,8 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![National coverage: Birmingham places, price paid and traffic from the GB tiles](national-birmingham.png) | ![Sourcing with the likely-to-transact score](sourcing-score.png) |
 | ![Export to CRM with the licence gate](crm-export.png) | ![Audit log](audit.png) |
 | ![Bristol demo area on real streets](bristol.png) | ![Branded site report](report-frame.png) |
-| ![Guided tour](tour.png) | ![Map landing: titles on real footprints](map-landing.png) |
+| ![Guided tour](tour.png) | ![Map landing: title plans only, no pins](map-landing.png) |
+| ![Layer tick boxes: real businesses, price paid and traffic ticked](map-layers-ticked.png) | |
 | ![Basemap picker](basemaps.png) | ![Title colouring by proprietor type](title-colouring.png) |
 
 Full printable site report: [report.png](report.png)

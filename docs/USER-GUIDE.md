@@ -8,15 +8,19 @@ Use the search bar at the top (or press ⌘K / Ctrl+K). It accepts an address, p
 
 ## Reading the map
 
-The basemap picker at the top right of the map offers Streets, Minimal (grey), Dark, Satellite, Hybrid (imagery with roads and labels) and, once an Ordnance Survey key is set in Settings, OS Light and OS Road. Title outlines are plain by default and draw from zoom 14.5; **Title colouring** in the layer panel switches them to proprietor type or tenure, and a dashed red outline marks a distress signal from zoom 16. In the demo areas the titles follow the real building footprints.
+The map opens on **title plans only**: no pins. The layer panel on the left is a set of tick boxes grouped as Ownership, Businesses, Market evidence, Planning and Context. Tick a layer to add it, untick to remove it, and **Clear all** takes every pin off again. A count on each group shows what is on. Layers marked **Demo** are synthetic (fictional operators, comparables, planning and constraints); everything else is real open data. Your ticks are remembered in the browser.
 
+The basemap picker at the top right offers Streets, Minimal (grey), Dark, Satellite, Hybrid (imagery with roads and labels) and, once an Ordnance Survey key is set in Settings, OS Light and OS Road. Title outlines are plain by default and draw from zoom 14.5; **Title colouring** in the layer panel switches them to proprietor type or tenure, and a dashed red outline marks a distress signal from zoom 16. In the demo areas the titles follow the real building footprints.
 
-- **Ownership titles** are shaded by proprietor type: blue for companies, grey for private individuals, green for local authorities, pink for charities, purple for overseas companies. A red outline means the occupier or owner has a distress signal.
-- **Trading businesses** are dots coloured by sector. A red halo marks distress. Zoom in for names.
-- **Planning applications** are dots coloured by status (blue pending, green approved, red refused).
-- **Traffic counts** are DfT count points sized by vehicles per day; dark blue means counted in the last three years.
+- **Title plans** shaded by proprietor type when colouring is on: blue for companies, grey for private individuals, green for local authorities, pink for charities, purple for overseas companies.
+- **Real businesses** are small dark-ringed dots coloured by sector, from Overture Maps places, nationwide from zoom 13. Names appear from zoom 16.5.
+- **Demo businesses** are larger white-ringed dots coloured by sector, in the demo areas only. A red halo marks a distress signal; a yellow halo marks a highlight from Sourcing or the CRM clean-up. Plotting a list on the map ticks this layer for you.
+- **Price paid** is HM Land Registry sales: purple non-residential, grey residential, sized by price.
+- **Sold comparables** are sized by price with a dark ring.
+- **Applications** are coloured by status (blue pending, green approved, red refused, grey withdrawn). **Constraints** show flood zones, conservation areas, listed buildings, Green Belt, Article 4 and TPOs; pick types once the layer is on.
+- **Traffic counts** are Department for Transport count points sized by vehicles per day; darker blue means a more recent count.
 - **Footfall** is a hexagonal heatmap from the mobile-location vendor (demo cells today).
-- **Constraints** show flood zones, conservation areas, listed buildings, Green Belt, Article 4 and TPOs; pick types in the layer panel.
+- The **Sectors** chips appear once a business layer is on and narrow the dots to the sectors you pick.
 - Hover any feature for a summary; click to open the info panel. Press Escape to close it.
 
 ## The info panel

@@ -48,6 +48,8 @@ export interface UiState {
   titleColour: TitleColour
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
+  setLayers: (patch: Partial<Record<LayerKey, boolean>>) => void
+  clearPins: () => void
   setConstraintKinds: (k: string[]) => void
   setSectorFilter: (s: Sector[]) => void
   select: (s: Selected) => void
@@ -108,10 +110,15 @@ const repairIds = (items: WatchItem[]) => {
   })
 }
 
+/** Landing state: title plans only. Every pin layer is opt-in from the layer panel. */
+export const DEFAULT_LAYERS: Record<LayerKey, boolean> = { titles: true, businesses: false, poi: false, buildings: false, pricePaid: false, comparables: false, planning: false, traffic: false, footfall: false, constraints: false, satellite: false }
+/** Layers that put pins or shading on the map (everything except the title plans). */
+export const PIN_LAYERS: LayerKey[] = ['businesses', 'poi', 'buildings', 'pricePaid', 'comparables', 'planning', 'traffic', 'footfall', 'constraints']
+
 export const useUi = create<UiState>()(
   persist(
     (set, get) => ({
-      layers: { titles: true, businesses: true, poi: true, buildings: false, pricePaid: false, comparables: false, planning: false, traffic: false, footfall: false, constraints: false, satellite: false },
+      layers: DEFAULT_LAYERS,
       constraintKinds: ['Flood Zone 3', 'Flood Zone 2', 'Conservation Area', 'Listed Building', 'Article 4', 'Green Belt'],
       sectorFilter: [],
       selected: null,
@@ -134,6 +141,8 @@ export const useUi = create<UiState>()(
       titleColour: 'none',
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
+      setLayers: (patch) => set((s) => ({ layers: { ...s.layers, ...patch } })),
+      clearPins: () => set((s) => ({ layers: { ...s.layers, ...Object.fromEntries(PIN_LAYERS.map((k) => [k, false])) } as Record<LayerKey, boolean>, highlightIds: [], highlightLabel: undefined })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
       setSectorFilter: (sectorFilter) => set({ sectorFilter }),
       select: (selected) => set({ selected }),
@@ -149,7 +158,8 @@ export const useUi = create<UiState>()(
       updateWatch: (id, patch) => set((s) => ({ watchlist: s.watchlist.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
       isWatched: (entityType, entityId) => get().watchlist.some((w) => w.entityType === entityType && w.entityId === entityId),
       addProject: (p) => set((s) => (s.projects.includes(p) ? s : { projects: [...s.projects, p] })),
-      setHighlight: (highlightIds, highlightLabel) => set({ highlightIds, highlightLabel }),
+      // Plotting a list on the map switches the demo-business pins on so the highlight is visible.
+      setHighlight: (highlightIds, highlightLabel) => set((s) => ({ highlightIds, highlightLabel, layers: highlightIds.length ? { ...s.layers, businesses: true } : s.layers })),
       setAlertRules: (patch) => set((s) => ({ alertRules: { ...s.alertRules, ...patch } })),
       setTheme: (theme) => set({ theme }),
       setStage: (id, stage) => set((s) => ({ watchlist: s.watchlist.map((w) => (w.id === id ? { ...w, stage, stageChangedAt: new Date().toISOString() } : w)) })),
@@ -166,6 +176,13 @@ export const useUi = create<UiState>()(
     }),
     {
       name: 'cpi-ui',
+      // v2: the map lands pinless (titles only). Older saved layer choices are dropped once so everyone gets the new landing view.
+      version: 2,
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Record<string, unknown>
+        if (version < 2) delete p.layers
+        return p
+      },
       partialize: (s) => ({ basemap: s.basemap, titleColour: s.titleColour, audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {

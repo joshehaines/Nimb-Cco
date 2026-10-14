@@ -1,5 +1,5 @@
 import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, useState } from 'react'
-import { X, ChevronDown, Loader2 } from 'lucide-react'
+import { X, ChevronDown, Loader2, Check } from 'lucide-react'
 
 export const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(' ')
 
@@ -37,6 +37,25 @@ export function Select({ children, className, ...rest }: SelectHTMLAttributes<HT
       </select>
       <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink-400" />
     </div>
+  )
+}
+
+/** Tick box with a label, optional hint and colour swatch. Used for map layers, where a tick reads as "shown". */
+export function Checkbox({ checked, onChange, label, hint, colour, swatch, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; hint?: string; colour?: string; swatch?: ReactNode; disabled?: boolean }) {
+  return (
+    <label className={cx('flex items-start gap-2.5 py-1.5', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer')}>
+      <span className="relative mt-0.5 h-4 w-4 shrink-0">
+        <input type="checkbox" className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-ink-300 bg-surface transition-colors checked:border-brand-600 checked:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-500 disabled:cursor-not-allowed" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+        <Check size={12} strokeWidth={3} aria-hidden className="pointer-events-none absolute left-0.5 top-0.5 text-white opacity-0 peer-checked:opacity-100" />
+      </span>
+      <span className="flex min-w-0 flex-1 items-start gap-2 text-sm text-ink-800">
+        {swatch ?? (colour && <span className="mt-1 h-3 w-3 shrink-0 rounded-full border border-black/10" style={{ background: colour }} />)}
+        <span className="min-w-0">
+          {label}
+          {hint && <span className="block text-[11px] leading-snug text-ink-500">{hint}</span>}
+        </span>
+      </span>
+    </label>
   )
 }
 
