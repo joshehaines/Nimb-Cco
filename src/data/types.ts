@@ -73,6 +73,8 @@ export interface Title extends DataSourceTag {
   titlePlanPurchased: boolean
   /** Charges noted on the register (lender name) where known. */
   charges?: { lender: string; date: ISODate }[]
+  /** Built form on the title from building footprints (Overture), where collected. */
+  building?: { footprintSqm: number; heightM?: number; levels?: number; source: string }
 }
 
 export interface Proprietor {

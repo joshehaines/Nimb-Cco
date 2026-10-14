@@ -5,7 +5,9 @@ import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
 import { useUi, type BasemapId, type TitleColour } from '@/store/ui'
 import { BasemapControl } from './BasemapControl'
+import { MapLegend } from './MapLegend'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
+import { circlePolygon } from '@/lib/geo'
 
 const osKey = () => useUi.getState().osKey || (import.meta.env.VITE_OS_API_KEY as string | undefined)
 
@@ -75,7 +77,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
-  ;['streets', 'buildings', 'footfall', 'constraints', 'titles', 'pricePaid', 'planning', 'traffic', 'comparables', 'poi', 'businesses'].forEach(src)
+  ;['streets', 'buildings', 'footfall', 'constraints', 'titles', 'pricePaid', 'planning', 'traffic', 'comparables', 'poi', 'businesses', 'analysis'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
   const dk = isDark()
@@ -87,6 +89,8 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
+  map.addLayer({ id: 'analysis-fill', type: 'fill', source: 'analysis', paint: { 'fill-color': '#0f766e', 'fill-opacity': 0.06 } })
+  map.addLayer({ id: 'analysis-line', type: 'line', source: 'analysis', paint: { 'line-color': '#0f766e', 'line-width': 2, 'line-dasharray': [4, 3], 'line-opacity': 0.9 } })
   map.addLayer({ id: 'titles-fill', type: 'fill', source: 'titles', minzoom: 14.5, paint: { 'fill-color': '#2f64b4', 'fill-opacity': 0.07 } })
   map.addLayer({ id: 'titles-line', type: 'line', source: 'titles', minzoom: 14.5, paint: { 'line-color': '#5b7db8', 'line-width': ['interpolate', ['linear'], ['zoom'], 14.5, 0.3, 16, 0.8, 18, 1.4], 'line-opacity': 0.9 }, layout: { 'line-join': 'round' } })
   map.addLayer({ id: 'titles-distress', type: 'line', source: 'titles', minzoom: 15.5, filter: ['==', ['get', 'distress'], true], paint: { 'line-color': '#be123c', 'line-width': 1.3, 'line-dasharray': [2, 1.5], 'line-opacity': 0.9 } })
@@ -124,6 +128,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
     paint: { 'text-color': '#fff' },
   })
   map.addLayer({ id: 'pricePaid-points', type: 'circle', source: 'pricePaid', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 3, 2000000, 9, 20000000, 14], 'circle-color': ['case', ['==', ['get', 'type'], 'O'], '#7c3aed', '#94a3b8'], 'circle-opacity': 0.6, 'circle-stroke-color': dk ? '#161b26' : '#fff', 'circle-stroke-width': 1 } })
+  map.addLayer({ id: 'poi-highlight', type: 'circle', source: 'poi', minzoom: 12, filter: ['in', ['get', 'id'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 8, 17, 13], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', minzoom: 13, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 15, 2.5, 17, 4.5, 19, 6], 'circle-color': sectorMatch, 'circle-opacity': 0.9, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 0.8 } })
   if (withLabels) map.addLayer({ id: 'poi-labels', type: 'symbol', source: 'poi', minzoom: 16.5, layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': dk ? '#c3cad6' : '#4b5563', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'comparables-points', type: 'circle', source: 'comparables', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 5, 5000000, 13], 'circle-color': sectorMatch, 'circle-opacity': 0.55, 'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 } })
@@ -174,6 +179,7 @@ export function MapView() {
   const constraintKinds = useUi((s) => s.constraintKinds)
   const sectorFilter = useUi((s) => s.sectorFilter)
   const highlightIds = useUi((s) => s.highlightIds)
+  const analysis = useUi((s) => s.analysis)
   const selected = useUi((s) => s.selected)
   const flyTo = useUi((s) => s.flyTo)
   const select = useUi((s) => s.select)
@@ -231,7 +237,14 @@ export function MapView() {
       addDataLayers(map, !basemapFailedRef.current)
       applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter, basemapFailedRef.current)
       applyTitleStyle(map, useUi.getState().titleColour, isDark(), isImagery(effectiveBasemap(useUi.getState().basemap, isDark())) && !basemapFailedRef.current)
-      map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', useUi.getState().highlightIds]])
+      {
+        const a = useUi.getState().analysis
+        map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', Array.from(new Set([...useUi.getState().highlightIds, ...(a?.businessIds ?? [])]))]])
+        if (a) {
+          ;(map.getSource('analysis') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { label: a.label }, geometry: circlePolygon(a.centre[0], a.centre[1], a.radiusM) }] } as never)
+          map.setFilter('poi-highlight', ['in', ['get', 'id'], ['literal', a.poiIds]])
+        }
+      }
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
       else scheduleLoad()
     })
@@ -318,8 +331,14 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.getLayer('businesses-highlight')) return
-    map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', highlightIds]])
-  }, [highlightIds])
+    map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', Array.from(new Set([...highlightIds, ...(analysis?.businessIds ?? [])]))]])
+  }, [highlightIds, analysis])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getSource('analysis')) return
+    ;(map.getSource('analysis') as maplibregl.GeoJSONSource).setData(analysis ? ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { label: analysis.label }, geometry: circlePolygon(analysis.centre[0], analysis.centre[1], analysis.radiusM) }] } as never) : (EMPTY as never))
+    if (map.getLayer('poi-highlight')) map.setFilter('poi-highlight', ['in', ['get', 'id'], ['literal', analysis?.poiIds ?? []]])
+  }, [analysis])
 
   // Basemap switch (picker or theme change) and title colouring
   const theme = useUi((s) => s.theme)
@@ -366,6 +385,7 @@ export function MapView() {
     <>
       <div ref={containerRef} className="h-full w-full" />
       <BasemapControl hasOsKey={!!osKey()} />
+      <MapLegend />
       {basemapFailed && (
         <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-center text-[11px] text-amber-900 dark:text-amber-200 shadow">
           Street tiles blocked on this network; showing data layers over a schematic street outline.
@@ -405,7 +425,7 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
   vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)
-  vis(['poi-points', 'poi-labels'], layers.poi)
+  vis(['poi-points', 'poi-labels', 'poi-highlight'], layers.poi)
   vis(['buildings-fill', 'buildings-line'], layers.buildings)
   vis(['pricePaid-points'], layers.pricePaid)
   vis(['comparables-points'], layers.comparables)

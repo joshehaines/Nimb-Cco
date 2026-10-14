@@ -9,8 +9,8 @@ import { useSite, type SiteBundle } from '@/hooks/useSite'
 import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/components/ui'
 import { SECTOR_COLOURS, SECTOR_ICON } from '@/lib/sectors'
 import { gbp, num, sqm, sqft, dateShort, ago, monthsUntil, pct } from '@/lib/format'
-import { dealScore } from '@/lib/dealScore'
 import { haversineM } from '@/lib/geo'
+import { SiteSummary } from './SiteSummary'
 import { logAudit } from '@/lib/audit'
 import { mock } from '@/data'
 
@@ -110,7 +110,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
       </div>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto" tabIndex={0}>
-        {tab === 'overview' && <Overview bundle={bundle} b={b} />}
+        {tab === 'overview' && <SiteSummary bundle={bundle} b={b} onOrdered={() => setRefresh((r) => r + 1)} />}
         {tab === 'ownership' && <Ownership bundle={bundle} onOrdered={() => setRefresh((r) => r + 1)} />}
         {tab === 'leases' && <Leases bundle={bundle} onOrdered={() => setRefresh((r) => r + 1)} />}
         {tab === 'operator' && <Operator b={b} companies={bundle.operatorCompanies} />}
@@ -139,56 +139,7 @@ function SourceTag({ source, fetchedAt, licence }: { source: string; fetchedAt: 
   return <span className="text-[10px] text-ink-400" title={`Licence: ${licence}`}>{source} · {ago(fetchedAt)}</span>
 }
 
-function Overview({ bundle, b }: { bundle: SiteBundle; b: Business | null }) {
-  const t = bundle.title
-  const h = bundle.hereditaments[0]
-  const e = bundle.epcs[0]
-  const lease = bundle.leases[0]
-  const expiry = monthsUntil(lease?.expiryDate)
-  const reg = b?.registers.find((r) => r.rating || r.capacity)
-  return (
-    <>
-      {b && b.distressFlags.length > 0 && (
-        <div className="m-4 mb-0 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-800 dark:text-rose-200">
-          <div className="font-semibold">Distress signals</div>
-          <div className="mt-1 flex flex-wrap gap-1">{b.distressFlags.map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div>
-        </div>
-      )}
-      <Section title="At a glance">
-        <KV
-          rows={[
-            ...(b ? [['Likely to transact', (() => { const d = dealScore(b, t, h, e, bundle.operatorCompanies.find((c) => c.companyNumber === b.operatorCompanyNumber), bundle.planning.length); return <span className="flex flex-wrap items-center gap-1.5" title={d.reasons.join('\n')}><Badge tone={d.band === 'High' ? 'critical' : d.band === 'Medium' ? 'warning' : 'neutral'}>{d.band} · {d.score}</Badge><span className="text-xs text-ink-500">{d.reasons.slice(0, 2).map((r) => r.replace(/^[+-]\d+ /, '')).join('; ') || 'no active signals'}</span></span> })()] as [string, React.ReactNode]] : []),
-            ['Freeholder', t.proprietors.map((p) => (p.redacted ? 'Private individual (buy register)' : p.name)).join(', ')],
-            ['Occupier', b ? `${b.operatorName} (${b.tenure})` : h ? h.description : '—'],
-            ['Rateable value', h ? `${gbp(h.rateableValue)} (${h.listYear} list)` : '—'],
-            ['Floor area', h?.totalAreaSqm ? `${sqm(h.totalAreaSqm)} · ${sqft(h.totalAreaSqm)}` : '—'],
-            ['Site area', `${sqm(t.areaSqm)} · ${(t.areaSqm / 4046.86).toFixed(2)} acres`],
-            ['EPC', e ? <span><Badge tone={['A+', 'A', 'B', 'C'].includes(e.rating) ? 'good' : e.rating === 'D' || e.rating === 'E' ? 'warning' : 'critical'}>{e.rating} ({e.score})</Badge> {['F', 'G'].includes(e.rating) ? 'Below MEES minimum' : ''}</span> : '—'],
-            ['Lease', lease ? `${lease.termYears} yrs from ${dateShort(lease.dateOfLease)} · expires ${dateShort(lease.expiryDate)}${expiry !== undefined ? ` (${expiry} mo)` : ''}` : t.leases.length ? '' : 'None registered'],
-            [reg ? `${reg.register} record` : 'Register', reg ? `${reg.rating ?? ''}${reg.capacity ? ` · ${reg.capacity} ${reg.capacityLabel}` : ''}` : '—'],
-            ['Last sold', t.pricePaid ? `${gbp(t.pricePaid)} · ${dateShort(t.pricePaidDate)}` : '—'],
-            ['Planning', `${bundle.planning.length} on title · ${bundle.nearbyPlanning.length} within 250 m`],
-            ['Traffic', bundle.traffic[0] ? `${num(bundle.traffic[0].aadf)} vehicles/day on ${bundle.traffic[0].roadName}` : 'No DfT count within 600 m'],
-            ['Footfall', bundle.footfall.length ? `${num(Math.round(bundle.footfall.reduce((s, f) => s + f.monthlyVisits, 0) / bundle.footfall.length))} visits/month (cell avg)` : 'No coverage'],
-          ]}
-        />
-      </Section>
-      <Section title="Identifiers">
-        <KV rows={[['Title number', t.titleNumber], ['INSPIRE ID', String(t.inspireId)], ['UPRN', t.uprn], ['VOA UARN', h?.uarn], ['EPC', e?.certificateId], ...(b?.registers.map((r) => [r.register, r.registerId] as [string, string]) ?? [])]} />
-      </Section>
-      <Section title="Sources">
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
-          <SourceTag {...t} />
-          {h && <SourceTag {...h} />}
-          {e && <SourceTag {...e} />}
-          {b?.registers.map((r) => <SourceTag key={r.registerId} {...r} />)}
-        </div>
-      </Section>
-    </>
-  )
-}
-
-function OrderButton({ titleNumber, kind, label, onOrdered, disabled }: { titleNumber: string; kind: DocumentOrder['kind']; label: string; onOrdered: () => void; disabled?: boolean }) {
+export function OrderButton({ titleNumber, kind, label, onOrdered, disabled }: { titleNumber: string; kind: DocumentOrder['kind']; label: string; onOrdered: () => void; disabled?: boolean }) {
   const [order, setOrder] = useState<DocumentOrder | null>(null)
   useEffect(() => {
     if (!order || order.status === 'Parsed' || order.status === 'Failed') return

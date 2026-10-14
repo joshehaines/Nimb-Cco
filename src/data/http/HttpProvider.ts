@@ -59,6 +59,7 @@ export class HttpProvider implements DataProvider {
   getCatchment = (lon: number, lat: number, radiusM: number) => this.get<never>('/catchment', { lon, lat, radius: radiusM })
   getPoi = (id: string) => this.get<never>(`/places/${encodeURIComponent(id)}`)
   getPoisNear = (lon: number, lat: number, radiusM: number, sector?: string) => this.get<never>('/places', { lon, lat, radius: radiusM, ...(sector ? { sector } : {}) })
+  getBusinessesNear = (lon: number, lat: number, radiusM: number, sector?: string) => this.get<never>('/businesses/near', { lon, lat, radius: radiusM, ...(sector ? { sector } : {}) })
   getPricePaid = (id: string) => this.get<never>(`/price-paid/${encodeURIComponent(id)}`)
   getPricePaidNear = (lon: number, lat: number, radiusM: number, opts: { nonResidentialOnly?: boolean; limit?: number } = {}) => this.get<never>('/price-paid', { lon, lat, radius: radiusM, ...(opts.nonResidentialOnly ? { type: 'O' } : {}), limit: opts.limit ?? 50 })
   getAlerts = () => this.get<never>('/alerts')

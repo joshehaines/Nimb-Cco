@@ -3,6 +3,7 @@ const out = process.argv[2]
 const base = 'http://localhost:4173'
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+await ctx.addInitScript(() => localStorage.setItem('cpi-demo-persona', 'demo-agent'))
 const page = await ctx.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))

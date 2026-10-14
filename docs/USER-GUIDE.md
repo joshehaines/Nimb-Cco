@@ -10,6 +10,8 @@ Use the search bar at the top (or press ⌘K / Ctrl+K). It accepts an address, p
 
 The map opens on **title plans only**: no pins. The layer panel on the left is a set of tick boxes grouped as Ownership, Businesses, Market evidence, Planning and Context. Tick a layer to add it, untick to remove it, and **Clear all** takes every pin off again. A count on each group shows what is on. Layers marked **Demo** are synthetic (fictional operators, comparables, planning and constraints); everything else is real open data. Your ticks are remembered in the browser.
 
+The **Active layers** card under the basemap picker is the map key: switch title colouring between Plain, **Owner type** (company, private individual, council, housing association, charity, overseas company) and **Tenure** there, and read the symbol for every layer that is on. Collapse it to a Keys button when you want the map.
+
 The basemap picker at the top right offers Streets, Minimal (grey), Dark, Satellite, Hybrid (imagery with roads and labels) and, once an Ordnance Survey key is set in Settings, OS Light and OS Road. Title outlines are plain by default and draw from zoom 14.5; **Title colouring** in the layer panel switches them to proprietor type or tenure, and a dashed red outline marks a distress signal from zoom 16. In the demo areas the titles follow the real building footprints.
 
 - **Title plans** shaded by proprietor type when colouring is on: blue for companies, grey for private individuals, green for local authorities, pink for charities, purple for overseas companies.
@@ -25,14 +27,21 @@ The basemap picker at the top right offers Streets, Minimal (grey), Dark, Satell
 
 ## The info panel
 
-- **Overview**: freeholder, occupier, rateable value, floor area, EPC, lease, register rating and capacity, last sale, planning and mobility in one view, plus every identifier (title, UPRN, VOA, EPC, CQC, Ofsted, FSA and so on).
-- **Ownership**: proprietors, charges, price paid, and buttons to order the official register or title plan at HM Land Registry cost (£7). Private owners' names appear once the register is purchased. The owner's wider estate links to the company page.
+Click any title or business and the panel opens on the right. The **Overview** reads like a title summary:
+
+- Address, then a **Use classes** table (description, class before September 2020, class today, number of properties) derived from the operator's sector and the VOA description.
+- **Title number** with tenure, and **Owner** with company number, owner type colour and a **Search company properties** link to every title the company holds. CCOD-licensed owners carry a no-marketing note.
+- **Downloads**: title plan and register with lease schedule (ordered once at HM Land Registry cost and stored for the firm), the free site report and the catchment report. **Share this title** copies the link.
+- Expandable rows, with **Expand all**: site area (m², sq ft, acres, hectares); building footprints (footprint and site coverage from Overture Maps in the demo areas); building heights (height, storeys, estimated gross internal area); commercial uses, sizes and rates assessments (every VOA hereditament); price paid (this title plus HM Land Registry sales within 150 m); EPC with MEES status; planning on the title and nearby; the **likely-to-transact** score with its reasons; and **Highlight competition**.
+- **Highlight competition** ranks the same-sector operators around the site, real and demo, within a radius you choose (defaults per sector, 800 m for a pub up to 8 km for a garden centre). Each competitor is scored for proximity, same offer, scale against this site, rating and brand or group backing, with the breakdown on hover. The verdict is low, moderate or high pressure from competitors per km². **Highlight on map** draws the radius ring and puts a yellow halo on every competitor; the layer panel and the keys card show the analysis until you clear it. Listings at the same premises are excluded.
+
+The other tabs go deeper:
+
+- **Ownership**: proprietors, charges, price paid, order buttons, and the owner's wider estate.
 - **Leases & docs**: registered leases with term and expiry. Ordering the lease document extracts rent, reviews, breaks, repairing terms, permitted use and tie, with a confidence score, and files the PDF in the firm-wide document store.
 - **Operator**: the trading company from Companies House and each regulator record (CQC beds and rating, Ofsted places and rating, NHS pharmacy contract and dispensing trend, FSA hygiene rating, premises licence hours).
-- **Planning**: applications on the title and within 250 m, with links back to the council portal.
-- **Rates & EPC**: VOA description, rateable value, floor-by-floor areas, estimated rates payable, EPC with MEES status.
-- **Mobility**: footfall cells and DfT counts with history sparklines.
-- **Constraints**: anything intersecting the title.
+- **Planning**: applications on the title and within 250 m, with links back to the council portal and the authority's decision statistics.
+- **Rates & EPC**, **Mobility** (footfall cells and DfT counts with history) and **Constraints**.
 
 Use **Add to My Sites** to watch a site, **Report** to open a printable PDF, **Zoom** to centre the map and **Link** to copy a shareable URL.
 
@@ -66,7 +75,7 @@ The **Appraise** button in the info panel builds an appraisal pack for one busin
 
 ## Signing in, roles and settings
 
-With single sign-on configured the app asks for your company account; otherwise it runs with a demo persona you can switch in **Settings** (bottom of the navigation). Three roles matter: everyone is an agent; **compliance** can approve campaigns and read the audit log; **admin** can do both and see the data sources page. Settings also holds the Ordnance Survey key for the British basemap, the demo areas, the theme and the guided tour.
+The app opens on a sign-in page. With single sign-on configured (Microsoft Entra ID, Okta or any OpenID Connect provider) **Continue with your company account** sends you to the company sign-in and back; without it the page offers three demo personas so the role gates and the audit trail can be tried. Three roles matter: everyone is an agent; **compliance** can approve campaigns and read the audit log; **admin** can do both and see the data sources page. **Sign out** in Settings returns to the sign-in page. Settings also holds the Ordnance Survey key for the British basemap, the demo areas, the theme and the guided tour.
 
 ## Export to CRM
 

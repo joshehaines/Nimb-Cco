@@ -28,6 +28,8 @@ export interface UiState {
   mapView: { lon: number; lat: number; zoom: number }
   bounds?: BoundsQuery
   flyTo?: { lon: number; lat: number; zoom?: number; nonce: number }
+  /** An analysis drawn on the map: a radius ring around a site plus the competitors it found. */
+  analysis?: { kind: 'competition'; label: string; centre: [number, number]; radiusM: number; businessIds: string[]; poiIds: string[] }
   watchlist: WatchItem[]
   projects: string[]
   highlightIds: string[]
@@ -65,6 +67,8 @@ export interface UiState {
   isWatched: (entityType: WatchItem['entityType'], entityId: string) => boolean
   addProject: (p: string) => void
   setHighlight: (ids: string[], label?: string) => void
+  setAnalysis: (a: UiState['analysis']) => void
+  clearAnalysis: () => void
   setAlertRules: (patch: Partial<AlertRules>) => void
   setTheme: (t: 'light' | 'dark' | 'system') => void
   setStage: (id: string, stage: PipelineStage) => void
@@ -142,7 +146,7 @@ export const useUi = create<UiState>()(
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setLayers: (patch) => set((s) => ({ layers: { ...s.layers, ...patch } })),
-      clearPins: () => set((s) => ({ layers: { ...s.layers, ...Object.fromEntries(PIN_LAYERS.map((k) => [k, false])) } as Record<LayerKey, boolean>, highlightIds: [], highlightLabel: undefined })),
+      clearPins: () => set((s) => ({ layers: { ...s.layers, ...Object.fromEntries(PIN_LAYERS.map((k) => [k, false])) } as Record<LayerKey, boolean>, highlightIds: [], highlightLabel: undefined, analysis: undefined })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
       setSectorFilter: (sectorFilter) => set({ sectorFilter }),
       select: (selected) => set({ selected }),
@@ -159,6 +163,9 @@ export const useUi = create<UiState>()(
       isWatched: (entityType, entityId) => get().watchlist.some((w) => w.entityType === entityType && w.entityId === entityId),
       addProject: (p) => set((s) => (s.projects.includes(p) ? s : { projects: [...s.projects, p] })),
       // Plotting a list on the map switches the demo-business pins on so the highlight is visible.
+      // Drawing an analysis turns on the layers it highlights (demo and real businesses).
+      setAnalysis: (analysis) => set((s) => ({ analysis, layers: analysis ? { ...s.layers, businesses: analysis.businessIds.length ? true : s.layers.businesses, poi: analysis.poiIds.length ? true : s.layers.poi } : s.layers })),
+      clearAnalysis: () => set({ analysis: undefined }),
       setHighlight: (highlightIds, highlightLabel) => set((s) => ({ highlightIds, highlightLabel, layers: highlightIds.length ? { ...s.layers, businesses: true } : s.layers })),
       setAlertRules: (patch) => set((s) => ({ alertRules: { ...s.alertRules, ...patch } })),
       setTheme: (theme) => set({ theme }),

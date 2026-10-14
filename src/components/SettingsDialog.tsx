@@ -32,7 +32,7 @@ export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; 
                 <span className="mt-1 block text-ink-500">Campaign approval needs the compliance role; the audit log needs compliance or admin. Set VITE_OIDC_AUTHORITY and VITE_OIDC_CLIENT_ID to use company accounts instead.</span>
               </label>
             )}
-            {authConfigured && <Button size="sm" className="mt-2" onClick={signOut}><LogOut size={13} /> Sign out</Button>}
+            <Button size="sm" className="mt-2" onClick={() => { logAudit('sign-in', 'Signed out'); signOut() }}><LogOut size={13} /> Sign out</Button>
           </section>
           <section>
             <div className="mb-1 flex items-center gap-2 font-medium"><KeyRound size={14} /> Ordnance Survey basemap</div>

@@ -76,6 +76,8 @@ export interface DataProvider {
   /** Real place (Overture Maps) by id, when open data has been collected for the area. */
   getPoi(id: string): Promise<(PlaceProps & { location: Point }) | undefined>
   getPoisNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(PlaceProps & { location: Point; distanceM: number })[]>
+  /** Demo/registered businesses within a radius, nearest first. */
+  getBusinessesNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(Business & { distanceM: number })[]>
   /** HM Land Registry price paid transaction by id. */
   getPricePaid(id: string): Promise<PricePaidRow | undefined>
   getPricePaidNear(lon: number, lat: number, radiusM: number, opts?: { nonResidentialOnly?: boolean; limit?: number }): Promise<(PricePaidRow & { distanceM: number })[]>

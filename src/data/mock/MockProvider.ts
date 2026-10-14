@@ -267,6 +267,16 @@ export class MockProvider implements DataProvider {
     const r = await findLoaded('places', id, 'id')
     return r ? this.placeFromTile(r) : undefined
   }
+  async getBusinessesNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(Business & { distanceM: number })[]> {
+    await this.ready
+    const out: (Business & { distanceM: number })[] = []
+    for (const b of this.ds.businesses.values()) {
+      if (sector && b.sector !== sector) continue
+      const d = Math.round(haversineM([lon, lat], b.location.coordinates))
+      if (d <= radiusM) out.push({ ...b, distanceM: d })
+    }
+    return out.sort((a, b) => a.distanceM - b.distanceM)
+  }
   async getPoisNear(lon: number, lat: number, radiusM: number, sector?: Sector): Promise<(PlaceProps & { location: Point; distanceM: number })[]> {
     await this.ready
     const seen = new Set<string>()

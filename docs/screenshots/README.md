@@ -20,6 +20,8 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![Bristol demo area on real streets](bristol.png) | ![Branded site report](report-frame.png) |
 | ![Guided tour](tour.png) | ![Map landing: title plans only, no pins](map-landing.png) |
 | ![Layer tick boxes: real businesses, price paid and traffic ticked](map-layers-ticked.png) | ![Real businesses centred on their footprints, roads clear](map-real-businesses.png) |
+| ![Staff sign-in page](login.png) | ![Info panel: use classes, title, owner, downloads](info-panel.png) |
+| ![Competition analysis with the radius ring and competitors highlighted](competition.png) | ![Map keys with titles coloured by owner type](legend-owner.png) |
 | ![Basemap picker](basemaps.png) | ![Title colouring by proprietor type](title-colouring.png) |
 
 Full printable site report: [report.png](report.png)

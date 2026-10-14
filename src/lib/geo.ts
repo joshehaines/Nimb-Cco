@@ -39,6 +39,16 @@ export function rect(lon: number, lat: number, wM: number, hM: number, rotDeg = 
   return { type: 'Polygon', coordinates: [ring] }
 }
 
+/** Circle approximated by a polygon of `steps` vertices, for radius rings. */
+export function circlePolygon(lon: number, lat: number, radiusM: number, steps = 72): Polygon {
+  const ring: Position[] = []
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * 2 * Math.PI
+    ring.push(offset(lon, lat, Math.sin(a) * radiusM, Math.cos(a) * radiusM))
+  }
+  return { type: 'Polygon', coordinates: [ring] }
+}
+
 export function hexagon(lon: number, lat: number, radiusM: number): Polygon {
   const ring: Position[] = []
   for (let i = 0; i < 6; i++) {

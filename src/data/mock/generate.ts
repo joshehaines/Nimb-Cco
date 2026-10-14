@@ -368,6 +368,7 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
         counters[sideIdx] += 2
         const commercial = f.properties.pois > 0 ? rng.bool(Math.min(0.95, 0.45 + 0.15 * f.properties.pois)) : rng.bool(0.04)
         const title = makeTitle(f.geometry, street, houseNo, commercial)
+        title.building = { footprintSqm: f.properties.areaSqm, heightM: f.properties.height ?? undefined, levels: f.properties.levels ?? undefined, source: 'Overture Maps buildings' }
         titles.set(title.titleNumber, title)
         const [cx, cy] = centroid(f.geometry)
         const parcel: Parcel = { title, street, commercial, houseNo, cx, cy }

@@ -58,7 +58,7 @@ const GROUPS: Group[] = [
 
 export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
-  const { layers, setLayer, clearPins, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi()
+  const { layers, setLayer, clearPins, analysis, clearAnalysis, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi()
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length].reduce((a, b) => a + b, 0)
   const pinCount = PIN_LAYERS.filter((k) => layers[k]).length
   const anyBusinessLayer = layers.businesses || layers.poi || layers.comparables
@@ -97,6 +97,12 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
           <span>{pinCount === 0 ? 'Tick a layer to add it to the map.' : `${pinCount} layer${pinCount === 1 ? '' : 's'} on the map`}</span>
           {pinCount > 0 && <button className="flex items-center gap-1 font-medium text-brand-700 hover:underline" onClick={clearPins}><EyeOff size={12} /> Clear all</button>}
         </div>
+        {analysis && (
+          <div className="flex items-center justify-between gap-2 border-b border-teal-200 dark:border-teal-900/60 bg-teal-50 dark:bg-teal-950/40 px-3 py-2 text-xs text-teal-900 dark:text-teal-200">
+            <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-teal-700" />{analysis.label} · {analysis.radiusM >= 1000 ? `${analysis.radiusM / 1000} km` : `${analysis.radiusM} m`} ring, {analysis.businessIds.length + analysis.poiIds.length} highlighted</span>
+            <button className="font-medium hover:underline" onClick={clearAnalysis}>clear</button>
+          </div>
+        )}
         {highlightIds.length > 0 && (
           <div className="flex items-center justify-between gap-2 border-b border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
             <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-amber-700 bg-yellow-300" />{highlightIds.length} highlighted{highlightLabel ? ` · ${highlightLabel}` : ''}</span>

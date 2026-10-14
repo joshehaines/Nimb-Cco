@@ -32,6 +32,7 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET | `/catchment` | `lon`, `lat`, `radius` | `Catchment` (demographics, competitor supply, ratios, `realSupply` from collected places) |
 | GET | `/places` | `lon`, `lat`, `radius`, `sector?` | Real places (Overture Maps) within the radius, nearest first |
 | GET | `/places/:id` | | One real place with its location |
+| GET | `/businesses/near` | `lon`, `lat`, `radius`, `sector?` | Registered/demo businesses within the radius, nearest first, each with `distanceM` (competition analysis) |
 | GET | `/price-paid` | `lon`, `lat`, `radius`, `type=O?`, `limit?` | HM Land Registry price paid transactions within the radius |
 | GET | `/price-paid/:id` | | One transaction |
 | GET | `/traffic` | `lon`, `lat`, `radius`, `limit?` | DfT count points within the radius with AADF history |

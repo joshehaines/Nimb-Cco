@@ -78,13 +78,15 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
   signIn: async () => {
     if (!authConfigured) {
-      let id = DEMO_PERSONAS[0].id
+      // A persona chosen earlier in this browser signs straight in; otherwise the sign-in page offers the choice.
+      let id: string | null = null
       try {
-        id = localStorage.getItem(SS.persona) ?? id
+        id = localStorage.getItem(SS.persona)
       } catch {
         /* ignore */
       }
-      get().setDemoPersona(id)
+      if (id && DEMO_PERSONAS.some((p) => p.id === id)) get().setDemoPersona(id)
+      else set({ user: null, status: 'signed-out' })
       return
     }
     set({ status: 'loading' })
@@ -126,6 +128,11 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
   signOut: () => {
     sessionStorage.removeItem(SS.tokens)
+    try {
+      localStorage.removeItem(SS.persona)
+    } catch {
+      /* ignore */
+    }
     set({ user: null, accessToken: undefined, status: 'signed-out' })
     if (authConfigured) discover().then((d) => d.end_session_endpoint && window.location.assign(`${d.end_session_endpoint}?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + import.meta.env.BASE_URL)}`))
   },
