@@ -4,7 +4,7 @@ import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2
 import { useAlerts } from '@/store/alerts'
 import { useAuth } from '@/auth'
 import { blankRule } from '@/lib/alerts'
-import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary, type Comparable } from '@/data'
+import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary, type Comparable, type Title } from '@/data'
 import { PRICE_PAID_TYPE, type PlaceProps, type PricePaidRow } from '@/data/real'
 import type { Point } from 'geojson'
 import { useUi } from '@/store/ui'
@@ -42,6 +42,7 @@ export function InfoPanel() {
       {selected?.type === 'comparable' && <ComparableDetail id={selected.id} onClose={close} />}
       {selected?.type === 'poi' && <PoiDetail id={selected.id} onClose={close} />}
       {selected?.type === 'sale' && <SaleDetail id={selected.id} onClose={close} />}
+      {selected?.type === 'point' && <PointDetail id={selected.id} onClose={close} />}
       {(selected?.type === 'title' || selected?.type === 'business') && <SitePanel key={selected.id} sel={selected} onClose={close} />}
     </aside>
   )
@@ -609,6 +610,55 @@ function TrafficDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Section title="History">
           <table className="w-full text-xs"><tbody>{t.history.slice().reverse().map((h) => <tr key={h.year} className="border-t border-ink-100"><td className="py-1">{h.year}</td><td className="text-right tabular-nums">{num(h.aadf)}</td></tr>)}</tbody></table>
           <div className="mt-2"><SourceTag {...t} /></div>
+        </Section>
+      </div>
+    </>
+  )
+}
+
+
+/** "What is here?": everything the platform knows about an arbitrary dropped pin. */
+function PointDetail({ id, onClose }: { id: string; onClose: () => void }) {
+  const [lon, lat] = id.split(',').map(Number)
+  const [title, setTitle] = useState<Title | null | undefined>(undefined)
+  const [near, setNear] = useState<{ businesses: (Business & { distanceM: number })[]; places: (PlaceProps & { distanceM: number })[]; sales: (PricePaidRow & { distanceM: number })[]; traffic: TrafficCount[] } | null>(null)
+  const nav = useNavigate()
+  const { addWatch, setPin } = useUi()
+  useEffect(() => {
+    setPin([lon, lat])
+    provider.getTitleAt(lon, lat).then((t) => setTitle(t ?? null))
+    Promise.all([provider.getBusinessesNear(lon, lat, 200), provider.getPoisNear(lon, lat, 150), provider.getPricePaidNear(lon, lat, 150, { limit: 6 }), provider.getTrafficNear(lon, lat, 600)]).then(([businesses, places, sales, traffic]) => setNear({ businesses, places, sales, traffic }))
+  }, [id, lon, lat, setPin])
+  const postcode = near?.places[0]?.postcode ?? near?.businesses[0]?.postcode ?? title?.postcode
+  return (
+    <>
+      <Header title="Dropped pin" subtitle={`${lat.toFixed(5)}, ${lon.toFixed(5)}${postcode ? ` · near ${postcode}` : ''}`} onClose={onClose} badge={<Badge tone="brand">What is here</Badge>} />
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-100 px-4 py-2">
+        <a className="btn-secondary btn-sm" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat.toFixed(6)},${lon.toFixed(6)}`} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Street View</a>
+        <Button size="sm" onClick={() => addWatch({ entityType: 'area', entityId: id, label: `Pin near ${postcode ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`}`, radiusM: 250 })}><Bookmark size={13} /> Watch this spot</Button>
+        <Button size="sm" onClick={() => navigator.clipboard?.writeText(`${lat.toFixed(6)}, ${lon.toFixed(6)}`)}><Copy size={13} /> Coordinates</Button>
+        <Button size="sm" onClick={() => { setPin(undefined); onClose() }}>Clear pin</Button>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <Section title="Registered title at this point">
+          {title === undefined ? <Spinner /> : title ? (
+            <button className="w-full rounded-md border border-ink-200 p-2.5 text-left hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'title', id: title.titleNumber }); nav(`/map/title/${title.titleNumber}`) }}>
+              <div className="text-sm font-medium">{title.address}</div>
+              <div className="text-xs text-ink-500">{title.titleNumber} · {title.tenure} · {title.proprietors.map((p) => (p.redacted ? 'Private individual' : p.name)).join(', ')} · {sqm(title.areaSqm)}</div>
+            </button>
+          ) : <div className="text-xs text-ink-500">No registered title covers this point in the loaded data. Outside the demo areas, titles appear once HM Land Registry INSPIRE polygons are loaded.</div>}
+        </Section>
+        <Section title={`Businesses within 200 m (${near ? near.businesses.length + near.places.length : '…'})`}>
+          {near && (near.businesses.length || near.places.length) ? <ul className="divide-y divide-ink-100 text-xs">
+            {near.businesses.slice(0, 6).map((b) => <li key={b.businessId} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'business', id: b.businessId }); nav(`/map/business/${b.businessId}`) }}><span className="truncate"><span className="font-medium">{b.name}</span> <Badge tone="warning">Demo</Badge> <span className="text-ink-500">{b.sector}</span></span><span className="shrink-0 text-ink-500">{b.distanceM} m</span></li>)}
+            {near.places.slice(0, 8).map((p) => <li key={p.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'poi', id: p.id }); nav(`/map/poi/${encodeURIComponent(p.id)}`) }}><span className="truncate"><span className="font-medium">{p.name ?? p.category}</span> <span className="text-ink-500">{p.category.replace(/_/g, ' ')}</span></span><span className="shrink-0 text-ink-500">{p.distanceM} m</span></li>)}
+          </ul> : <div className="text-xs text-ink-500">{near ? 'None recorded.' : 'Looking…'}</div>}
+        </Section>
+        <Section title={`HM Land Registry sales within 150 m (${near?.sales.length ?? '…'})`}>
+          {near?.sales.length ? <ul className="divide-y divide-ink-100 text-xs">{near.sales.map((r) => <li key={r.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'sale', id: r.id }); nav(`/map/sale/${encodeURIComponent(r.id)}`) }}><span className="truncate"><span className="font-medium">{gbp(r.price)}</span> · {r.address || r.postcode}</span><span className="shrink-0 text-ink-500">{dateShort(r.date)}</span></li>)}</ul> : <div className="text-xs text-ink-500">{near ? 'None.' : 'Looking…'}</div>}
+        </Section>
+        <Section title="Traffic">
+          {near?.traffic[0] ? <div className="text-xs">{num(near.traffic[0].aadf)} vehicles/day on {near.traffic[0].roadName} ({near.traffic[0].year}, DfT count within 600 m)</div> : <div className="text-xs text-ink-500">No DfT count point within 600 m.</div>}
         </Section>
       </div>
     </>

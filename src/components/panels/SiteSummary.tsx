@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useUi } from '@/store/ui'
 import { Link } from 'react-router-dom'
 import { ChevronRight, Minus, Plus, Share2, Check, FileText, Map as MapIcon, Printer } from 'lucide-react'
 import type { Business } from '@/data'
@@ -46,7 +47,9 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
   const lease = bundle.leases[0]
   const expiry = monthsUntil(lease?.expiryDate)
   const reg = b?.registers.find((r) => r.rating || r.capacity)
-  const [open, setOpen] = useState<Set<string>>(() => new Set())
+  const [open, setOpen] = useState<Set<string>>(() => new Set(useUi.getState().panelRequest === 'competition' ? ['competition'] : []))
+  const panelRequest = useUi((s) => s.panelRequest)
+  useEffect(() => { if (panelRequest === 'competition') { setOpen((s) => new Set([...s, 'competition'])); useUi.getState().setPanelRequest(undefined) } }, [panelRequest])
   const [copied, setCopied] = useState(false)
   const [comp, setComp] = useState<CompetitionResult | null>(null)
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })

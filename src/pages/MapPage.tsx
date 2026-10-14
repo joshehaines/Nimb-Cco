@@ -29,6 +29,7 @@ export function MapPage() {
           const t = await provider.getTitle(id)
           if (t) pos = centroid(t.geometry as Polygon) as [number, number]
         } else if (entityType === 'planning') pos = (await provider.getPlanning(id))?.location.coordinates as [number, number] | undefined
+        else if (entityType === 'point') { const [lon, lat] = id.split(',').map(Number); if (Number.isFinite(lon) && Number.isFinite(lat)) { pos = [lon, lat]; useUi.getState().setPin(pos) } }
         else if (entityType === 'comparable') {
           pos = (await provider.getComparable(id))?.location.coordinates as [number, number] | undefined
           if (!useUi.getState().layers.comparables) useUi.getState().setLayer('comparables', true)

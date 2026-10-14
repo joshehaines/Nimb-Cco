@@ -14,10 +14,12 @@ export const BASEMAPS: { id: BasemapId; label: string; hint: string; needsKey?: 
 ]
 
 /** Floating basemap picker, bottom-left of the map. */
-export function BasemapControl({ hasOsKey }: { hasOsKey: boolean }) {
+export function BasemapControl({ hasOsKey, open: openProp, onOpenChange }: { hasOsKey: boolean; open?: boolean; onOpenChange?: (o: boolean) => void }) {
   const basemap = useUi((s) => s.basemap)
   const setBasemap = useUi((s) => s.setBasemap)
-  const [open, setOpen] = useState(false)
+  const [openState, setOpenState] = useState(false)
+  const open = openProp ?? openState
+  const setOpen = (o: boolean) => { setOpenState(o); onOpenChange?.(o) }
   const current = BASEMAPS.find((b) => b.id === basemap) ?? BASEMAPS[0]
   return (
     <div className="no-print absolute right-3 top-3 z-30 flex flex-col items-end gap-2">

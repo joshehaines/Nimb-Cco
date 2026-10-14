@@ -15,7 +15,11 @@ export type Selected =
   | { type: 'traffic'; id: string }
   | { type: 'company'; id: string }
   | { type: 'comparable'; id: string }
+  | { type: 'point'; id: string }
   | null
+
+export type MapTool = 'none' | 'polygon' | 'line' | 'pin' | 'streetview'
+export interface Drawing { id: string; kind: 'polygon' | 'line'; coords: [number, number][]; createdAt: string; label?: string }
 
 export interface UiState {
   layers: Record<LayerKey, boolean>
@@ -28,6 +32,17 @@ export interface UiState {
   mapView: { lon: number; lat: number; zoom: number }
   bounds?: BoundsQuery
   flyTo?: { lon: number; lat: number; zoom?: number; nonce: number }
+  /** Map tools: measuring, drawing a site polygon, dropping a pin, Street View. */
+  tool: MapTool
+  drawings: Drawing[]
+  draft: [number, number][]
+  pin?: [number, number]
+  tenureFilter: { freehold: boolean; leasehold: boolean }
+  pricePaidFilter: 'all' | 'residential' | 'nonResidential'
+  locationOpen: boolean
+  /** One-shot request for a panel to open a section (e.g. the assistant asking for competition). */
+  panelRequest?: 'competition'
+  viewCounts: { titles: number; freehold: number; leasehold: number }
   /** An analysis drawn on the map: a radius ring around a site plus the competitors it found. */
   analysis?: { kind: 'competition'; label: string; centre: [number, number]; radiusM: number; businessIds: string[]; poiIds: string[] }
   watchlist: WatchItem[]
@@ -69,6 +84,19 @@ export interface UiState {
   setHighlight: (ids: string[], label?: string) => void
   setAnalysis: (a: UiState['analysis']) => void
   clearAnalysis: () => void
+  setTool: (t: MapTool) => void
+  addDraftPoint: (p: [number, number]) => void
+  undoDraftPoint: () => void
+  finishDraft: () => void
+  cancelDraft: () => void
+  removeDrawing: (id: string) => void
+  clearDrawings: () => void
+  setPin: (p?: [number, number]) => void
+  setTenureFilter: (f: Partial<UiState['tenureFilter']>) => void
+  setPricePaidFilter: (f: UiState['pricePaidFilter']) => void
+  setLocationOpen: (v: boolean) => void
+  setPanelRequest: (r?: 'competition') => void
+  setViewCounts: (c: UiState['viewCounts']) => void
   setAlertRules: (patch: Partial<AlertRules>) => void
   setTheme: (t: 'light' | 'dark' | 'system') => void
   setStage: (id: string, stage: PipelineStage) => void
@@ -143,6 +171,14 @@ export const useUi = create<UiState>()(
       osKey: undefined,
       basemap: 'light',
       titleColour: 'none',
+      tool: 'none',
+      drawings: [],
+      draft: [],
+      pin: undefined,
+      tenureFilter: { freehold: true, leasehold: true },
+      pricePaidFilter: 'all',
+      locationOpen: false,
+      viewCounts: { titles: 0, freehold: 0, leasehold: 0 },
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setLayers: (patch) => set((s) => ({ layers: { ...s.layers, ...patch } })),
@@ -166,6 +202,24 @@ export const useUi = create<UiState>()(
       // Drawing an analysis turns on the layers it highlights (demo and real businesses).
       setAnalysis: (analysis) => set((s) => ({ analysis, layers: analysis ? { ...s.layers, businesses: analysis.businessIds.length ? true : s.layers.businesses, poi: analysis.poiIds.length ? true : s.layers.poi } : s.layers })),
       clearAnalysis: () => set({ analysis: undefined }),
+      setTool: (tool) => set((s) => ({ tool, draft: tool === 'polygon' || tool === 'line' ? s.draft : [] })),
+      addDraftPoint: (p) => set((s) => ({ draft: [...s.draft, p] })),
+      undoDraftPoint: () => set((s) => ({ draft: s.draft.slice(0, -1) })),
+      finishDraft: () =>
+        set((s) => {
+          const kind = s.tool === 'line' ? 'line' : 'polygon'
+          if (s.draft.length < (kind === 'line' ? 2 : 3)) return { draft: [], tool: 'none' }
+          return { drawings: [...s.drawings, { id: newId(), kind, coords: s.draft, createdAt: new Date().toISOString() }], draft: [], tool: 'none' }
+        }),
+      cancelDraft: () => set({ draft: [], tool: 'none' }),
+      removeDrawing: (id) => set((s) => ({ drawings: s.drawings.filter((d) => d.id !== id) })),
+      clearDrawings: () => set({ drawings: [], draft: [] }),
+      setPin: (pin) => set({ pin }),
+      setTenureFilter: (f) => set((s) => ({ tenureFilter: { ...s.tenureFilter, ...f } })),
+      setPricePaidFilter: (pricePaidFilter) => set({ pricePaidFilter }),
+      setLocationOpen: (locationOpen) => set({ locationOpen }),
+      setPanelRequest: (panelRequest) => set({ panelRequest }),
+      setViewCounts: (viewCounts) => set({ viewCounts }),
       setHighlight: (highlightIds, highlightLabel) => set((s) => ({ highlightIds, highlightLabel, layers: highlightIds.length ? { ...s.layers, businesses: true } : s.layers })),
       setAlertRules: (patch) => set((s) => ({ alertRules: { ...s.alertRules, ...patch } })),
       setTheme: (theme) => set({ theme }),
@@ -190,7 +244,7 @@ export const useUi = create<UiState>()(
         if (version < 2) delete p.layers
         return p
       },
-      partialize: (s) => ({ basemap: s.basemap, titleColour: s.titleColour, audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
+      partialize: (s) => ({ drawings: s.drawings, tenureFilter: s.tenureFilter, pricePaidFilter: s.pricePaidFilter, basemap: s.basemap, titleColour: s.titleColour, audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UiState>
@@ -210,6 +264,14 @@ export const useUi = create<UiState>()(
           tourDone: !!p.tourDone,
           basemap: p.basemap ?? 'light',
           titleColour: p.titleColour ?? 'none',
+          drawings: Array.isArray(p.drawings) ? p.drawings : [],
+          draft: [],
+          tool: 'none',
+          pin: undefined,
+          tenureFilter: { freehold: true, leasehold: true, ...(p.tenureFilter ?? {}) },
+          pricePaidFilter: p.pricePaidFilter ?? 'all',
+          locationOpen: false,
+          viewCounts: { titles: 0, freehold: 0, leasehold: 0 },
           theme: p.theme === 'light' || p.theme === 'dark' ? p.theme : 'system',
           campaigns: Array.isArray(p.campaigns) ? p.campaigns : [],
           alertRules: { ...DEFAULT_ALERT_RULES, ...(p.alertRules ?? {}), channels: { ...DEFAULT_ALERT_RULES.channels, ...(p.alertRules?.channels ?? {}) } },

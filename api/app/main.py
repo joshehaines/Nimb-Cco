@@ -128,6 +128,15 @@ async def map_layers(req: Request, bbox: str = Query(..., description="west,sout
 
 
 # ------------------------------------------------------------------ titles
+@app.get("/api/titles/at")
+async def title_at(req: Request, lon: float, lat: float):
+    async with req.app.state.pool.acquire() as c:
+        r = await c.fetchrow("select title_number from titles where st_contains(geom, st_setsrid(st_makepoint($1, $2), 4326)) limit 1", lon, lat)
+    if not r:
+        raise HTTPException(404, "no registered title at this point")
+    return await get_title(req, r["title_number"])
+
+
 @app.get("/api/titles/{title_number}")
 async def get_title(req: Request, title_number: str):
     async with req.app.state.pool.acquire() as c:
@@ -351,6 +360,27 @@ async def list_audit(req: Request, limit: int = 500, user: User = Depends(requir
     async with req.app.state.pool.acquire() as c:
         rows = await c.fetch("select * from audit_log order by at desc limit $1", limit)
     return [{"id": r["event_id"], "at": r["at"].isoformat(), "userId": r["user_id"], "userName": r["user_name"], "kind": r["kind"], "summary": r["summary"], "entityType": r["entity_type"], "entityId": r["entity_id"], "licences": list(r["licences"] or []), "count": r["count"]} for r in rows]
+
+
+# ------------------------------------------------------------ assistant (Claude relay; tools run in the browser)
+@app.post("/api/assistant")
+async def assistant(req: Request, body: dict[str, Any], user: User = Depends(current_user)):
+    from . import assistant as asst
+
+    if not asst.configured():
+        raise HTTPException(503, "assistant not configured: set ANTHROPIC_API_KEY on the API")
+    messages = body.get("messages") or []
+    if not isinstance(messages, list) or not messages:
+        raise HTTPException(400, "messages required")
+    tools = body.get("tools") or []
+    try:
+        out = await asst.complete(messages, tools, body.get("context"), user_name=user.name)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+    async with req.app.state.pool.acquire() as c:
+        await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary, entity_type, count) values ($1,$2,$3,'assistant',$4,'assistant',$5) on conflict do nothing",
+                        f"AS{os.urandom(6).hex()}", user.id, user.name, (messages[-1].get("content") if isinstance(messages[-1].get("content"), str) else "tool results")[:200], len(messages))
+    return out
 
 
 # ------------------------------------------------------------ alerts: rules, channels, deliveries, staff

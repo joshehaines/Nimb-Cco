@@ -49,6 +49,8 @@ export interface DataProvider {
 
   // Entities
   getTitle(titleNumber: string): Promise<Title | undefined>
+  /** The registered title whose extent contains the point, if any. */
+  getTitleAt(lon: number, lat: number): Promise<Title | undefined>
   getTitlesForCompany(companyNumber: string): Promise<Title[]>
   getBusiness(businessId: string): Promise<Business | undefined>
   getBusinessesForTitle(titleNumber: string): Promise<Business[]>

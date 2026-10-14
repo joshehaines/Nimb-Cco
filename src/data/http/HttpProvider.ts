@@ -32,6 +32,7 @@ export class HttpProvider implements DataProvider {
   search = (query: string, limit = 12) => this.get<never>('/search', { q: query, limit })
   getMapLayers = (bounds: BoundsQuery) => this.get<never>('/map/layers', this.bbox(bounds))
   getTitle = (titleNumber: string) => this.get<never>(`/titles/${titleNumber}`)
+  getTitleAt = (lon: number, lat: number) => this.get<never>('/titles/at', { lon, lat })
   getTitlesForCompany = (companyNumber: string) => this.get<never>(`/companies/${companyNumber}/titles`)
   getBusiness = (id: string) => this.get<never>(`/businesses/${id}`)
   getBusinessesForTitle = (titleNumber: string) => this.get<never>(`/titles/${titleNumber}/businesses`)

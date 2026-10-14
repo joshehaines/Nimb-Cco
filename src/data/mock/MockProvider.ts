@@ -178,6 +178,14 @@ export class MockProvider implements DataProvider {
     await this.ready
     return this.ds.titles.get(titleNumber)
   }
+  async getTitleAt(lon: number, lat: number) {
+    await this.ready
+    for (const t of this.ds.titles.values()) {
+      const g = t.geometry
+      if (g.type === 'Polygon' ? pointInPolygon([lon, lat], g) : g.coordinates.some((c) => pointInPolygon([lon, lat], { type: 'Polygon', coordinates: c }))) return t
+    }
+    return undefined
+  }
   async getTitlesForCompany(companyNumber: string) {
     await this.ready
     const group = new Set((await this.getCompanyGroup(companyNumber)).map((c) => c.companyNumber))

@@ -32,6 +32,7 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET | `/catchment` | `lon`, `lat`, `radius` | `Catchment` (demographics, competitor supply, ratios, `realSupply` from collected places) |
 | GET | `/places` | `lon`, `lat`, `radius`, `sector?` | Real places (Overture Maps) within the radius, nearest first |
 | GET | `/places/:id` | | One real place with its location |
+| GET | `/titles/at` | `lon`, `lat` | The title whose extent contains the point (ST_Contains), or 404 |
 | GET | `/businesses/near` | `lon`, `lat`, `radius`, `sector?` | Registered/demo businesses within the radius, nearest first, each with `distanceM` (competition analysis) |
 | GET | `/price-paid` | `lon`, `lat`, `radius`, `type=O?`, `limit?` | HM Land Registry price paid transactions within the radius |
 | GET | `/price-paid/:id` | | One transaction |
@@ -49,6 +50,7 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET / PUT | `/me/notifications` | body `NotificationPrefs` | Email, mobile, Teams webhook, quiet hours, digest time. Changing an address clears its verified flag |
 | POST | `/me/notifications/verify` | `{channel: 'email' \| 'sms'}` | Sends a six-digit code over that channel |
 | POST | `/me/notifications/confirm` | `{code}` | Marks the channel verified |
+| POST | `/assistant` | `{messages, tools, context}` | Claude relay for the in-app assistant: returns Messages API content blocks (text or tool_use); tools run in the browser and results come back as the next turn. 503 until `ANTHROPIC_API_KEY` is set |
 | GET | `/staff` | | Colleagues who can be added to an alert (synced from the identity provider) |
 | POST | `/documents/orders` | `{ titleNumber, kind }` | `DocumentOrder` (status transitions Queued → Downloading → Stored → Parsed) |
 | GET | `/documents/orders` | | `DocumentOrder[]` |

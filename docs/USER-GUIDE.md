@@ -2,6 +2,10 @@
 
 A short walk-through for Christie & Co staff. The demo runs on a synthetic Leamington Spa and Warwick dataset; every figure is illustrative until the live feeds are connected.
 
+## The assistant
+
+The **Ask** button at the bottom of the navigation (or the ? key) opens the assistant. Tell it what you want in plain English: "find The Copper Kettle", "go to Bristol", "colour titles by owner", "show price paid and traffic", "distressed care homes in Bristol", "alert me when a pub goes into administration", "who competes with The Leam Ferry", "draw a site area", "what is CCOD". It searches, moves and styles the map, opens pages, sources a sector, drafts an alert for you to confirm, runs competition and explains terms from this guide. It never sends, orders, exports or approves anything itself. Without an API key it works from a built-in set of commands; with `ANTHROPIC_API_KEY` set on the API it is backed by Claude and understands freer requests, using the same actions.
+
 ## Finding a property or operator
 
 Use the search bar at the top (or press ⌘K / Ctrl+K). It accepts an address, postcode, title number, business name, operator or landlord company, or a planning reference. Picking a result opens it on the map with the info panel.
@@ -9,6 +13,10 @@ Use the search bar at the top (or press ⌘K / Ctrl+K). It accepts an address, p
 ## Reading the map
 
 The map opens on **title plans only**: no pins. The layer panel on the left is a set of tick boxes grouped as Ownership, Businesses, Market evidence, Planning and Context. Tick a layer to add it, untick to remove it, and **Clear all** takes every pin off again. A count on each group shows what is on. Layers marked **Demo** are synthetic (fictional operators, comparables, planning and constraints); everything else is real open data. Your ticks are remembered in the browser.
+
+The **toolbar** along the bottom of the map has the view controls (map type, zoom, rotate, reset north, 3D tilt) and the tools: the **yellow person** opens Google Street View where you click, the **ruler** measures a distance, the **pentagon** draws a site and reads its area in square metres, square feet, acres and hectares (double-click or Enter to finish, Esc to cancel, Backspace to undo a point; **Remove my polygons** clears them), the **pin** answers "what is here?" with the registered title, businesses, sales and traffic at any point, plus a Street View link and a Watch this spot button, and the target finds your own location.
+
+**Location Analysis** is the tab on the right edge of the map. It groups every layer by question: boundaries (title plans with freehold and leasehold counts in view), planning, planning policy constraints, environmental and heritage constraints, strategic land, residential and commercial markets, energy and infrastructure, mobility. Rows marked "not collected" name the open source that fills them on the office load.
 
 The **Active layers** card under the basemap picker is the map key: switch title colouring between Plain, **Owner type** (company, private individual, council, housing association, charity, overseas company) and **Tenure** there, and read the symbol for every layer that is on. Collapse it to a Keys button when you want the map.
 

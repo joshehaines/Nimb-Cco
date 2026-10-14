@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Upload, ShieldCheck, Settings as SettingsIcon, Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor, KanbanSquare, Scale, Radar, Mail } from 'lucide-react'
+import { HelpCircle, Upload, ShieldCheck, Settings as SettingsIcon, Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor, KanbanSquare, Scale, Radar, Mail } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { useTheme } from '@/hooks/useTheme'
 import { SearchBox } from '@/components/SearchBox'
@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/auth'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { Tour } from '@/components/Tour'
+import { AssistantPanel } from '@/components/AssistantPanel'
+import { useAssistant } from '@/assistant/store'
 import { provider } from '@/data'
 import { useAlerts } from '@/store/alerts'
 import { cx } from '@/components/ui'
@@ -147,6 +149,9 @@ export function AppShell() {
               </div>
             )}
             <ThemeToggle compact={collapsed} />
+            <button data-tour="assistant" className={cx('btn-ghost btn-sm w-full', collapsed ? 'justify-center' : 'justify-start')} onClick={() => useAssistant.getState().setOpen(!useAssistant.getState().open)} title="Assistant: ask or tell me what to do (?)">
+              <HelpCircle size={16} />{!collapsed && <span>Ask</span>}
+            </button>
             <button data-tour="settings" className={cx('btn-ghost btn-sm w-full', collapsed ? 'justify-center' : 'justify-start')} onClick={() => setSettingsOpen(true)} title="Settings and account">
               <SettingsIcon size={16} />{!collapsed && <span className="truncate">{user?.name ?? 'Settings'}</span>}
             </button>
@@ -183,6 +188,7 @@ export function AppShell() {
           <main className={cx('min-h-0 flex-1', isMap ? 'overflow-hidden' : 'overflow-y-auto')}>
             <Outlet />
             <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onStartTour={() => setTourOpen(true)} />
+            <AssistantPanel />
             <Tour open={tourOpen} onClose={closeTour} />
           </main>
         </div>

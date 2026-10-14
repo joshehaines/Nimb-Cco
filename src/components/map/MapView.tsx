@@ -6,6 +6,9 @@ import { provider, type MapLayers } from '@/data'
 import { useUi, type BasemapId, type TitleColour } from '@/store/ui'
 import { BasemapControl } from './BasemapControl'
 import { MapLegend } from './MapLegend'
+import { MapToolbar, streetViewUrl } from './MapToolbar'
+import { DrawPanel } from './DrawPanel'
+import { LocationAnalysis } from './LocationAnalysis'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 import { circlePolygon } from '@/lib/geo'
 
@@ -79,7 +82,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
-  ;['streets', 'buildings', 'footfall', 'constraints', 'titles', 'pricePaid', 'planning', 'traffic', 'comparables', 'poi', 'businesses', 'analysis'].forEach(src)
+  ;['streets', 'buildings', 'footfall', 'constraints', 'titles', 'pricePaid', 'planning', 'traffic', 'comparables', 'poi', 'businesses', 'analysis', 'draw', 'draft', 'pin'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
   const dk = isDark()
@@ -152,6 +155,15 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
       'circle-stroke-width': 1.5,
     },
   })
+  // User drawings (site polygons, measured lines), the in-progress draft and the dropped pin sit on top of everything.
+  map.addLayer({ id: 'draw-fill', type: 'fill', source: 'draw', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.25 } })
+  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-color': '#6d28d9', 'line-width': 2.5 } })
+  map.addLayer({ id: 'draw-vertex', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': '#6d28d9', 'circle-stroke-width': 2 } })
+  map.addLayer({ id: 'draft-line', type: 'line', source: 'draft', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': '#6d28d9', 'line-width': 2, 'line-dasharray': [2, 2] } })
+  map.addLayer({ id: 'draft-fill', type: 'fill', source: 'draft', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.15 } })
+  map.addLayer({ id: 'draft-vertex', type: 'circle', source: 'draft', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#6d28d9', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } })
+  map.addLayer({ id: 'pin-halo', type: 'circle', source: 'pin', paint: { 'circle-radius': 14, 'circle-color': '#dc2626', 'circle-opacity': 0.25 } })
+  map.addLayer({ id: 'pin-point', type: 'circle', source: 'pin', paint: { 'circle-radius': 7, 'circle-color': '#dc2626', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5 } })
   if (withLabels) map.addLayer({
     id: 'businesses-labels',
     type: 'symbol',
@@ -185,6 +197,13 @@ export function MapView() {
   }, [layers.buildings])
   const constraintKinds = useUi((s) => s.constraintKinds)
   const sectorFilter = useUi((s) => s.sectorFilter)
+  const tenureFilter = useUi((s) => s.tenureFilter)
+  const pricePaidFilter = useUi((s) => s.pricePaidFilter)
+  const tool = useUi((s) => s.tool)
+  const draft = useUi((s) => s.draft)
+  const drawings = useUi((s) => s.drawings)
+  const pin = useUi((s) => s.pin)
+  const [basemapOpen, setBasemapOpen] = useState(false)
   const highlightIds = useUi((s) => s.highlightIds)
   const analysis = useUi((s) => s.analysis)
   const selected = useUi((s) => s.selected)
@@ -206,7 +225,6 @@ export function MapView() {
       attributionControl: { compact: true },
       maxZoom: 20,
     })
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'bottom-right')
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right')
     mapRef.current = map
 
@@ -242,7 +260,7 @@ export function MapView() {
       window.clearTimeout(fallbackTimer)
       // Symbol layers need glyphs; on the offline fallback a failed glyph fetch would drop whole tiles, so skip labels there.
       addDataLayers(map, !basemapFailedRef.current)
-      applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter, basemapFailedRef.current)
+      applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter, basemapFailedRef.current, useUi.getState().tenureFilter, useUi.getState().pricePaidFilter)
       applyTitleStyle(map, useUi.getState().titleColour, isDark(), isImagery(effectiveBasemap(useUi.getState().basemap, isDark())) && !basemapFailedRef.current)
       {
         const a = useUi.getState().analysis
@@ -252,18 +270,62 @@ export function MapView() {
           map.setFilter('poi-highlight', poiIdFilter(a.poiIds))
         }
       }
+      {
+        const ui = useUi.getState()
+        const feats: GeoJSON.Feature[] = []
+        for (const d of ui.drawings) {
+          feats.push(d.kind === 'polygon' ? { type: 'Feature', properties: { id: d.id }, geometry: { type: 'Polygon', coordinates: [[...d.coords, d.coords[0]]] } } : { type: 'Feature', properties: { id: d.id }, geometry: { type: 'LineString', coordinates: d.coords } })
+          for (const c of d.coords) feats.push({ type: 'Feature', properties: { id: d.id }, geometry: { type: 'Point', coordinates: c } })
+        }
+        ;(map.getSource('draw') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: feats })
+        if (ui.pin) (map.getSource('pin') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: ui.pin } }] })
+      }
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
       else scheduleLoad()
     })
+    // Titles in view by tenure, for the Location Analysis counts.
+    const countTitles = () => {
+      if (!map.getLayer('titles-fill')) return
+      const seen = new Set<string>()
+      let fh = 0
+      let lh = 0
+      for (const f of map.queryRenderedFeatures(undefined, { layers: ['titles-fill'] })) {
+        const pr = f.properties as { titleNumber: string; tenure: string }
+        if (seen.has(pr.titleNumber)) continue
+        seen.add(pr.titleNumber)
+        if (pr.tenure === 'Leasehold') lh++
+        else fh++
+      }
+      const cur = useUi.getState().viewCounts
+      if (cur.titles !== seen.size || cur.freehold !== fh || cur.leasehold !== lh) useUi.getState().setViewCounts({ titles: seen.size, freehold: fh, leasehold: lh })
+    }
+    map.on('idle', countTitles)
     map.on('moveend', () => {
       const c = map.getCenter()
       const b = map.getBounds()
       setMapView({ lon: c.lng, lat: c.lat, zoom: map.getZoom() }, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() })
       scheduleLoad()
+      countTitles()
     })
 
     const clickable = ['businesses-points', 'poi-points', 'comparables-points', 'pricePaid-points', 'planning-points', 'traffic-points', 'titles-fill']
     const onClick = (e: MapMouseEvent) => {
+      const ui = useUi.getState()
+      if (ui.tool !== 'none') {
+        const p: [number, number] = [e.lngLat.lng, e.lngLat.lat]
+        if (ui.tool === 'polygon' || ui.tool === 'line') ui.addDraftPoint(p)
+        else if (ui.tool === 'pin') {
+          ui.setPin(p)
+          ui.setTool('none')
+          const id = `${p[0].toFixed(6)},${p[1].toFixed(6)}`
+          select({ type: 'point', id })
+          nav(`/map/point/${id}`)
+        } else if (ui.tool === 'streetview') {
+          ui.setTool('none')
+          window.open(streetViewUrl(p[0], p[1]), '_blank', 'noopener')
+        }
+        return
+      }
       const feats = map.queryRenderedFeatures(e.point, { layers: clickable.filter((l) => map.getLayer(l)) })
       if (!feats.length) {
         select(null)
@@ -296,6 +358,13 @@ export function MapView() {
       }
     }
     map.on('click', onClick)
+    map.on('dblclick', (e) => {
+      const ui = useUi.getState()
+      if (ui.tool === 'polygon' || ui.tool === 'line') {
+        e.preventDefault()
+        ui.finishDraft()
+      }
+    })
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 })
     popupRef.current = popup
@@ -331,8 +400,8 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded()) return
-    applyVisibility(map, layers, constraintKinds, sectorFilter, basemapFailedRef.current)
-  }, [layers, constraintKinds, sectorFilter])
+    applyVisibility(map, layers, constraintKinds, sectorFilter, basemapFailedRef.current, tenureFilter, pricePaidFilter)
+  }, [layers, constraintKinds, sectorFilter, tenureFilter, pricePaidFilter])
 
   // CRM / sourcing highlight
   useEffect(() => {
@@ -381,6 +450,49 @@ export function MapView() {
     void apply()
   }, [selected])
 
+  // Tools: cursor, double-click zoom, keyboard (Esc cancels, Enter finishes, Backspace undoes a point)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    map.getCanvas().style.cursor = tool === 'none' ? '' : 'crosshair'
+    if (tool === 'polygon' || tool === 'line') map.doubleClickZoom.disable()
+    else map.doubleClickZoom.enable()
+    if (tool === 'none') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const ui = useUi.getState()
+      if (e.key === 'Escape') ui.cancelDraft()
+      else if (e.key === 'Enter' && (ui.tool === 'polygon' || ui.tool === 'line')) ui.finishDraft()
+      else if (e.key === 'Backspace' && (ui.tool === 'polygon' || ui.tool === 'line')) { e.preventDefault(); ui.undoDraftPoint() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [tool])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getSource('draft')) return
+    const feats: GeoJSON.Feature[] = draft.map((c) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: c } }))
+    if (draft.length >= 2) feats.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: tool === 'polygon' ? [...draft, draft[0]] : draft } })
+    if (tool === 'polygon' && draft.length >= 3) feats.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[...draft, draft[0]]] } })
+    ;(map.getSource('draft') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: feats })
+  }, [draft, tool])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getSource('draw')) return
+    const feats: GeoJSON.Feature[] = []
+    for (const d of drawings) {
+      if (d.kind === 'polygon') feats.push({ type: 'Feature', properties: { id: d.id }, geometry: { type: 'Polygon', coordinates: [[...d.coords, d.coords[0]]] } })
+      else feats.push({ type: 'Feature', properties: { id: d.id }, geometry: { type: 'LineString', coordinates: d.coords } })
+      for (const c of d.coords) feats.push({ type: 'Feature', properties: { id: d.id }, geometry: { type: 'Point', coordinates: c } })
+    }
+    ;(map.getSource('draw') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: feats })
+  }, [drawings])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map.getSource('pin')) return
+    ;(map.getSource('pin') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: pin ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: pin } }] : [] })
+  }, [pin])
+
   // Fly-to requests
   useEffect(() => {
     if (!flyTo || !mapRef.current) return
@@ -391,10 +503,13 @@ export function MapView() {
   return (
     <>
       <div ref={containerRef} className="h-full w-full" />
-      <BasemapControl hasOsKey={!!osKey()} />
+      <BasemapControl hasOsKey={!!osKey()} open={basemapOpen} onOpenChange={setBasemapOpen} />
       <MapLegend />
+      <MapToolbar mapRef={mapRef} containerRef={containerRef} onBasemap={() => setBasemapOpen((o) => !o)} />
+      <DrawPanel />
+      <LocationAnalysis />
       {basemapFailed && (
-        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-center text-[11px] text-amber-900 dark:text-amber-200 shadow">
+        <div className="pointer-events-none absolute bottom-[4.2rem] left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-center text-[11px] text-amber-900 dark:text-amber-200 shadow">
           Street tiles blocked on this network; showing data layers over a schematic street outline.
         </div>
       )}
@@ -426,7 +541,7 @@ function applyTitleStyle(map: MLMap, mode: TitleColour, dark: boolean, imagery: 
   map.setPaintProperty('titles-selected', 'line-color', imagery || dark ? '#fde047' : '#0f2340')
 }
 
-function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[], schematic = false) {
+function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[], schematic = false, tenureFilter = { freehold: true, leasehold: true }, pricePaidFilter: 'all' | 'residential' | 'nonResidential' = 'all') {
   const vis = (ids: string[], on: boolean) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'))
   vis(['streets-casing', 'streets-fill', 'streets-labels'], schematic)
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
@@ -439,6 +554,11 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   vis(['traffic-points', 'traffic-labels'], layers.traffic)
   vis(['footfall-fill'], layers.footfall)
   vis(['constraints-fill', 'constraints-line', 'constraints-points'], layers.constraints)
+  const tenures = [tenureFilter.freehold ? 'Freehold' : null, tenureFilter.leasehold ? 'Leasehold' : null].filter(Boolean) as string[]
+  const tenureF: maplibregl.FilterSpecification | null = tenures.length === 2 ? null : (['in', ['get', 'tenure'], ['literal', tenures]] as unknown as maplibregl.FilterSpecification)
+  for (const id of ['titles-fill', 'titles-line']) if (map.getLayer(id)) map.setFilter(id, tenureF)
+  if (map.getLayer('titles-distress')) map.setFilter('titles-distress', (tenureF ? ['all', ['==', ['get', 'distress'], true], tenureF] : ['==', ['get', 'distress'], true]) as unknown as maplibregl.FilterSpecification)
+  if (map.getLayer('pricePaid-points')) map.setFilter('pricePaid-points', pricePaidFilter === 'all' ? null : pricePaidFilter === 'nonResidential' ? ['==', ['get', 'type'], 'O'] : ['!=', ['get', 'type'], 'O'])
   const kindFilter: maplibregl.FilterSpecification = ['in', ['get', 'kind'], ['literal', constraintKinds]]
   if (map.getLayer('constraints-fill')) {
     map.setFilter('constraints-fill', ['all', ['!=', ['geometry-type'], 'Point'], kindFilter])

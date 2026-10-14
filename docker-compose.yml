@@ -8,6 +8,8 @@ services:
   api:
     build: ./api
     environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-sonnet-5-5}
       DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
     depends_on:
       db:
