@@ -92,3 +92,36 @@ def _reload_auth_after(monkeypatch):
     import app.auth as auth
 
     importlib.reload(auth)
+
+
+def test_bootstrap_waits_for_schema(monkeypatch):
+    """The API starts before the loader on a fresh server: bootstrap retries until the accounts table exists."""
+    import asyncio
+
+    from app import main
+
+    calls = {"n": 0}
+
+    class Conn:
+        async def fetchrow(self, q, *a):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise RuntimeError('relation "accounts" does not exist')
+            return {"user_id": "x"}  # admin already present: nothing to create
+
+    class Pool:
+        def acquire(self):
+            class Cm:
+                async def __aenter__(self_inner):
+                    return Conn()
+
+                async def __aexit__(self_inner, *exc):
+                    return False
+
+            return Cm()
+
+    monkeypatch.setenv("ADMIN_EMAIL", "a@x")
+    monkeypatch.setenv("ADMIN_PASSWORD", "pw")
+    monkeypatch.setattr(accounts, "ENABLED", True)
+    assert asyncio.run(main._bootstrap_admin_when_ready(Pool(), attempts=5, pause=0)) is True
+    assert calls["n"] == 3

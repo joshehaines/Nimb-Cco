@@ -44,7 +44,7 @@ A virtual server avoids the laptop entirely: fast datacentre downloads, always o
    ```
    apt-get update && apt-get install -y git python3-pip
    git clone https://github.com/joshehaines/Nimb-Cco.git /opt/Nimb-Cco && cd /opt/Nimb-Cco
-   cp .env.example .env && nano .env        # set DOMAIN=pi.yourdomain.com and any keys you have; Ctrl-O, Enter, Ctrl-X to save
+   cp .env.example .env && nano .env        # set DOMAIN=pi.yourdomain.com, APP_URL=https://pi.yourdomain.com/ and the login lines below; Ctrl-O, Enter, Ctrl-X to save
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    docker compose --profile load run --rm loader
    ```

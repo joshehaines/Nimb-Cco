@@ -12,6 +12,8 @@ Run locally:
 """
 from __future__ import annotations
 
+import asyncio
+
 import json
 import os
 from contextlib import asynccontextmanager
@@ -26,18 +28,30 @@ from .auth import User, current_user, require_role
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://cpi:cpi@localhost:5432/cpi")
 
 
+async def _bootstrap_admin_when_ready(pool, attempts: int = 240, pause: float = 30.0) -> bool:
+    """Create the first admin from ADMIN_EMAIL / ADMIN_PASSWORD. On a fresh server the API starts before
+    the loader has created the tables, so keep trying (every 30 s, for two hours) until the schema exists."""
+    from . import accounts
+
+    for _ in range(attempts):
+        try:
+            async with pool.acquire() as c:
+                if await accounts.bootstrap_admin(c):
+                    print("created the first admin account from ADMIN_EMAIL")
+            return True
+        except Exception as e:  # noqa: BLE001
+            if "does not exist" not in str(e):
+                print(f"admin bootstrap skipped: {e}")
+                return False
+            await asyncio.sleep(pause)
+    return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if getattr(app.state, "pool", None) is None:
         app.state.pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
-        try:
-            from . import accounts
-
-            async with app.state.pool.acquire() as c:
-                if await accounts.bootstrap_admin(c):
-                    print("created the first admin account from ADMIN_EMAIL")
-        except Exception as e:  # noqa: BLE001
-            print(f"admin bootstrap skipped: {e}")
+        app.state.bootstrap_task = asyncio.create_task(_bootstrap_admin_when_ready(app.state.pool))
     yield
     if getattr(app.state, "pool", None) is not None and hasattr(app.state.pool, "close"):
         await app.state.pool.close()
