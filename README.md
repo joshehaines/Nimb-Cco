@@ -94,7 +94,7 @@ The image serves the static bundle with nginx and proxies `/api` to a backend na
 
 ## Hosting
 
-Pushes to `main` build, test and deploy to GitHub Pages at https://joshehaines.github.io/Nimb-Cco/ (the public repository; Pages requires a public repo on a free GitHub account). For internal production use, build the Docker image and run it behind company single sign-on.
+Pushes to `main` build, test and publish the site to the `gh-pages` branch, which GitHub Pages serves at https://joshehaines.github.io/Nimb-Cco/ (repository setting: Pages source "Deploy from a branch", `gh-pages`, root; Pages needs a public repository on a free GitHub account). For internal production use, build the Docker image and run it behind company single sign-on.
 
 ## Next: data collection (phase 2)
 
