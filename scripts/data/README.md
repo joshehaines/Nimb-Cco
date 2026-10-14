@@ -4,7 +4,7 @@ Everything under `public/data/warwick/` was produced by these scripts on 14 Octo
 
 | Script | Source | Output | Licence |
 |---|---|---|---|
-| `snap_places.py <area>` (after `build_parcels.py`) | places.geojson + parcels/buildings | Moves each real-business pin to the centre of its title/building footprint (nearest within 30 m), laying several in one footprint out along its long axis in frontage order; `placed` and `orig` properties record the move | — |
+| `snap_places.py <area>` (after `build_parcels.py`) | places.geojson + parcels/buildings | Moves each real-business pin to the centre of its title/building footprint (nearest within 30 m), placing several in one footprint at its centre so the map shows one dot with a count; `placed` and `orig` properties record the move | — |
 | `overture_extract.py places/place …` then `overture_to_geojson.py places` | Overture Maps release 2026-09-23.1 (S3, public) | `places.geojson`: real businesses in Christie sectors, with category, address, postcode, website, phone, brand | CDLA-Permissive-2.0 |
 | `overture_extract.py transportation/segment …` then `overture_to_geojson.py segments` | Overture Maps | `roads.geojson`: road centrelines with name and class | ODbL (OpenStreetMap contributors) |
 | `overture_extract.py buildings/building …` then `overture_to_geojson.py buildings` | Overture Maps | `buildings.geojson`: footprints with height and levels where known | ODbL |

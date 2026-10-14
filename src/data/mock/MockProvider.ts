@@ -136,10 +136,24 @@ export class MockProvider implements DataProvider {
     // Real layers: the Warwick files plus the national 0.5 degree tiles for the cells in view.
     const [tilePlaces, tileSales, tileTraffic] = await Promise.all([rowsForBounds('places', bounds), rowsForBounds('price_paid', bounds), rowsForBounds('traffic', bounds)])
     const poiIds = new Set<string>()
-    const poi = [
+    const poiRaw = [
       ...(this.real?.places.features ?? []).filter((f) => inBounds(f.geometry.coordinates, bounds)).map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { id: f.properties.id, name: f.properties.name, category: f.properties.category, sector: f.properties.sector, confidence: f.properties.confidence, postcode: f.properties.postcode } })),
       ...tilePlaces.filter((r) => inBounds([r.lon, r.lat], bounds)).map((r) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [r.lon, r.lat] }, properties: { id: r.id, name: r.name, category: r.category, sector: r.sector, confidence: r.confidence, postcode: r.postcode } })),
     ].filter((f) => !poiIds.has(f.properties.id) && poiIds.add(f.properties.id))
+    // Places snapped to the same footprint share a point: draw one dot with a count, keep every id for highlighting and the panel.
+    const clusters = new Map<string, { geometry: Point; ids: string[]; names: string[]; sectors: string[]; first: (typeof poiRaw)[number]['properties'] }>()
+    for (const f of poiRaw) {
+      const k = f.geometry.coordinates.join(',')
+      const c = clusters.get(k)
+      if (c) { c.ids.push(f.properties.id); if (f.properties.name) c.names.push(f.properties.name); c.sectors.push(f.properties.sector) }
+      else clusters.set(k, { geometry: f.geometry as Point, ids: [f.properties.id], names: f.properties.name ? [f.properties.name] : [], sectors: [f.properties.sector], first: f.properties })
+    }
+    const poi = Array.from(clusters.values()).map((c) => {
+      const tally = new Map<string, number>()
+      for (const s of c.sectors) tally.set(s, (tally.get(s) ?? 0) + 1)
+      const sector = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0][0]
+      return { type: 'Feature' as const, geometry: c.geometry, properties: { ...c.first, sector, sectors: Array.from(tally.keys()), ids: c.ids, count: c.ids.length, names: c.names.slice(0, 4).join(' · ') + (c.names.length > 4 ? ` +${c.names.length - 4}` : '') } }
+    })
     const saleIds = new Set<string>()
     const pricePaid = [...(this.real?.pricePaid ?? []), ...tileSales]
       .filter((r) => r.lon !== null && r.lat !== null && inBounds([r.lon, r.lat], bounds) && !saleIds.has(r.id) && saleIds.add(r.id))

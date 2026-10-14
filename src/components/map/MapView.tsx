@@ -46,6 +46,8 @@ function baseStyle(basemap: BasemapId, dark = false): string | StyleSpecificatio
 }
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const
+/** Match a POI dot when any of its clustered ids is in the list. */
+const poiIdFilter = (ids: string[]): maplibregl.FilterSpecification => (ids.length ? (['any', ...ids.map((id) => ['in', id, ['coalesce', ['get', 'ids'], ['literal', []]]])] as unknown as maplibregl.FilterSpecification) : ['==', ['get', 'id'], '__none__'])
 
 /** Used when the basemap style cannot be fetched (offline, corporate proxy): data layers still render on a neutral canvas. */
 const blankStyle = (dark: boolean): StyleSpecification => ({
@@ -129,7 +131,12 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   })
   map.addLayer({ id: 'pricePaid-points', type: 'circle', source: 'pricePaid', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 3, 2000000, 9, 20000000, 14], 'circle-color': ['case', ['==', ['get', 'type'], 'O'], '#7c3aed', '#94a3b8'], 'circle-opacity': 0.6, 'circle-stroke-color': dk ? '#161b26' : '#fff', 'circle-stroke-width': 1 } })
   map.addLayer({ id: 'poi-highlight', type: 'circle', source: 'poi', minzoom: 12, filter: ['in', ['get', 'id'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 8, 17, 13], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
-  map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', minzoom: 13, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 15, 2.5, 17, 4.5, 19, 6], 'circle-color': sectorMatch, 'circle-opacity': 0.9, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 0.8 } })
+  // One dot per building; a building with several businesses gets a slightly larger dot and a count.
+  // zoom may only drive a top-level interpolate, so the count term lives inside each stop's output
+  const extra = ['min', 5, ['-', ['coalesce', ['get', 'count'], 1], 1]]
+  const poiRadius = ['interpolate', ['linear'], ['zoom'], 13, 1.5, 15, ['+', 2.5, ['*', 0.6, extra]], 17, ['+', 4.5, ['*', 1.4, extra]], 19, ['+', 6, ['*', 1.8, extra]]] as unknown as maplibregl.ExpressionSpecification
+  map.addLayer({ id: 'poi-points', type: 'circle', source: 'poi', minzoom: 13, paint: { 'circle-radius': poiRadius, 'circle-color': sectorMatch, 'circle-opacity': 0.9, 'circle-stroke-color': dk ? '#e5e7eb' : '#1f2937', 'circle-stroke-width': 0.8 } })
+  if (withLabels) map.addLayer({ id: 'poi-count', type: 'symbol', source: 'poi', minzoom: 15.5, filter: ['>', ['coalesce', ['get', 'count'], 1], 1], layout: { 'text-field': ['to-string', ['get', 'count']], 'text-size': ['interpolate', ['linear'], ['zoom'], 15.5, 8, 18, 11], 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true }, paint: { 'text-color': '#ffffff' } })
   if (withLabels) map.addLayer({ id: 'poi-labels', type: 'symbol', source: 'poi', minzoom: 16.5, layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': dk ? '#c3cad6' : '#4b5563', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'comparables-points', type: 'circle', source: 'comparables', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 5, 5000000, 13], 'circle-color': sectorMatch, 'circle-opacity': 0.55, 'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 } })
   map.addLayer({ id: 'businesses-highlight', type: 'circle', source: 'businesses', filter: ['in', ['get', 'businessId'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 16], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
@@ -242,7 +249,7 @@ export function MapView() {
         map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', Array.from(new Set([...useUi.getState().highlightIds, ...(a?.businessIds ?? [])]))]])
         if (a) {
           ;(map.getSource('analysis') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { label: a.label }, geometry: circlePolygon(a.centre[0], a.centre[1], a.radiusM) }] } as never)
-          map.setFilter('poi-highlight', ['in', ['get', 'id'], ['literal', a.poiIds]])
+          map.setFilter('poi-highlight', poiIdFilter(a.poiIds))
         }
       }
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
@@ -303,7 +310,7 @@ export function MapView() {
       const p = f.properties as Record<string, string | number | boolean>
       let html = ''
       if (f.layer.id === 'businesses-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">${p.sector}${p.rating ? ' · rated ' + p.rating : ''}${p.distress ? ' · <span style="color:#be123c">distress signals</span>' : ''}</span>`
-      else if (f.layer.id === 'poi-points') html = `<strong>${p.name ?? p.category}</strong><br/><span style="color:#67748c">${String(p.category).replace(/_/g, ' ')} · ${p.sector} · Overture Maps</span>`
+      else if (f.layer.id === 'poi-points') html = Number(p.count) > 1 ? `<strong>${p.count} businesses in this building</strong><br/><span style="color:#67748c">${p.names}</span>` : `<strong>${p.name ?? p.category}</strong><br/><span style="color:#67748c">${String(p.category).replace(/_/g, ' ')} · ${p.sector} · Overture Maps</span>`
       else if (f.layer.id === 'pricePaid-points') html = `<strong>£${Number(p.price).toLocaleString()}</strong> · ${String(p.date).slice(0, 7)}<br/><span style="color:#67748c">${p.address} · HM Land Registry${p.geocode === 'sector' ? ' · approx. location' : ''}</span>`
       else if (f.layer.id === 'comparables-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">Sold £${Number(p.price).toLocaleString()} · ${String(p.date).slice(0, 7)} · ${p.sector}</span>`
       else if (f.layer.id === 'planning-points') html = `<strong>${p.reference}</strong><br/><span style="color:#67748c">${p.type} · ${p.status}</span>`
@@ -337,7 +344,7 @@ export function MapView() {
     const map = mapRef.current
     if (!map || !map.getSource('analysis')) return
     ;(map.getSource('analysis') as maplibregl.GeoJSONSource).setData(analysis ? ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { label: analysis.label }, geometry: circlePolygon(analysis.centre[0], analysis.centre[1], analysis.radiusM) }] } as never) : (EMPTY as never))
-    if (map.getLayer('poi-highlight')) map.setFilter('poi-highlight', ['in', ['get', 'id'], ['literal', analysis?.poiIds ?? []]])
+    if (map.getLayer('poi-highlight')) map.setFilter('poi-highlight', poiIdFilter(analysis?.poiIds ?? []))
   }, [analysis])
 
   // Basemap switch (picker or theme change) and title colouring
@@ -425,7 +432,7 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
   vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)
-  vis(['poi-points', 'poi-labels', 'poi-highlight'], layers.poi)
+  vis(['poi-points', 'poi-labels', 'poi-count', 'poi-highlight'], layers.poi)
   vis(['buildings-fill', 'buildings-line'], layers.buildings)
   vis(['pricePaid-points'], layers.pricePaid)
   vis(['comparables-points'], layers.comparables)
@@ -442,8 +449,12 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
     const f: maplibregl.FilterSpecification | null = sectorFilter.length ? ['in', ['get', 'sector'], ['literal', sectorFilter]] : null
     map.setFilter('businesses-points', f)
     if (map.getLayer('businesses-labels')) map.setFilter('businesses-labels', f)
-    if (map.getLayer('poi-points')) map.setFilter('poi-points', f)
-    if (map.getLayer('poi-labels')) map.setFilter('poi-labels', f)
+    // Clusters carry every sector they hold; keep the dot if any of them is wanted.
+    const pf: maplibregl.FilterSpecification | null = sectorFilter.length ? (['any', ...sectorFilter.map((s) => ['in', s, ['coalesce', ['get', 'sectors'], ['literal', []]]])] as unknown as maplibregl.FilterSpecification) : null
+    if (map.getLayer('poi-points')) map.setFilter('poi-points', pf)
+    if (map.getLayer('poi-labels')) map.setFilter('poi-labels', pf)
+    const multi = ['>', ['coalesce', ['get', 'count'], 1], 1] as unknown as maplibregl.FilterSpecification
+    if (map.getLayer('poi-count')) map.setFilter('poi-count', (pf ? ['all', multi, pf] : multi) as maplibregl.FilterSpecification)
     map.setFilter('businesses-ring', f ? ['all', ['==', ['get', 'distress'], true], f] : ['==', ['get', 'distress'], true])
   }
 }

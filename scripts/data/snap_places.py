@@ -3,9 +3,8 @@
 Overture places carry the point a listing gives, which is usually the street frontage or the
 road itself, so dots line the roads and hide the street network. This step puts each dot at the
 centre of the title/building footprint that contains it (or the nearest footprint within
-SNAP_M metres). Several places in one footprint (a terrace Overture mapped as one building) are
-laid out along its long axis in the order their listed points fall along the frontage, so they
-read as units in a row and stay clickable. Places with no footprint nearby keep their listed point.
+SNAP_M metres). Several places in one footprint (a terrace Overture mapped as one building) share
+that centre; the map draws them as one dot with a count and the panel lists them. Places with no footprint nearby keep their listed point.
 
 Properties added: `placed` = 'building' | 'listed', and `orig` = [lon, lat] of the listed point
 when the pin moved more than 2 m, so the info panel can say so.
@@ -35,13 +34,21 @@ polys, src = [], []
 for key in ('parcels', 'buildings'):
     if key not in area['files']:
         continue
+    # parcels are cleaned copies of the buildings: skip a building whose centre already lies in a parcel,
+    # otherwise two near-identical footprints give two centres a metre apart and split one building's pins
+    parcel_tree = STRtree(polys) if key == 'buildings' and polys else None
     for f in json.load(open(os.path.join(ROOT, area['files'][key])))['features']:
         g = shape(f['geometry'])
         if g.is_empty or not g.is_valid:
             g = g.buffer(0)
         if g.is_empty:
             continue
-        polys.append(to_m(g))
+        gm = to_m(g)
+        if parcel_tree is not None:
+            rp = gm.representative_point()
+            if any(polys[j].covers(rp) for j in parcel_tree.query(rp)):
+                continue
+        polys.append(gm)
         src.append(key)
 tree = STRtree(polys)
 
@@ -67,42 +74,20 @@ for i, f in enumerate(places['features']):
             hit = cand[0][1]
     assign[i] = (hit, (lon, lat))
 
-# 2) place: one per footprint at its interior centre; several laid out along the footprint's long
-#    axis (a terrace's frontage) in the order their listed points fall along it
+# 2) place: every place at its footprint's interior centre
 by_poly = {}
 for i, (hit, _) in assign.items():
     if hit is not None:
         by_poly.setdefault(hit, []).append(i)
 
 
-def axis_points(poly, members):
-    """Evenly spaced points along the longest interior run of the footprint's long axis, one per
-    member, ordered by where each member's listed point projects onto that axis."""
-    from shapely.geometry import LineString
-    centre = poly.representative_point()
-    mrr = list(poly.minimum_rotated_rectangle.exterior.coords)
-    edges = [(math.hypot(mrr[k + 1][0] - mrr[k][0], mrr[k + 1][1] - mrr[k][1]), k) for k in range(4)]
-    length, k = max(edges)
-    ux, uy = (mrr[k + 1][0] - mrr[k][0]) / length, (mrr[k + 1][1] - mrr[k][1]) / length
-    line = LineString([(centre.x - 2000 * ux, centre.y - 2000 * uy), (centre.x + 2000 * ux, centre.y + 2000 * uy)])
-    seg = line.intersection(poly)
-    pieces = [seg] if seg.geom_type == 'LineString' else [g for g in getattr(seg, 'geoms', []) if g.geom_type == 'LineString']
-    pieces = [g for g in pieces if g.length > 0]
-    if not pieces:
-        return {m: centre for m in members}
-    run = max(pieces, key=lambda g: g.length)
-    order = sorted(members, key=lambda m: assign[m][1][0] * MX * ux + assign[m][1][1] * MY * uy)
-    n = len(order)
-    return {m: run.interpolate((j + 0.5) / n, normalized=True) for j, m in enumerate(order)}
-
-
 placement = {}
 for hit, members in by_poly.items():
     poly = polys[hit]
-    if len(members) == 1:
-        placement[members[0]] = poly.representative_point()
-    else:
-        placement.update(axis_points(poly, members))
+    # every place in the footprint sits at its interior centre; the map draws one dot with a count
+    centre = poly.representative_point()
+    for m in members:
+        placement[m] = centre
 
 moved = listed = 0
 for i, f in enumerate(places['features']):

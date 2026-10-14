@@ -505,12 +505,14 @@ function PoiDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const [p, setP] = useState<(PlaceProps & { location: Point }) | null | undefined>(undefined)
   const [sales, setSales] = useState<(PricePaidRow & { distanceM: number })[]>([])
   const [nearby, setNearby] = useState<(PlaceProps & { distanceM: number })[]>([])
+  const [inBuilding, setInBuilding] = useState<(PlaceProps & { distanceM: number })[]>([])
   const nav = useNavigate()
   useEffect(() => {
     provider.getPoi(id).then(async (x) => {
       setP(x ?? null)
       if (!x) return
       const [lon, lat] = x.location.coordinates
+      setInBuilding((await provider.getPoisNear(lon, lat, 1)).filter((n) => n.id !== x.id))
       setSales(await provider.getPricePaidNear(lon, lat, 150, { limit: 8 }))
       setNearby((await provider.getPoisNear(lon, lat, 400, x.sector as never)).filter((n) => n.id !== x.id).slice(0, 8))
     })
@@ -528,6 +530,12 @@ function PoiDetail({ id, onClose }: { id: string; onClose: () => void }) {
         {p.website && <a className="btn text-xs" href={p.website} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Website</a>}
       </div>
       <div className="flex-1 overflow-y-auto" tabIndex={0}>
+        {inBuilding.length > 0 && (
+          <Section title={`Also in this building (${inBuilding.length})`}>
+            <ul className="divide-y divide-ink-100 text-xs">{inBuilding.map((n) => <li key={n.id} className="flex cursor-pointer items-center justify-between py-1.5 hover:bg-ink-50" onClick={() => { useUi.getState().select({ type: 'poi', id: n.id }); nav(`/map/poi/${encodeURIComponent(n.id)}`) }}><span className="truncate font-medium">{n.name ?? n.category}</span><span className="shrink-0 text-ink-500">{n.category.replace(/_/g, ' ')}</span></li>)}</ul>
+            <p className="mt-1 text-[10px] text-ink-400">One footprint, several units: the map shows them as a single dot with a count.</p>
+          </Section>
+        )}
         <Section title="What the source records">
           <KV rows={[['Category', `${label} (${p.sector})`], ['Brand', p.brand ?? '—'], ['Phone', p.phone ?? '—'], ['Postcode', p.postcode ?? '—'], ['Source confidence', `${Math.round(p.confidence * 100)}%`]]} />
           {p.placed === 'building' && <p className="mt-2 text-[11px] text-ink-500">Pin placed at the centre of the building footprint{p.orig ? `; the listing's own point is ${Math.round(haversineM(p.orig, p.location.coordinates))} m away, on the street frontage` : ''}.</p>}
