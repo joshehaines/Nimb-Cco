@@ -309,6 +309,14 @@ export interface Alert {
     | 'New business'
     | 'EPC lodged'
     | 'VOA change'
+    | 'Distress signal'
+    | 'New charge'
+    | 'Gazette notice'
+    | 'Regulator enforcement'
+    | 'Price paid recorded'
+    | 'Competitor opened'
+    | 'Deal score'
+    | 'Licence review'
   title: string
   detail: string
   occurredAt: ISODate
@@ -317,7 +325,14 @@ export interface Alert {
   entityId: string
   read: boolean
   sector?: Sector
+  /** Context for rule matching: the trading business and title behind the event, where known. */
+  businessId?: string
+  titleNumber?: string
+  postcode?: string
+  location?: [number, number]
 }
+
+export const ALERT_KINDS: Alert['kind'][] = ['Ownership change', 'Planning submitted', 'Planning decided', 'Rating change', 'Registration change', 'Company status', 'Late accounts', 'Lease event', 'New business', 'EPC lodged', 'VOA change', 'Distress signal', 'New charge', 'Gazette notice', 'Regulator enforcement', 'Price paid recorded', 'Competitor opened', 'Deal score', 'Licence review']
 
 export type PipelineStage = 'Prospect' | 'Approach' | 'Instruction' | 'On market' | 'Under offer' | 'Exchanged' | 'Completed' | 'Lost'
 export const PIPELINE_STAGES: PipelineStage[] = ['Prospect', 'Approach', 'Instruction', 'On market', 'Under offer', 'Exchanged', 'Completed', 'Lost']

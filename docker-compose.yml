@@ -15,6 +15,24 @@ services:
     ports:
       - "8000:8000"
   # One-shot: creates the schema and loads the collected open data from public/data, then exits.
+  alerts:
+    build: ./api
+    command: python -m alerts.worker --loop 300
+    environment:
+      DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
+      APP_URL: ${APP_URL:-http://localhost:8080/}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-alerts@property-intelligence.internal}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      ALERTS_DRY_RUN: ${ALERTS_DRY_RUN:-1}
+    depends_on:
+      db:
+        condition: service_healthy
   loader:
     build: ./api
     command: >

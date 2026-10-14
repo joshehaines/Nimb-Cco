@@ -70,7 +70,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   setDemoPersona: (id) => {
     const u = DEMO_PERSONAS.find((p) => p.id === id) ?? DEMO_PERSONAS[0]
     try {
-      localStorage.setItem(SS.persona, u.id)
+      sessionStorage.setItem(SS.persona, u.id)
     } catch {
       /* ignore */
     }
@@ -79,9 +79,12 @@ export const useAuth = create<AuthState>()((set, get) => ({
   signIn: async () => {
     if (!authConfigured) {
       // A persona chosen earlier in this browser signs straight in; otherwise the sign-in page offers the choice.
+      // Demo builds always open on the sign-in page: the persona lives in sessionStorage, so a
+      // refresh keeps you signed in but a new tab or visit asks again.
       let id: string | null = null
       try {
-        id = localStorage.getItem(SS.persona)
+        id = sessionStorage.getItem(SS.persona)
+        localStorage.removeItem(SS.persona)
       } catch {
         /* ignore */
       }
@@ -129,7 +132,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   signOut: () => {
     sessionStorage.removeItem(SS.tokens)
     try {
-      localStorage.removeItem(SS.persona)
+      sessionStorage.removeItem(SS.persona)
     } catch {
       /* ignore */
     }

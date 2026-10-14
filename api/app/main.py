@@ -353,6 +353,150 @@ async def list_audit(req: Request, limit: int = 500, user: User = Depends(requir
     return [{"id": r["event_id"], "at": r["at"].isoformat(), "userId": r["user_id"], "userName": r["user_name"], "kind": r["kind"], "summary": r["summary"], "entityType": r["entity_type"], "entityId": r["entity_id"], "licences": list(r["licences"] or []), "count": r["count"]} for r in rows]
 
 
+# ------------------------------------------------------------ alerts: rules, channels, deliveries, staff
+def _rule_out(r: asyncpg.Record) -> dict[str, Any]:
+    body = json.loads(r["body"]) if isinstance(r["body"], str) else dict(r["body"])
+    body.update({"id": r["rule_id"], "name": r["name"], "enabled": r["enabled"], "createdBy": r["user_id"], "createdAt": r["created_at"].isoformat(), "updatedAt": r["updated_at"].isoformat(), "lastFiredAt": r["last_fired_at"].isoformat() if r["last_fired_at"] else None, "firedCount": r["fired_count"]})
+    return body
+
+
+@app.get("/api/alerts/rules")
+async def list_rules(req: Request, user: User = Depends(current_user)):
+    """Rules I own plus rules a colleague added me to (read-only for me)."""
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from alert_rules where user_id = $1 or body->'recipients' @> $2::jsonb order by updated_at desc", user.id, json.dumps([{"staffId": user.id}]))
+    return [_rule_out(r) for r in rows]
+
+
+@app.put("/api/alerts/rules/{rule_id}")
+async def save_rule(req: Request, rule_id: str, rule: dict[str, Any], user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        owner = await c.fetchval("select user_id from alert_rules where rule_id = $1", rule_id)
+        if owner and owner != user.id and not user.has("admin"):
+            raise HTTPException(403, "only the owner can change this alert")
+        await c.execute("insert into users (user_id, email) values ($1, $2) on conflict (user_id) do nothing", user.id, user.email)
+        await c.execute(
+            "insert into alert_rules (rule_id, user_id, name, enabled, body) values ($1,$2,$3,$4,$5::jsonb) on conflict (rule_id) do update set name = excluded.name, enabled = excluded.enabled, body = excluded.body, updated_at = now()",
+            rule_id, owner or user.id, rule.get("name") or "Untitled alert", bool(rule.get("enabled", True)), json.dumps({k: v for k, v in rule.items() if k not in ("id", "createdBy", "createdAt", "updatedAt", "lastFiredAt", "firedCount")}),
+        )
+    return {"ok": True, "id": rule_id}
+
+
+@app.delete("/api/alerts/rules/{rule_id}")
+async def delete_rule(req: Request, rule_id: str, user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        n = await c.execute("delete from alert_rules where rule_id = $1 and (user_id = $2 or $3)", rule_id, user.id, user.has("admin"))
+    return {"ok": True, "deleted": n}
+
+
+@app.post("/api/alerts/rules/{rule_id}/test")
+async def test_rule(req: Request, rule_id: str, body: dict[str, Any], user: User = Depends(current_user)):
+    """Dry run: which of the recent alerts would this rule (as posted, unsaved) match, and why."""
+    from alerts.matcher import Context, match_rule
+
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from alerts where occurred_at > now() - interval '40 days' order by occurred_at desc limit 500")
+    out = []
+    for a in rows:
+        al = {"alertId": str(a["alert_id"]), "kind": a["kind"], "title": a["title"], "detail": a["detail"], "occurredAt": a["occurred_at"].isoformat(), "severity": a["severity"], "entityType": a["entity_type"], "entityId": a["entity_id"], "sector": a["sector"],
+              "businessId": a.get("business_id") if hasattr(a, "get") else a["business_id"], "titleNumber": a["title_number"], "postcode": a["postcode"], "location": [a["lon"], a["lat"]] if a["lon"] is not None else None}
+        m = match_rule({**body, "enabled": True}, al, Context(deal_score=a["deal_score"]))
+        out.append({"alertId": al["alertId"], "title": al["title"], "match": m.match, "reasons": m.reasons})
+    return {"matched": sum(1 for o in out if o["match"]), "total": len(out), "results": out}
+
+
+@app.get("/api/me/notifications")
+async def get_notifications(req: Request, user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        r = await c.fetchrow("select * from notification_prefs where user_id = $1", user.id)
+    if not r:
+        return {"email": user.email or "", "emailVerified": False, "mobile": "", "mobileVerified": False, "teamsWebhook": "", "quietHours": {"enabled": True, "from": "21:00", "to": "07:00"}, "digestHour": 8, "weeklyDay": 1, "timezone": "Europe/London"}
+    return {"email": r["email"], "emailVerified": r["email_verified"], "mobile": r["mobile"], "mobileVerified": r["mobile_verified"], "teamsWebhook": r["teams_webhook"], "quietHours": {"enabled": r["quiet_enabled"], "from": r["quiet_from"], "to": r["quiet_to"]}, "digestHour": r["digest_hour"], "weeklyDay": r["weekly_day"], "timezone": r["timezone"]}
+
+
+@app.put("/api/me/notifications")
+async def save_notifications(req: Request, p: dict[str, Any], user: User = Depends(current_user)):
+    """Save channel details. Changing the address or number clears its verified flag."""
+    qh = p.get("quietHours") or {}
+    async with req.app.state.pool.acquire() as c:
+        cur = await c.fetchrow("select email, mobile, email_verified, mobile_verified from notification_prefs where user_id = $1", user.id)
+        email_ok = bool(cur and cur["email"] == p.get("email", "") and cur["email_verified"])
+        mobile_ok = bool(cur and cur["mobile"] == p.get("mobile", "") and cur["mobile_verified"])
+        await c.execute("insert into users (user_id, email) values ($1, $2) on conflict (user_id) do nothing", user.id, user.email)
+        await c.execute(
+            "insert into notification_prefs (user_id, email, email_verified, mobile, mobile_verified, teams_webhook, quiet_enabled, quiet_from, quiet_to, digest_hour, weekly_day, timezone) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) "
+            "on conflict (user_id) do update set email = excluded.email, email_verified = excluded.email_verified, mobile = excluded.mobile, mobile_verified = excluded.mobile_verified, teams_webhook = excluded.teams_webhook, quiet_enabled = excluded.quiet_enabled, quiet_from = excluded.quiet_from, quiet_to = excluded.quiet_to, digest_hour = excluded.digest_hour, weekly_day = excluded.weekly_day, timezone = excluded.timezone",
+            user.id, p.get("email", ""), email_ok, p.get("mobile", ""), mobile_ok, p.get("teamsWebhook", ""), bool(qh.get("enabled", True)), qh.get("from", "21:00"), qh.get("to", "07:00"), int(p.get("digestHour", 8)), int(p.get("weeklyDay", 1)), p.get("timezone", "Europe/London"),
+        )
+    return {"ok": True, "emailVerified": email_ok, "mobileVerified": mobile_ok}
+
+
+@app.post("/api/me/notifications/verify")
+async def start_verification(req: Request, body: dict[str, Any], user: User = Depends(current_user)):
+    """Send a six-digit code over the channel being verified (email or sms)."""
+    import secrets
+
+    from alerts.senders import send_email, send_sms
+
+    channel = body.get("channel")
+    if channel not in ("email", "sms"):
+        raise HTTPException(400, "channel must be email or sms")
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    async with req.app.state.pool.acquire() as c:
+        r = await c.fetchrow("select email, mobile from notification_prefs where user_id = $1", user.id)
+        if not r:
+            raise HTTPException(400, "save your channel details first")
+        to = r["email"] if channel == "email" else r["mobile"]
+        if not to:
+            raise HTTPException(400, f"no {channel} address saved")
+        status, note = send_email(to, "Your Property Intelligence verification code", f"Your code is {code}. It expires in 15 minutes.") if channel == "email" else send_sms(to, f"Property Intelligence code: {code}")
+        await c.execute("update notification_prefs set pending_code = $2, pending_channel = $3 where user_id = $1", user.id, code, channel)
+    return {"ok": status in ("sent", "simulated"), "status": status, "note": note}
+
+
+@app.post("/api/me/notifications/confirm")
+async def confirm_verification(req: Request, body: dict[str, Any], user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        r = await c.fetchrow("select pending_code, pending_channel from notification_prefs where user_id = $1", user.id)
+        if not r or not r["pending_code"] or r["pending_code"] != str(body.get("code", "")).strip():
+            raise HTTPException(400, "code does not match")
+        col = "email_verified" if r["pending_channel"] == "email" else "mobile_verified"
+        await c.execute(f"update notification_prefs set {col} = true, pending_code = null, pending_channel = null where user_id = $1", user.id)
+    return {"ok": True, "channel": r["pending_channel"]}
+
+
+@app.get("/api/alerts/deliveries")
+async def list_deliveries(req: Request, limit: int = 500, user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select d.*, r.name as rule_name from alert_deliveries d left join alert_rules r on r.rule_id = d.rule_id where d.user_id = $1 or $2 order by d.at desc limit $3", user.id, user.has("compliance"), limit)
+    return [{"id": str(r["id"]), "at": r["at"].isoformat(), "ruleId": r["rule_id"], "ruleName": r["rule_name"], "channel": r["channel"], "to": r["to_addr"], "toName": r["to_name"], "alertIds": list(r["alert_ids"] or []), "subject": r["subject"], "body": r["body"], "status": r["status"], "note": r["note"]} for r in rows]
+
+
+@app.get("/api/alerts/state")
+async def get_alert_state(req: Request, user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from alert_state where user_id = $1", user.id)
+    return {r["alert_id"]: {"read": r["read"], "snoozedUntil": r["snoozed_until"].isoformat() if r["snoozed_until"] else None, "assignedTo": r["assigned_to"], "notes": r["notes"], "dismissed": r["dismissed"]} for r in rows}
+
+
+@app.put("/api/alerts/state/{alert_id}")
+async def put_alert_state(req: Request, alert_id: str, s: dict[str, Any], user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        await c.execute(
+            "insert into alert_state (user_id, alert_id, read, snoozed_until, assigned_to, notes, dismissed) values ($1,$2,$3,$4::timestamptz,$5,$6,$7) on conflict (user_id, alert_id) do update set read = excluded.read, snoozed_until = excluded.snoozed_until, assigned_to = excluded.assigned_to, notes = excluded.notes, dismissed = excluded.dismissed",
+            user.id, alert_id, bool(s.get("read", False)), s.get("snoozedUntil"), s.get("assignedTo"), s.get("notes"), bool(s.get("dismissed", False)),
+        )
+    return {"ok": True}
+
+
+@app.get("/api/staff")
+async def list_staff(req: Request, user: User = Depends(current_user)):
+    """Colleagues who can be added to an alert. Synced from the identity provider."""
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from staff order by name")
+    return [{"id": r["id"], "name": r["name"], "email": r["email"], "mobile": r["mobile"], "office": r["office"], "team": r["team"], "role": r["role"]} for r in rows]
+
+
 # ------------------------------------------------------------ remaining endpoints
 # These follow the same pattern; wire them as the ingestion jobs land.
 for path in [

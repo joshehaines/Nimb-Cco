@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, AlertTriangle, Printer, Copy } from 'lucide-react'
+import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, AlertTriangle, Printer, Copy, BellPlus } from 'lucide-react'
+import { useAlerts } from '@/store/alerts'
+import { useAuth } from '@/auth'
+import { blankRule } from '@/lib/alerts'
 import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary, type Comparable } from '@/data'
 import { PRICE_PAID_TYPE, type PlaceProps, type PricePaidRow } from '@/data/real'
 import type { Point } from 'geojson'
@@ -65,6 +68,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
   const [business, setBusiness] = useState<Business | null>(null)
   const [titleNumber, setTitleNumber] = useState<string | undefined>(sel.type === 'title' ? sel.id : undefined)
   const [refresh, setRefresh] = useState(0)
+  const navTo = useNavigate()
   useEffect(() => {
     if (sel.type === 'business') provider.getBusiness(sel.id).then((b) => { setBusiness(b ?? null); setTitleNumber(b?.titleNumber) })
     else provider.getBusinessesForTitle(sel.id).then((bs) => setBusiness(bs[0] ?? null))
@@ -105,6 +109,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
         {b && <Link to={`/appraisal/${b.businessId}`} target="_blank" className="btn-secondary btn-sm">Appraise</Link>}
         <Link to={`/catchment?lon=${bundle.centre[0]}&lat=${bundle.centre[1]}&label=${encodeURIComponent(b ? b.name : t.address)}`} className="btn-secondary btn-sm">Catchment</Link>
         <Button size="sm" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}>Zoom</Button>
+        <Button size="sm" title="Create an alert for anything that happens at or near this site" onClick={() => { if (!watched) addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }); const r = blankRule(useAuth.getState().user?.id ?? 'demo-agent', { name: `Watch ${b ? b.name : t.address}`, tag: 'Site watch', scope: { mode: 'sites', radiusM: 250, siteIds: [t.titleNumber, ...(b ? [b.businessId] : [])], postcodes: [], offices: [] }, frequency: 'instant' }); useAlerts.getState().upsertRule(r); navTo(`/alerts/rules/${r.id}`) }}><BellPlus size={14} /> Alert</Button>
         <Button size="sm" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={14} /> Link</Button>
         {distress.length > 0 && <Badge tone="critical" className="ml-auto"><AlertTriangle size={11} /> {distress.length} signal{distress.length > 1 ? 's' : ''}</Badge>}
       </div>

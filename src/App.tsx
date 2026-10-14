@@ -4,7 +4,8 @@ import { MapPage } from '@/pages/MapPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { SourcingPage } from '@/pages/SourcingPage'
 import { WatchlistPage } from '@/pages/WatchlistPage'
-import { AlertsPage } from '@/pages/AlertsPage'
+import { AlertsPage } from '@/pages/alerts/AlertsPage'
+import { RuleEditorPage } from '@/pages/alerts/RuleEditorPage'
 import { CrmPage } from '@/pages/CrmPage'
 import { CrmExportPage } from '@/pages/CrmExportPage'
 import { AuditPage } from '@/pages/AuditPage'
@@ -34,6 +35,8 @@ export default function App() {
         <Route path="/sourcing" element={<SourcingPage />} />
         <Route path="/watchlist" element={<WatchlistPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
+        <Route path="/alerts/rules/:id" element={<RuleEditorPage />} />
+        <Route path="/alerts/:tab" element={<AlertsPage />} />
         <Route path="/leases" element={<LeaseEventsPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/comparables" element={<ComparablesPage />} />

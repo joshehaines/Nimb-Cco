@@ -51,7 +51,13 @@ Open **Sourcing** (or the Filters button on the map). Pick a strategy preset suc
 
 ## My Sites and alerts
 
-**My Sites** holds everything you watch, grouped into projects with notes. **Alerts** lists ownership changes, planning events, regulator rating changes, company status changes, late accounts, lease events, EPC lodgements and VOA changes. The **Alert rules** card lets each user choose event types, sectors, radius, digest frequency and channel.
+**My Sites** holds everything you watch, grouped into projects with notes.
+
+**Alerts** is where dirty deals get tracked. The **Inbox** lists every event the platform detected: administrations and Gazette notices, new charges, regulator downgrades and enforcement, ownership changes and recorded sales, lease breaks, planning, EPC and rateable-value changes, new competitors, licence reviews and sites crossing the high transact band. Each row shows which of your alerts caught it. Select rows to mark read, snooze for a day or a week, **assign** to a colleague or **dismiss**; the **Assigned to me** view is a to-do list. **Add to pipeline** puts the site into Prospect with the event as its first note. **Run alerts now** evaluates every active alert and writes the messages to Deliveries.
+
+**My alerts** are custom rules. Each one says **what** (event types, sectors, severity, keywords, distressed operators only, minimum deal score, owner type, tenure), **where** (everywhere, around My Sites or pipeline deals within a radius, named sites, postcode districts or office patches), **who** (you, plus any Christie & Co colleagues from the staff directory, each with their own channels, and an escalation if a critical event sits unread), and **how** (in app, email, text message or a Teams channel; instantly, hourly, daily or weekly; critical events can skip the digest). The editor previews how many recent events would have matched and shows the exact email, text or Teams card. Presets cover the common cases, starting with **Dirty deals**. **Alert me on this search** on the Sourcing page and **Alert** on any site's panel create a rule pre-filled from where you are.
+
+**My channels** holds your email, mobile and Teams webhook with verification, quiet hours and digest times. **Deliveries** is the log of every message sent, simulated or suppressed, with its text and recipient, exportable as CSV. On the demo build nothing leaves the browser: messages are written to the log exactly as they would be sent.
 
 ## Pipeline
 

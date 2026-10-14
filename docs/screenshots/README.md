@@ -22,6 +22,8 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![Layer tick boxes: real businesses, price paid and traffic ticked](map-layers-ticked.png) | ![Real businesses centred on their footprints, roads clear](map-real-businesses.png) |
 | ![Staff sign-in page](login.png) | ![Info panel: use classes, title, owner, downloads](info-panel.png) |
 | ![Competition analysis with the radius ring and competitors highlighted](competition.png) | ![Map keys with titles coloured by owner type](legend-owner.png) |
+| ![Alerts inbox: events tagged by the rule that caught them](alerts-inbox.png) | ![Alert editor: what, where, who, how, with a live match count and message preview](alerts-editor.png) |
+| ![My channels: email, text, Teams, quiet hours](alerts-channels.png) | ![Delivery log with the exact message text](alerts-deliveries.png) |
 | ![Basemap picker](basemaps.png) | ![Title colouring by proprietor type](title-colouring.png) |
 
 Full printable site report: [report.png](report.png)

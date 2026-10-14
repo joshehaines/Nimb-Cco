@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { dealScore } from '@/lib/dealScore'
 import { logAudit } from '@/lib/audit'
 import { useNavigate } from 'react-router-dom'
-import { SlidersHorizontal, Download, Bookmark, MapPin, Upload } from 'lucide-react'
+import { SlidersHorizontal, Download, Bookmark, MapPin, Upload, BellPlus } from 'lucide-react'
+import { useAlerts } from '@/store/alerts'
+import { useAuth } from '@/auth'
+import { blankRule } from '@/lib/alerts'
 import { provider, type Business, type Hereditament, type Title } from '@/data'
 import { useUi } from '@/store/ui'
 import { Badge, Button, Empty, Spinner } from '@/components/ui'
@@ -65,6 +68,7 @@ export function SourcingPage() {
           <Button size="sm" onClick={() => { setHighlight(sorted.map(({ b }) => b.businessId), 'sourcing results'); nav('/map') }} disabled={!sorted.length}><MapPin size={13} /> Plot on map</Button>
           <Button size="sm" onClick={() => sorted.forEach(({ b }) => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name }))}><Bookmark size={13} /> Watch all</Button>
           <Button size="sm" onClick={exportCsv} disabled={!sorted.length || !canDownload} title={canDownload ? 'Export CSV' : 'Downloads are disabled on this preview host'}><Download size={13} /> CSV</Button>
+          <Button size="sm" onClick={() => { const r = blankRule(useAuth.getState().user?.id ?? 'demo-agent', { name: `Sourcing: ${[filters.sectors.join('/'), filters.distressOnly ? 'distressed' : '', filters.tenure ?? ''].filter(Boolean).join(' · ') || 'all sites'}`, tag: 'Sourcing', conditions: { kinds: [], sectors: filters.sectors, severities: [], distressOnly: filters.distressOnly, distressFlags: filters.distressFlags, ownerCategories: filters.ownerCategories, tenure: filters.tenure }, frequency: 'daily' }); useAlerts.getState().upsertRule(r); nav(`/alerts/rules/${r.id}`) }} title="Turn these filters into an alert so new events on matching sites reach you"><BellPlus size={13} /> Alert me on this search</Button>
           <Button size="sm" variant="primary" onClick={() => nav('/crm/export?source=sourcing')} disabled={!sorted.length} title="Clean, de-duplicated accounts, contacts and sites for the CRM"><Upload size={13} /> Export to CRM</Button>
         </div>
       </div>

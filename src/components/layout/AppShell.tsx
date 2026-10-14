@@ -8,6 +8,7 @@ import { useAuth } from '@/auth'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { Tour } from '@/components/Tour'
 import { provider } from '@/data'
+import { useAlerts } from '@/store/alerts'
 import { cx } from '@/components/ui'
 
 const NAV = [
@@ -71,10 +72,11 @@ export function AppShell() {
       return false
     }
   })
+  const alertState = useAlerts((s) => s.state)
   useEffect(() => {
-    provider.getAlerts().then((a) => setUnread(a.filter((x) => !x.read).length))
+    provider.getAlerts().then((a) => setUnread(a.filter((x) => !(alertState[x.alertId]?.read ?? x.read) && !alertState[x.alertId]?.dismissed).length))
     setMobileOpen(false)
-  }, [loc.pathname])
+  }, [loc.pathname, alertState])
   useEffect(() => {
     try {
       localStorage.setItem('cpi-nav-collapsed', collapsed ? '1' : '0')

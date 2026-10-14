@@ -901,8 +901,8 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
   const alerts: Alert[] = []
   let ai = 1
   const push = (a: Omit<Alert, 'alertId' | 'read'>) => alerts.push({ alertId: `A${ai++}`, read: false, ...a })
-  for (const b of rng.shuffle(bizList).slice(0, 14)) {
-    const kind = rng.pick(['Ownership change', 'Planning submitted', 'Rating change', 'Company status', 'Late accounts', 'Lease event', 'EPC lodged', 'VOA change', 'New business'] as const)
+  for (const b of rng.shuffle(bizList).slice(0, 46)) {
+    const kind = rng.pick(['Ownership change', 'Planning submitted', 'Planning decided', 'Rating change', 'Company status', 'Late accounts', 'Lease event', 'EPC lodged', 'VOA change', 'New business', 'Distress signal', 'New charge', 'Gazette notice', 'Regulator enforcement', 'Price paid recorded', 'Competitor opened', 'Deal score', 'Licence review'] as const)
     const when = new Date(Date.now() - rng.int(0, 40) * 86400000 - rng.int(0, 86400000)).toISOString()
     const map: Record<typeof kind, [string, string, Alert['severity'], Alert['entityType']]> = {
       'Ownership change': [`Freehold of ${b.name} changed hands`, `${b.titleNumber}: new proprietor ${rng.pick(N.PROPCOS)} added to the register. Price paid ${rng.int(400, 2600)}k.`, 'warning', 'title'],
@@ -914,9 +914,18 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
       'EPC lodged': [`New EPC lodged for ${b.name}`, `Rated ${rng.pick(['C', 'D', 'E'])}. MEES: lettable.`, 'info', 'business'],
       'VOA change': [`Rateable value altered for ${b.name}`, `2026 list: RV now £${rng.int(12, 90)},000 (${rng.pick(['+', '-'])}${rng.int(3, 28)}%).`, 'info', 'business'],
       'New business': [`New ${b.sector.toLowerCase()} registered near ${b.postcode}`, `Fresh ${b.registers[0]?.register ?? 'FSA'} registration within 500 m of a watched site.`, 'info', 'business'],
+      'Planning decided': [`Planning decided near ${b.name}`, `${rng.pick(['Approved', 'Refused'])}: ${rng.pick(N.PLANNING_DESCRIPTIONS[b.sector])}`, 'info', 'planning'],
+      'Distress signal': [`Distress signal on ${b.name}`, `${rng.pick(['Winding-up petition advertised', 'Strike-off action discontinued after objection', 'Second late filing in 12 months', 'Director resignations (2) within a month', 'Rates liability order granted'])}. Operator ${b.operatorName}.`, 'critical', 'business'],
+      'New charge': [`New charge registered against ${b.operatorName}`, `${rng.pick(N.LENDERS)} registered a fixed and floating charge at Companies House covering ${b.name}.`, 'warning', 'company'],
+      'Gazette notice': [`Gazette notice: ${b.operatorName}`, `${rng.pick(['Notice of intention to appoint administrators', 'Resolution for voluntary winding up', 'Appointment of liquidators', 'First Gazette notice for compulsory strike-off'])}. Operator of ${b.name}.`, 'critical', 'company'],
+      'Regulator enforcement': [`${b.registers[0]?.register ?? 'Regulator'} enforcement at ${b.name}`, `${rng.pick(['Warning notice issued', 'Conditions imposed on registration', 'Urgent action: admissions suspended', 'Improvement notice served'])}.`, 'critical', 'business'],
+      'Price paid recorded': [`Sale recorded at ${b.address}`, `HM Land Registry recorded a transfer of ${b.titleNumber} for £${rng.int(350, 3200)},000 (${b.tenure}).`, 'info', 'title'],
+      'Competitor opened': [`New ${b.sector.toLowerCase()} opened within 400 m of ${b.name}`, `${rng.pick(['Branded', 'Independent'])} operator listed on ${rng.pick(['FSA register', 'CQC register', 'Overture places'])} at ${b.postcode}.`, 'info', 'business'],
+      'Deal score': [`${b.name} crossed the high likely-to-transact band`, `Score moved to ${rng.int(56, 78)} after ${rng.pick(['a lease event', 'late accounts', 'a regulator downgrade', 'an ownership change nearby'])}.`, 'warning', 'business'],
+      'Licence review': [`Premises licence review for ${b.name}`, `${rng.pick(['Police application for review', 'Environmental health review', 'Responsible authority representation'])} lodged with the licensing authority.`, 'warning', 'business'],
     }
     const [title, detail, severity, entityType] = map[kind]
-    push({ kind, title, detail, occurredAt: when, severity, entityType, entityId: entityType === 'title' ? b.titleNumber! : entityType === 'company' ? b.operatorCompanyNumber! : entityType === 'planning' ? Array.from(planning.keys())[rng.int(0, planning.size - 1)] : b.businessId, sector: b.sector })
+    push({ kind, title, detail, occurredAt: when, severity, entityType, entityId: entityType === 'title' ? b.titleNumber! : entityType === 'company' ? b.operatorCompanyNumber! : entityType === 'planning' ? Array.from(planning.keys())[rng.int(0, planning.size - 1)] : b.businessId, sector: b.sector, businessId: b.businessId, titleNumber: b.titleNumber, postcode: b.postcode, location: b.location.coordinates as [number, number] })
   }
   alerts.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
 

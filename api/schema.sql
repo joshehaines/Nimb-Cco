@@ -490,3 +490,88 @@ CREATE TABLE audit_log (
 );
 CREATE INDEX audit_log_at_idx ON audit_log (at desc);
 CREATE INDEX audit_log_user_idx ON audit_log (user_id, at desc);
+
+-- ---------------------------------------------------------------- alerts: rules, channels, deliveries
+-- Rules are stored as the JSON the UI edits (conditions, scope, recipients, channels, frequency);
+-- the worker (api/alerts/worker.py) evaluates them with the same logic as src/lib/alerts.ts.
+CREATE TABLE staff (
+  id      text PRIMARY KEY,                                  -- identity-provider object id
+  name    text NOT NULL,
+  email   text NOT NULL,
+  mobile  text,
+  office  text,
+  team    text,
+  role    text NOT NULL DEFAULT 'agent'
+);
+CREATE TABLE alert_rules (
+  rule_id       text PRIMARY KEY,
+  user_id       text NOT NULL REFERENCES users,
+  name          text NOT NULL,
+  enabled       boolean NOT NULL DEFAULT true,
+  body          jsonb NOT NULL,                              -- AlertRule as saved by the UI
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  last_fired_at timestamptz,
+  fired_count   integer NOT NULL DEFAULT 0
+);
+CREATE INDEX alert_rules_user_idx ON alert_rules (user_id);
+CREATE TABLE notification_prefs (
+  user_id        text PRIMARY KEY REFERENCES users,
+  email          text NOT NULL DEFAULT '',
+  email_verified boolean NOT NULL DEFAULT false,
+  mobile         text NOT NULL DEFAULT '',
+  mobile_verified boolean NOT NULL DEFAULT false,
+  teams_webhook  text NOT NULL DEFAULT '',
+  quiet_enabled  boolean NOT NULL DEFAULT true,
+  quiet_from     text NOT NULL DEFAULT '21:00',
+  quiet_to       text NOT NULL DEFAULT '07:00',
+  digest_hour    integer NOT NULL DEFAULT 8,
+  weekly_day     integer NOT NULL DEFAULT 1,
+  timezone       text NOT NULL DEFAULT 'Europe/London',
+  pending_code   text,                                       -- verification code in flight
+  pending_channel text
+);
+CREATE TABLE alert_deliveries (
+  id        bigserial PRIMARY KEY,
+  at        timestamptz NOT NULL DEFAULT now(),
+  rule_id   text REFERENCES alert_rules ON DELETE SET NULL,
+  user_id   text,
+  channel   text NOT NULL,                                   -- inapp | email | sms | teams
+  to_addr   text,
+  to_name   text,
+  alert_ids text[] NOT NULL,
+  subject   text,
+  body      text,
+  status    text NOT NULL,                                   -- sent | simulated | suppressed | deferred | failed
+  note      text
+);
+CREATE INDEX alert_deliveries_at_idx ON alert_deliveries (at desc);
+CREATE TABLE alert_rule_sent (                              -- dedupe ledger: one message per rule per event
+  rule_id  text REFERENCES alert_rules ON DELETE CASCADE,
+  alert_id text,
+  sent_at  timestamptz NOT NULL,
+  PRIMARY KEY (rule_id, alert_id)
+);
+CREATE TABLE alert_state (                                  -- per-user triage of an event
+  user_id       text NOT NULL,
+  alert_id      text NOT NULL,
+  read          boolean NOT NULL DEFAULT false,
+  snoozed_until timestamptz,
+  assigned_to   text,
+  notes         text,
+  dismissed     boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (user_id, alert_id)
+);
+-- Context columns the matcher needs on each alert.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS business_id text;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS title_number text;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS postcode text;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS lon double precision;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS lat double precision;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS deal_score integer;
+-- Watched sites with a centre for radius scopes.
+CREATE VIEW watch_items_with_centre AS
+  SELECT w.*, coalesce(b.geom, st_centroid(t.geom)) AS centre
+  FROM watch_items w
+  LEFT JOIN businesses b ON w.entity_type = 'business' AND b.business_id = w.entity_id
+  LEFT JOIN titles t ON w.entity_type = 'title' AND t.title_number = w.entity_id;

@@ -88,6 +88,8 @@ Every record carries `source`, `fetchedAt` and `licence`. The UI shows provenanc
 
 ## Sign-in and roles
 
+Alert delivery (`api/alerts/worker.py`, the `alerts` compose service) needs `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM` for email, `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM` (or `SMS_WEBHOOK_URL`) for text messages, and users paste their own Teams incoming-webhook URL. `ALERTS_DRY_RUN=1` (the compose default) logs messages without sending. `APP_URL` is the link base in messages.
+
 Set `VITE_OIDC_AUTHORITY` and `VITE_OIDC_CLIENT_ID` (and `OIDC_ISSUER`, `OIDC_AUDIENCE` on the API) to use Microsoft Entra ID or any OpenID Connect provider; the app runs the authorization-code flow with PKCE in the browser. Roles come from the `roles` or `groups` claims (`cpi.admin`, `cpi.compliance`) or `VITE_ADMIN_EMAILS`. Without configuration the app uses demo personas so the role gates and audit trail can be shown.
 
 ## Deploy internally
