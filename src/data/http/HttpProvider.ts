@@ -1,5 +1,5 @@
 import type { DataProvider } from '../provider'
-import type { BoundsQuery, CrmRecord, DocumentOrder, SourcingFilters } from '../types'
+import type { BoundsQuery, ComparableFilters, CrmRecord, DocumentOrder, SourcingFilters } from '../types'
 
 /**
  * REST implementation of DataProvider. Endpoint shapes are documented in
@@ -48,6 +48,9 @@ export class HttpProvider implements DataProvider {
   getLeasesForTitle = (titleNumber: string) => this.get<never>(`/titles/${titleNumber}/leases`)
   sourceBusinesses = (filters: SourcingFilters, bounds?: BoundsQuery) => this.post<never>('/sourcing/businesses', { filters, bounds })
   sourceTitles = (filters: SourcingFilters, bounds?: BoundsQuery) => this.post<never>('/sourcing/titles', { filters, bounds })
+  getComparables = (filters: ComparableFilters) => this.post<never>('/comparables/search', { filters })
+  getComparable = (id: string) => this.get<never>(`/comparables/${id}`)
+  getCatchment = (lon: number, lat: number, radiusM: number) => this.get<never>('/catchment', { lon, lat, radius: radiusM })
   getAlerts = () => this.get<never>('/alerts')
   markAlertRead = (alertId: string) => this.post<never>(`/alerts/${alertId}/read`, {})
   orderDocument = (titleNumber: string, kind: DocumentOrder['kind']) => this.post<never>('/documents/orders', { titleNumber, kind })

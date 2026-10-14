@@ -4,6 +4,11 @@ import type {
   Alert,
   BoundsQuery,
   Business,
+  Catchment,
+  Comparable,
+  ComparableFilters,
+  ComparableStats,
+  Sector,
   Company,
   Constraint,
   CrmRecord,
@@ -27,6 +32,7 @@ import { generateDataset, crmToCsv, type Dataset } from './generate'
 import { DATA_SOURCES } from './sources'
 import { centroid, haversineM, inBounds, pointInPolygon } from '../../lib/geo'
 import { monthsUntil } from '../../lib/format'
+import { median, quantile } from '../../lib/stats'
 import { extractPostcode, normaliseAddress, normaliseBusinessName, normaliseCompanyName, normalisePostcode, similarity, validCompanyNumber } from '../../lib/matching'
 
 const EPC_ORDER = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -96,6 +102,7 @@ export class MockProvider implements DataProvider {
       streets: { type: 'FeatureCollection', features: this.ds.streets.map((s) => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: s.coordinates }, properties: { name: s.name, major: s.major } })) },
       titles: { type: 'FeatureCollection', features: titles },
       businesses: { type: 'FeatureCollection', features: businesses },
+      comparables: { type: 'FeatureCollection', features: this.ds.comparables.filter((c) => inBounds(c.location.coordinates, bounds)).map((c) => ({ type: 'Feature' as const, geometry: c.location, properties: { compId: c.compId, sector: c.sector, price: c.price, date: c.date, name: c.name } })) },
       planning: { type: 'FeatureCollection', features: planning },
       traffic: { type: 'FeatureCollection', features: traffic },
       footfall: { type: 'FeatureCollection', features: footfall },
@@ -236,6 +243,109 @@ export class MockProvider implements DataProvider {
       out.push(t)
     }
     return out
+  }
+
+  // ---------------------------------------------------------------- comparables
+  async getComparables(f: ComparableFilters) {
+    const comps = this.ds.comparables.filter((c) => {
+      if (f.sectors.length && !f.sectors.includes(c.sector)) return false
+      if (f.tenure && c.tenure !== f.tenure) return false
+      if (f.fromDate && c.date < f.fromDate) return false
+      if (f.toDate && c.date > f.toDate) return false
+      if (f.minCapacity !== undefined && !(c.capacity !== undefined && c.capacity >= f.minCapacity)) return false
+      if (f.maxCapacity !== undefined && !(c.capacity !== undefined && c.capacity <= f.maxCapacity)) return false
+      if (f.minPrice !== undefined && c.price < f.minPrice) return false
+      if (f.maxPrice !== undefined && c.price > f.maxPrice) return false
+      if (f.contributedOnly && !c.contributed) return false
+      if (f.centre && f.radiusM && haversineM(f.centre, c.location.coordinates) > f.radiusM) return false
+      if (f.text) {
+        const q = f.text.toLowerCase()
+        if (!(c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q) || c.postcode.toLowerCase().includes(q))) return false
+      }
+      return true
+    })
+    const withDist = f.centre ? comps.slice().sort((a, b) => haversineM(f.centre!, a.location.coordinates) - haversineM(f.centre!, b.location.coordinates)) : comps
+    const byYearMap = new Map<number, number[]>()
+    for (const c of comps) {
+      const y = Number(c.date.slice(0, 4))
+      byYearMap.set(y, [...(byYearMap.get(y) ?? []), c.price])
+    }
+    const ppu = comps.map((c) => c.pricePerUnit).filter((x): x is number => x !== undefined)
+    const stats: ComparableStats = {
+      count: comps.length,
+      medianPrice: median(comps.map((c) => c.price)),
+      medianPricePerUnit: median(ppu),
+      medianRvMultiple: median(comps.map((c) => c.rvMultiple).filter((x): x is number => x !== undefined)),
+      medianEbitdaMultiple: median(comps.map((c) => c.ebitdaMultiple).filter((x): x is number => x !== undefined)),
+      pricePerUnitRange: ppu.length ? [quantile(ppu, 0.25)!, quantile(ppu, 0.75)!] : undefined,
+      byYear: Array.from(byYearMap.entries()).sort((a, b) => a[0] - b[0]).map(([year, prices]) => ({ year, count: prices.length, medianPrice: median(prices)! })),
+    }
+    return { comps: withDist, stats }
+  }
+  async getComparable(compId: string) {
+    return this.ds.comparables.find((c) => c.compId === compId)
+  }
+
+  // ------------------------------------------------------------------ catchment
+  async getCatchment(lon: number, lat: number, radiusM: number): Promise<Catchment> {
+    const centre: [number, number] = [lon, lat]
+    const areaKm2 = Math.PI * (radiusM / 1000) ** 2
+    // Synthetic ONS-like demographics: density falls off from the town centres.
+    const centres: [number, number, number][] = [[-1.5365, 52.289, 5200], [-1.585, 52.282, 4300], [-1.51, 52.408, 4600], [-1.707, 52.192, 2600], [-1.898, 52.486, 5600]]
+    let density = 180
+    for (const [cx, cy, d] of centres) {
+      const dist = haversineM(centre, [cx, cy])
+      density += d * Math.exp(-dist / 2600)
+    }
+    const population = Math.round(areaKm2 * density)
+    const seed = Math.abs(Math.round(lon * 1000) * 31 + Math.round(lat * 1000) * 17) % 97
+    const affluenceIndex = Math.round(95 + (seed % 25) + (density > 3000 ? -6 : 8))
+    const biz = Array.from(this.ds.businesses.values()).map((b) => ({ b, d: haversineM(centre, b.location.coordinates) })).filter((x) => x.d <= radiusM).sort((a, b) => a.d - b.d)
+    const bySector = new Map<Sector, { count: number; capacity: number; capacityLabel?: string }>()
+    for (const { b } of biz) {
+      const reg = b.registers.find((r) => r.capacity)
+      const cur = bySector.get(b.sector) ?? { count: 0, capacity: 0, capacityLabel: reg?.capacityLabel }
+      cur.count += 1
+      cur.capacity += reg?.capacity ?? 0
+      if (!cur.capacityLabel && reg?.capacityLabel) cur.capacityLabel = reg.capacityLabel
+      bySector.set(b.sector, cur)
+    }
+    const age85plus = Math.round(population * 0.026)
+    const age65plus = Math.round(population * 0.19)
+    const age0to4 = Math.round(population * 0.056)
+    const adults = Math.round(population * 0.8)
+    const careBeds = bySector.get('Care Home')?.capacity ?? 0
+    const nurseryPlaces = bySector.get('Childcare')?.capacity ?? 0
+    const pubs = bySector.get('Pub')?.count ?? 0
+    const pharmacies = bySector.get('Pharmacy')?.count ?? 0
+    const dentists = bySector.get('Dental')?.count ?? 0
+    const ff = this.ds.footfall.filter((f) => haversineM(centre, centroid(f.geometry)) <= Math.min(radiusM, 600))
+    const tr = this.ds.traffic.filter((t) => haversineM(centre, t.location.coordinates) <= Math.max(radiusM, 800)).sort((a, b) => b.aadf - a.aadf)
+    return {
+      centre,
+      radiusM,
+      population,
+      households: Math.round(population / 2.3),
+      age0to4,
+      age65plus,
+      age85plus,
+      adults,
+      medianHouseholdIncome: Math.round((31_000 + (affluenceIndex - 100) * 420) / 100) * 100,
+      affluenceIndex,
+      deprivationDecile: Math.max(1, Math.min(10, Math.round(affluenceIndex / 12))),
+      competitors: Array.from(bySector.entries()).map(([sector, v]) => ({ sector, ...v })).sort((a, b) => b.count - a.count),
+      nearest: biz.slice(0, 12).map(({ b, d }) => ({ businessId: b.businessId, name: b.name, sector: b.sector, distanceM: Math.round(d), capacity: b.registers.find((r) => r.capacity)?.capacity, rating: b.registers.find((r) => r.rating)?.rating, operatorName: b.operatorName })),
+      ratios: [
+        { label: 'Care beds per 100 people aged 85+', value: age85plus ? Math.round((careBeds / age85plus) * 1000) / 10 : 0, benchmark: 11.5, unit: 'beds', better: 'lower', note: 'Below the England average suggests unmet need and supports new or extended registration; above suggests a saturated market.' },
+        { label: 'Nursery places per 100 children aged 0-4', value: age0to4 ? Math.round((nurseryPlaces / age0to4) * 1000) / 10 : 0, benchmark: 34, unit: 'places', better: 'lower', note: 'Low coverage indicates demand headroom for day nurseries.' },
+        { label: 'Pubs per 10,000 adults', value: adults ? Math.round((pubs / adults) * 100000) / 10 : 0, benchmark: 8.1, unit: 'pubs', better: 'lower', note: 'High density means tougher trading; low density with strong footfall supports food-led formats.' },
+        { label: 'Pharmacies per 10,000 people', value: population ? Math.round((pharmacies / population) * 100000) / 10 : 0, benchmark: 2.1, unit: 'pharmacies', better: 'lower', note: 'NHS contract coverage; above average weakens the case for a new 100-hour contract.' },
+        { label: 'Dental practices per 10,000 people', value: population ? Math.round((dentists / population) * 100000) / 10 : 0, benchmark: 1.9, unit: 'practices', better: 'lower', note: 'Low coverage supports NHS and private list growth.' },
+      ],
+      footfallMonthly: ff.length ? Math.round(ff.reduce((s, f) => s + f.monthlyVisits, 0) / ff.length) : undefined,
+      trafficAadf: tr[0]?.aadf,
+      source: 'ONS Census 2021 mid-year estimates (synthetic in demo), registers, DfT, footfall vendor',
+    }
   }
 
   async getAlerts() {
@@ -406,6 +516,9 @@ export class MockProvider implements DataProvider {
   }
   footfallAll(): FootfallCell[] {
     return this.ds.footfall
+  }
+  comparablesAll(): Comparable[] {
+    return this.ds.comparables
   }
   leasesAll(): LeaseSummary[] {
     return Array.from(this.ds.titles.values()).flatMap((t) => t.leases)

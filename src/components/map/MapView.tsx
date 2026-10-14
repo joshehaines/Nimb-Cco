@@ -60,7 +60,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
-  ;['streets', 'footfall', 'constraints', 'titles', 'planning', 'traffic', 'businesses'].forEach(src)
+  ;['streets', 'footfall', 'constraints', 'titles', 'planning', 'traffic', 'comparables', 'businesses'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
   const dk = isDark()
@@ -106,6 +106,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
     layout: { 'text-field': ['concat', ['to-string', ['round', ['/', ['get', 'aadf'], 1000]]], 'k'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true },
     paint: { 'text-color': '#fff' },
   })
+  map.addLayer({ id: 'comparables-points', type: 'circle', source: 'comparables', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'price'], 100000, 5, 5000000, 13], 'circle-color': sectorMatch, 'circle-opacity': 0.55, 'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 } })
   map.addLayer({ id: 'businesses-highlight', type: 'circle', source: 'businesses', filter: ['in', ['get', 'businessId'], ['literal', []]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 16], 'circle-color': '#fde047', 'circle-opacity': 0.75, 'circle-stroke-color': '#a16207', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'businesses-ring', type: 'circle', source: 'businesses', filter: ['==', ['get', 'distress'], true], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 7, 17, 12], 'circle-color': '#be123c', 'circle-opacity': 0.35 } })
   map.addLayer({
@@ -206,7 +207,7 @@ export function MapView() {
       scheduleLoad()
     })
 
-    const clickable = ['businesses-points', 'planning-points', 'traffic-points', 'titles-fill']
+    const clickable = ['businesses-points', 'comparables-points', 'planning-points', 'traffic-points', 'titles-fill']
     const onClick = (e: MapMouseEvent) => {
       const feats = map.queryRenderedFeatures(e.point, { layers: clickable.filter((l) => map.getLayer(l)) })
       if (!feats.length) {
@@ -219,6 +220,9 @@ export function MapView() {
       if (f.layer.id === 'businesses-points') {
         select({ type: 'business', id: p.businessId })
         nav(`/map/business/${p.businessId}`)
+      } else if (f.layer.id === 'comparables-points') {
+        select({ type: 'comparable', id: p.compId })
+        nav(`/map/comparable/${p.compId}`)
       } else if (f.layer.id === 'planning-points') {
         select({ type: 'planning', id: p.reference })
         nav(`/map/planning/${encodeURIComponent(p.reference)}`)
@@ -245,6 +249,7 @@ export function MapView() {
       const p = f.properties as Record<string, string | number | boolean>
       let html = ''
       if (f.layer.id === 'businesses-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">${p.sector}${p.rating ? ' · rated ' + p.rating : ''}${p.distress ? ' · <span style="color:#be123c">distress signals</span>' : ''}</span>`
+      else if (f.layer.id === 'comparables-points') html = `<strong>${p.name}</strong><br/><span style="color:#67748c">Sold £${Number(p.price).toLocaleString()} · ${String(p.date).slice(0, 7)} · ${p.sector}</span>`
       else if (f.layer.id === 'planning-points') html = `<strong>${p.reference}</strong><br/><span style="color:#67748c">${p.type} · ${p.status}</span>`
       else if (f.layer.id === 'traffic-points') html = `<strong>${Number(p.aadf).toLocaleString()} vehicles/day</strong><br/><span style="color:#67748c">DfT count point ${p.countPointId} · ${p.year} ${p.method}</span>`
       else html = `<strong>${p.titleNumber}</strong><br/><span style="color:#67748c">${p.tenure} · ${p.category}</span>`
@@ -324,6 +329,7 @@ function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraint
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
   vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)
+  vis(['comparables-points'], layers.comparables)
   vis(['traffic-points', 'traffic-labels'], layers.traffic)
   vis(['footfall-fill'], layers.footfall)
   vis(['constraints-fill', 'constraints-line', 'constraints-points'], layers.constraints)

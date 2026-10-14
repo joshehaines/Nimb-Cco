@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, AlertTriangle, Printer, Copy } from 'lucide-react'
-import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary } from '@/data'
+import { provider, type Business, type DocumentOrder, type PlanningApplication, type TrafficCount, type Company, type LeaseSummary, type Comparable } from '@/data'
 import { useUi } from '@/store/ui'
 import { useSite, type SiteBundle } from '@/hooks/useSite'
 import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/components/ui'
@@ -30,6 +30,7 @@ export function InfoPanel() {
     <aside className="no-print absolute inset-y-0 right-0 z-30 flex w-full max-w-[440px] flex-col border-l border-ink-200 bg-surface shadow-xl lg:static lg:z-auto lg:shrink-0">
       {selected?.type === 'planning' && <PlanningDetail reference={selected.id} onClose={close} />}
       {selected?.type === 'traffic' && <TrafficDetail id={selected.id} onClose={close} />}
+      {selected?.type === 'comparable' && <ComparableDetail id={selected.id} onClose={close} />}
       {(selected?.type === 'title' || selected?.type === 'business') && <SitePanel key={selected.id} sel={selected} onClose={close} />}
     </aside>
   )
@@ -93,6 +94,8 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
           {watched ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {watched ? 'In My Sites' : 'Add to My Sites'}
         </Button>
         <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-secondary btn-sm"><Printer size={14} /> Report</Link>
+        {b && <Link to={`/appraisal/${b.businessId}`} target="_blank" className="btn-secondary btn-sm">Appraise</Link>}
+        <Link to={`/catchment?lon=${bundle.centre[0]}&lat=${bundle.centre[1]}&label=${encodeURIComponent(b ? b.name : t.address)}`} className="btn-secondary btn-sm">Catchment</Link>
         <Button size="sm" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}>Zoom</Button>
         <Button size="sm" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={14} /> Link</Button>
         {distress.length > 0 && <Badge tone="critical" className="ml-auto"><AlertTriangle size={11} /> {distress.length} signal{distress.length > 1 ? 's' : ''}</Badge>}
@@ -483,6 +486,29 @@ function PlanningDetail({ reference, onClose }: { reference: string; onClose: ()
         </Section>
         {p.summary && <Section title="Decision summary (AI extracted)"><p className="text-sm">{p.summary}</p></Section>}
         <Section title="Source"><a href={p.portalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-brand-700 hover:underline">Open on council portal <ExternalLink size={13} /></a><div className="mt-1"><SourceTag {...p} /></div></Section>
+      </div>
+    </>
+  )
+}
+
+function ComparableDetail({ id, onClose }: { id: string; onClose: () => void }) {
+  const [c, setC] = useState<Comparable | null | undefined>(undefined)
+  useEffect(() => {
+    provider.getComparable(id).then((x) => setC(x ?? null))
+  }, [id])
+  if (c === undefined) return <><Header title={id} onClose={onClose} /><Spinner /></>
+  if (!c) return <><Header title="Not found" onClose={onClose} /></>
+  return (
+    <>
+      <Header title={c.name} subtitle={`${c.address}, ${c.postcode}`} onClose={onClose} badge={<Badge tone={c.contributed ? 'brand' : 'neutral'}>{c.contributed ? 'Christie deal' : c.confidence}</Badge>} />
+      <div className="flex-1 overflow-y-auto">
+        <Section title="Transaction">
+          <div className="text-3xl font-semibold tabular-nums">{gbp(c.price)}</div>
+          <div className="text-xs text-ink-500">{c.tenure} · sold {dateShort(c.date)} · buyer: {c.buyerType}</div>
+          <div className="mt-3"><KV rows={[['Sector', `${c.sector}${c.subSector ? ` · ${c.subSector}` : ''}`], ['Capacity', c.capacity ? `${c.capacity} ${c.capacityLabel}` : '—'], ['Price per unit', c.pricePerUnit ? `${gbp(c.pricePerUnit)} per ${c.capacityLabel?.replace(/s$/, '')}` : '—'], ['Rateable value', gbp(c.rateableValue)], ['RV multiple', c.rvMultiple ? `${c.rvMultiple}x` : '—'], ['Turnover', gbp(c.turnover)], ['EBITDA', c.ebitda ? `${gbp(c.ebitda)} (${c.ebitdaMultiple}x)` : '—']]} /></div>
+        </Section>
+        <Section title="Source"><SourceTag {...c} /><div className="mt-1 text-[11px] text-ink-500">{c.contributed ? 'From Christie & Co transaction records. Internal use only.' : 'Derived from public registers; price paid as recorded by HM Land Registry.'}</div></Section>
+        <Section title="Use in evidence"><Link to={`/comparables?sector=${encodeURIComponent(c.sector)}&lon=${c.location.coordinates[0]}&lat=${c.location.coordinates[1]}&radius=5000`} className="text-sm text-brand-700 hover:underline">Find similar comparables within 5 km</Link></Section>
       </div>
     </>
   )

@@ -50,6 +50,7 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
         <Collapsible title="Data layers">
           <Toggle checked={layers.titles} onChange={() => toggleLayer('titles')} label="Ownership titles" hint="HMLR INSPIRE + CCOD/OCOD, coloured by proprietor type" />
           <Toggle checked={layers.businesses} onChange={() => toggleLayer('businesses')} label="Trading businesses" hint="CQC, Ofsted, FSA, NHSBSA, VOA, Companies House" />
+          <Toggle checked={layers.comparables} onChange={() => toggleLayer('comparables')} label="Sold comparables" hint="Business sales, sized by price; dark ring" />
           <Toggle checked={layers.planning} onChange={() => toggleLayer('planning')} label="Planning applications" hint="Daily from Planning Data + PlanIt" />
           <Toggle checked={layers.traffic} onChange={() => toggleLayer('traffic')} label="Traffic counts" hint="DfT AADF, sized by vehicles per day" />
           <Toggle checked={layers.footfall} onChange={() => toggleLayer('footfall')} label="Footfall heatmap" hint="Vendor mobile-location cells (demo data)" />

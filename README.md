@@ -34,6 +34,11 @@ If basemap tiles are blocked by the network the map falls back to a blank canvas
 | Info panel | Overview, Ownership (CCOD, charges, register and plan ordering at £7), Leases & docs (registered leases, lease purchase and LLM-extracted rent/breaks/reviews, document store), Operator (Companies House plus every sector register record), Planning (on title and within 250 m), Rates & EPC (VOA summary valuation floors, MEES), Mobility (footfall cells, DfT counts with sparklines), Constraints | Info panel |
 | Sourcing | Strategy presets, 15 filters across sectors, tenure, owner type, RV, area, EPC, lease expiry, distress signals, regulator rating, constraints exclusion, planning activity; results table with CSV export and bulk watch | Site sourcing |
 | My Sites | Watchlist with projects and notes, related alerts | My Sites |
+| Pipeline | Kanban over My Sites: eight stages from Prospect to Completed, drag-and-drop, office/sector/project filters, fee forecast weighted by stage, printable stage reports | My Sites stages and stage reports (Enterprise) |
+| Comparables | Sold trading-business evidence with £ per bed/place/room, RV and EBITDA multiples, radius search from a site, tenure/date/capacity/price filters, Christie & Co deals flagged as confidential, CSV export, map layer | Complete Comparables Tool |
+| Catchment | Demographics and competitor supply within a radius, supply ratios against England benchmarks (care beds per 100 aged 85+, nursery places per 100 aged 0 to 4, pubs/pharmacies/dentists per 10k), two-site comparison, movement summary | none (Carterwood-style need assessment) |
+| Campaigns | Direct-to-owner letter campaigns built from a sourcing result or site list, with a compliance gate: recipients from free CCOD data are blocked until a register is bought, a legitimate-interests assessment is recorded before approval, suppression list, templates per sector, mail-merge CSV and print-ready letters | Direct-to-vendor letters (Stannp) |
+| Appraisal | Indicative value range for a site from nearby comps (per-unit and RV methods, IQR), adjustments for EPC/MEES, short lease, distress and regulator rating, catchment summary and comparable schedule; printable | none |
 | Alerts | Ownership, planning, regulator, company, lease, EPC and VOA events with filters | Planning alerts, ownership alerts |
 | Lease events | Expiry, break and rent-review calendar across the client base | none |
 | CRM clean-up | CSV upload with auto column mapping, UPRN/title/company/register matching, issue detection (owner changed, company dissolved, deregistered, capacity and tenure mismatch, stale, invalid postcode), duplicate groups with survivor, review queue, cleaned export | none |
@@ -66,6 +71,7 @@ docs/
   API.md                REST contract the backend must implement
   research/             research report that led to this build
   screenshots/          captured by npm run e2e
+  COMPETITOR-SCOPE.md   Nimbus/Searchland/LandInsight/Landstack feature matrix and why the five extra features were built
 api/
   schema.sql            PostGIS schema mirroring the TypeScript types
   app/main.py           FastAPI service (search, map layers, titles, leases, businesses wired)

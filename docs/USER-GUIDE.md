@@ -37,6 +37,26 @@ Open **Sourcing** (or the Filters button on the map). Pick a strategy preset suc
 
 **My Sites** holds everything you watch, grouped into projects with notes. **Alerts** lists ownership changes, planning events, regulator rating changes, company status changes, late accounts, lease events, EPC lodgements and VOA changes. The **Alert rules** card lets each user choose event types, sectors, radius, digest frequency and channel.
 
+## Pipeline
+
+**Pipeline** shows every watched site as a card in one of eight stages (Prospect, Approach, Instructed, Marketing, Under offer, Exchanged, Completed, Lost). Drag a card to move it, or use the stage menu on the card. The edit form on each card records office, assignee, guide price, fee estimate and next action. The header totals fees weighted by stage probability; **Stage report** opens a client-ready page for one stage that you can print.
+
+## Comparables
+
+**Comparables** lists sold trading businesses with the metrics valuers use: £ per bed, place, room or cover, rateable-value multiple and EBITDA multiple. Pick a sector chip, then narrow by tenure, sale date, capacity and price. Type a site name to search within 1 to 25 km of it; without a site the radius applies to the current map centre. Christie & Co's own deals are marked **confidential** and excluded when you untick "Christie & Co deals only". **Plot on map** adds the comps as a layer sized by price; click one for its detail. **Export CSV** writes the schedule.
+
+## Catchment
+
+**Catchment** answers "is there room for another one here?". Choose a site and radius (500 m to 8 km) to see population by age band, households, the competitors of that sector inside the ring, and supply ratios against England benchmarks, labelled Undersupplied, In line or Saturated. Add a second site to compare the two side by side with percentage differences. The info panel's **Catchment** button opens this page centred on the selected site.
+
+## Campaigns
+
+**Campaigns** turns a sourcing result or a site list into a letter campaign with the lawful-basis check built in. Each recipient shows why they can or cannot be written to: operators are business contacts; private freeholders are blocked until the title register is purchased (free CCOD data is licensed for research only); company freeholders need a register or an existing CRM relationship; anyone on the suppression list is excluded. Record the legitimate-interests assessment, pick a template (care owner, pub tenant, nursery owner, generic freeholder), preview the merged letter, then **Approve**. From there you can export a mail-merge CSV, print one letter per page, mark the campaign as sent and log responses.
+
+## Appraisal
+
+The **Appraise** button in the info panel builds an appraisal pack for one business: comps of the same sector within 25 km (widened to 60 km when thin), preferring the same tenure, an indicative range from the per-unit and rateable-value methods, adjustments for EPC and MEES risk, short unexpired lease, distress flags and regulator rating, a catchment summary and the comparable schedule. Print it from the browser.
+
 ## Lease events
 
 A calendar of expiries from registered leases, plus breaks and rent reviews once the lease has been bought and parsed. Filter by horizon and event type; click a row to open the site.

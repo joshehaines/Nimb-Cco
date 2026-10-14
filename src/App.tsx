@@ -11,11 +11,20 @@ import { ReportPage } from '@/pages/ReportPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { LeaseEventsPage } from '@/pages/LeaseEventsPage'
+import { PipelinePage } from '@/pages/PipelinePage'
+import { ComparablesPage } from '@/pages/ComparablesPage'
+import { CatchmentPage } from '@/pages/CatchmentPage'
+import { CampaignsPage } from '@/pages/CampaignsPage'
+import { AppraisalPage } from '@/pages/AppraisalPage'
+import { StageReportPage, CampaignLettersPage } from '@/pages/PrintPages'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/report/:titleNumber" element={<ReportPage />} />
+      <Route path="/print/stage/:stage" element={<StageReportPage />} />
+      <Route path="/print/campaign/:campaignId" element={<CampaignLettersPage />} />
+      <Route path="/appraisal/:businessId" element={<AppraisalPage />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/map" element={<MapPage />} />
@@ -24,6 +33,10 @@ export default function App() {
         <Route path="/watchlist" element={<WatchlistPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/leases" element={<LeaseEventsPage />} />
+        <Route path="/pipeline" element={<PipelinePage />} />
+        <Route path="/comparables" element={<ComparablesPage />} />
+        <Route path="/catchment" element={<CatchmentPage />} />
+        <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/crm" element={<CrmPage />} />
         <Route path="/companies/:companyNumber" element={<CompanyPage />} />
         <Route path="/documents" element={<DocumentsPage />} />

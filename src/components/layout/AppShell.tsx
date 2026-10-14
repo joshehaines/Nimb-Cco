@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor } from 'lucide-react'
+import { Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor, KanbanSquare, Scale, Radar, Mail } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { useTheme } from '@/hooks/useTheme'
 import { SearchBox } from '@/components/SearchBox'
@@ -13,6 +13,10 @@ const NAV = [
   { to: '/sourcing', label: 'Sourcing', icon: Crosshair },
   { to: '/watchlist', label: 'My Sites', icon: Bookmark },
   { to: '/alerts', label: 'Alerts', icon: Bell },
+  { to: '/pipeline', label: 'Pipeline', icon: KanbanSquare },
+  { to: '/comparables', label: 'Comparables', icon: Scale },
+  { to: '/catchment', label: 'Catchment', icon: Radar },
+  { to: '/campaigns', label: 'Campaigns', icon: Mail },
   { to: '/leases', label: 'Lease events', icon: CalendarClock },
   { to: '/crm', label: 'CRM clean-up', icon: Users },
   { to: '/documents', label: 'Documents', icon: FileText },

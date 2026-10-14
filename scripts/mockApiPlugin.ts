@@ -65,6 +65,9 @@ export function mockApiPlugin(): Plugin {
           if ((m = path.match(/^\/planning\/(.+)$/))) return json(res, (await p.getPlanning(decodeURIComponent(m[1]))) ?? null)
           if (path === '/traffic') return json(res, await p.getTrafficNear(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 500)))
           if (path === '/footfall') return json(res, await p.getFootfallNear(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 300)))
+          if (path === '/comparables/search' && req.method === 'POST') { const b = await readBody(req); return json(res, await p.getComparables(b.filters as never)) }
+          if ((m = path.match(/^\/comparables\/([^/]+)$/))) return json(res, (await p.getComparable(m[1])) ?? null)
+          if (path === '/catchment') return json(res, await p.getCatchment(Number(q.get('lon')), Number(q.get('lat')), Number(q.get('radius') ?? 1000)))
           if (path === '/alerts' && req.method === 'GET') return json(res, await p.getAlerts())
           if ((m = path.match(/^\/alerts\/([^/]+)\/read$/)) && req.method === 'POST') { await p.markAlertRead(m[1]); return json(res, {}) }
           if (path === '/documents/orders' && req.method === 'GET') return json(res, await p.getDocumentOrders())

@@ -10,6 +10,9 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![CRM review queue](crm-queue.png) | ![CRM duplicates](crm-dups.png) |
 | ![CRM matches plotted](crm-plotted.png) | ![Company estate](company.png) |
 | ![Lease events](leases.png) | ![Alerts](alerts.png) |
-| ![Data sources](admin.png) | |
+| ![Data sources](admin.png) | ![Pipeline](pipeline.png) |
+| ![Comparables](comparables.png) | ![Catchment comparison](catchment.png) |
+| ![Campaign compliance gate](campaigns.png) | ![Appraisal pack](appraisal.png) |
+| ![Comparables on the map](map-comp.png) | ![Stage report](stage-report.png) |
 
 Full printable site report: [report.png](report.png)

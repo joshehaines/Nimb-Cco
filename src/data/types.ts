@@ -317,6 +317,9 @@ export interface Alert {
   sector?: Sector
 }
 
+export type PipelineStage = 'Prospect' | 'Approach' | 'Instruction' | 'On market' | 'Under offer' | 'Exchanged' | 'Completed' | 'Lost'
+export const PIPELINE_STAGES: PipelineStage[] = ['Prospect', 'Approach', 'Instruction', 'On market', 'Under offer', 'Exchanged', 'Completed', 'Lost']
+
 export interface WatchItem {
   id: string
   entityType: 'title' | 'business' | 'company' | 'area'
@@ -326,6 +329,16 @@ export interface WatchItem {
   notes?: string
   radiusM?: number
   project?: string
+  /** Deal pipeline fields */
+  stage?: PipelineStage
+  sector?: Sector
+  office?: string
+  assignee?: string
+  feeEstimate?: number
+  guidePrice?: number
+  nextAction?: string
+  nextActionDate?: ISODate
+  stageChangedAt?: ISODate
 }
 
 export interface SearchResult {
@@ -441,6 +454,124 @@ export interface DuplicateGroup {
   survivorId: string
 }
 
+/** A sold trading business (comparable evidence). */
+export interface Comparable extends DataSourceTag {
+  compId: string
+  name: string
+  sector: Sector
+  subSector?: string
+  address: string
+  postcode: string
+  location: Point
+  date: ISODate
+  price: number
+  tenure: Tenure
+  capacity?: number
+  capacityLabel?: string
+  rateableValue?: number
+  turnover?: number
+  ebitda?: number
+  /** Price divided by capacity (per bed, room, place) where capacity exists. */
+  pricePerUnit?: number
+  /** Price divided by rateable value. */
+  rvMultiple?: number
+  /** Price divided by EBITDA. */
+  ebitdaMultiple?: number
+  buyerType: 'Group' | 'Independent' | 'Investor' | 'Owner-operator'
+  /** True when the deal came from Christie & Co's own records rather than public data. */
+  contributed: boolean
+  confidence: 'Verified' | 'Reported' | 'Derived'
+}
+
+export interface ComparableFilters {
+  sectors: Sector[]
+  tenure?: Tenure
+  fromDate?: ISODate
+  toDate?: ISODate
+  minCapacity?: number
+  maxCapacity?: number
+  minPrice?: number
+  maxPrice?: number
+  centre?: [number, number]
+  radiusM?: number
+  contributedOnly?: boolean
+  text?: string
+}
+
+export const DEFAULT_COMP_FILTERS: ComparableFilters = { sectors: [] }
+
+export interface ComparableStats {
+  count: number
+  medianPrice?: number
+  medianPricePerUnit?: number
+  medianRvMultiple?: number
+  medianEbitdaMultiple?: number
+  pricePerUnitRange?: [number, number]
+  byYear: { year: number; count: number; medianPrice: number }[]
+}
+
+/** Catchment / area analysis around a point. */
+export interface Catchment {
+  centre: [number, number]
+  radiusM: number
+  population: number
+  households: number
+  age0to4: number
+  age65plus: number
+  age85plus: number
+  adults: number
+  medianHouseholdIncome: number
+  affluenceIndex: number
+  deprivationDecile: number
+  competitors: { sector: Sector; count: number; capacity: number; capacityLabel?: string }[]
+  nearest: { businessId: string; name: string; sector: Sector; distanceM: number; capacity?: number; rating?: string; operatorName?: string }[]
+  /** Sector-specific supply ratios, e.g. care beds per 100 people aged 85+. */
+  ratios: { label: string; value: number; benchmark: number; unit: string; better: 'higher' | 'lower'; note: string }[]
+  footfallMonthly?: number
+  trafficAadf?: number
+  source: string
+}
+
+/** Letter campaign (direct-to-owner outreach) with compliance tracking. */
+export type RecipientBasis = 'Register purchased' | 'Business contact' | 'Existing relationship' | 'Blocked: CCOD only' | 'Blocked: suppressed' | 'Blocked: no address'
+
+export interface CampaignRecipient {
+  id: string
+  businessId?: string
+  titleNumber?: string
+  recipientName: string
+  role: 'Freeholder' | 'Operator'
+  address: string
+  postcode: string
+  sector?: Sector
+  basis: RecipientBasis
+  included: boolean
+  mergeFields: Record<string, string>
+}
+
+export interface Campaign {
+  campaignId: string
+  name: string
+  sector?: Sector
+  templateId: string
+  createdAt: ISODate
+  status: 'Draft' | 'Approved' | 'Sent' | 'Closed'
+  recipients: CampaignRecipient[]
+  liaCompleted: boolean
+  liaNotes?: string
+  owner?: string
+  sentAt?: ISODate
+  responses: number
+}
+
+export interface LetterTemplate {
+  templateId: string
+  name: string
+  sector?: Sector
+  subject: string
+  body: string
+}
+
 export interface BoundsQuery {
   west: number
   south: number
@@ -462,6 +593,7 @@ export interface MapLayers {
   streets?: FeatureCollection<LineString, StreetFeature['properties']>
   titles: FeatureCollection<TitleFeature['geometry'], TitleFeature['properties']>
   businesses: FeatureCollection<Point, BusinessFeature['properties']>
+  comparables?: FeatureCollection<Point, { compId: string; sector: Sector; price: number; date: string; name: string }>
   planning: FeatureCollection<Point, PlanningFeature['properties']>
   traffic: FeatureCollection<Point, TrafficFeature['properties']>
   footfall: FeatureCollection<Polygon, FootfallFeature['properties']>

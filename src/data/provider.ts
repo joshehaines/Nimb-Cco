@@ -2,6 +2,10 @@ import type {
   Alert,
   BoundsQuery,
   Business,
+  Catchment,
+  Comparable,
+  ComparableFilters,
+  ComparableStats,
   Company,
   Constraint,
   CrmRecord,
@@ -60,6 +64,11 @@ export interface DataProvider {
   // Sourcing
   sourceBusinesses(filters: SourcingFilters, bounds?: BoundsQuery): Promise<Business[]>
   sourceTitles(filters: SourcingFilters, bounds?: BoundsQuery): Promise<Title[]>
+
+  // Comparables and catchment
+  getComparables(filters: ComparableFilters): Promise<{ comps: Comparable[]; stats: ComparableStats }>
+  getComparable(compId: string): Promise<Comparable | undefined>
+  getCatchment(lon: number, lat: number, radiusM: number): Promise<Catchment>
 
   // Alerts and documents
   getAlerts(): Promise<Alert[]>

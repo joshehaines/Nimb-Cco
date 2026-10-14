@@ -4,6 +4,7 @@ import { rect, offset, centroid, polygonAreaSqm, hexagon, haversineM, point } fr
 import type {
   Alert,
   Business,
+  Comparable,
   Company,
   Constraint,
   CrmRecord,
@@ -20,8 +21,10 @@ import type {
   DistressFlag,
 } from '../types'
 import * as N from './names'
+import { generateComparables } from './comparables'
 
 export interface Dataset {
+  comparables: Comparable[]
   streets: { name: string; major: boolean; coordinates: [number, number][] }[]
   titles: Map<string, Title>
   companies: Map<string, Company>
@@ -668,7 +671,8 @@ export function generateDataset(seed = 20261013): Dataset {
     const end = offset(s.lon, s.lat, Math.sin(b) * s.lengthM, Math.cos(b) * s.lengthM)
     return { name: s.name, major: !!s.major, coordinates: [[s.lon, s.lat], end] as [number, number][] }
   })
-  return { streets, titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre }
+  const comparables = generateComparables(rng, bizList)
+  return { comparables, streets, titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre }
 }
 
 export function crmToCsv(rows: CrmRecord[]): string {

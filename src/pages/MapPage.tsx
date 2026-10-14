@@ -29,6 +29,10 @@ export function MapPage() {
           const t = await provider.getTitle(id)
           if (t) pos = centroid(t.geometry as Polygon) as [number, number]
         } else if (entityType === 'planning') pos = (await provider.getPlanning(id))?.location.coordinates as [number, number] | undefined
+        else if (entityType === 'comparable') {
+          pos = (await provider.getComparable(id))?.location.coordinates as [number, number] | undefined
+          if (!useUi.getState().layers.comparables) useUi.getState().setLayer('comparables', true)
+        }
         if (!pos) return
         const { bounds, mapView, requestFlyTo } = useUi.getState()
         if (!bounds || !inBounds(pos, bounds) || mapView.zoom < 15.5) requestFlyTo(pos[0], pos[1], Math.max(mapView.zoom, 17))

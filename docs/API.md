@@ -27,6 +27,9 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET | `/footfall` | `lon`, `lat`, `radius` | `FootfallCell[]` |
 | POST | `/sourcing/businesses` | `{ filters: SourcingFilters, bounds? }` | `Business[]` |
 | POST | `/sourcing/titles` | `{ filters, bounds? }` | `Title[]` |
+| POST | `/comparables/search` | `{ filters: ComparableFilters }` | `{ comps: Comparable[], stats: ComparableStats }` |
+| GET | `/comparables/{id}` | | `Comparable` |
+| GET | `/catchment` | `lon`, `lat`, `radius` | `Catchment` (demographics, competitor supply, ratios) |
 | GET | `/alerts` | | `Alert[]` (newest first) |
 | POST | `/alerts/{id}/read` | | `{}` |
 | POST | `/documents/orders` | `{ titleNumber, kind }` | `DocumentOrder` (status transitions Queued → Downloading → Stored → Parsed) |
