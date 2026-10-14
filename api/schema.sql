@@ -569,6 +569,24 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS postcode text;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS lon double precision;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS lat double precision;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS deal_score integer;
+-- Real-business pins sit at the centre of the building they belong to (placed = 'building'), or at
+-- the listed point when no footprint is within 30 m. Run after each places or buildings load.
+ALTER TABLE places ADD COLUMN IF NOT EXISTS placed text NOT NULL DEFAULT 'listed';
+ALTER TABLE places ADD COLUMN IF NOT EXISTS listed_geom geometry(Point, 4326);
+CREATE OR REPLACE FUNCTION snap_places_to_buildings(snap_m double precision DEFAULT 30) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE n integer;
+BEGIN
+  UPDATE places p SET listed_geom = coalesce(p.listed_geom, p.geom) WHERE p.listed_geom IS NULL;
+  WITH hit AS (
+    SELECT DISTINCT ON (p.place_id) p.place_id, st_pointonsurface(b.geom) AS centre
+    FROM places p
+    JOIN buildings b ON st_dwithin(b.geom::geography, p.listed_geom::geography, snap_m)
+    ORDER BY p.place_id, st_contains(b.geom, p.listed_geom) DESC, st_distance(b.geom::geography, p.listed_geom::geography)
+  )
+  UPDATE places p SET geom = h.centre, placed = 'building' FROM hit h WHERE h.place_id = p.place_id;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END $$;
 -- Watched sites with a centre for radius scopes.
 CREATE VIEW watch_items_with_centre AS
   SELECT w.*, coalesce(b.geom, st_centroid(t.geom)) AS centre

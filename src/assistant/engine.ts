@@ -65,6 +65,9 @@ export function interpret(text: string): Plan | null {
     return { tool: 'create_alert', input }
   }
 
+  // portfolio
+  const port = l.match(/(?:everything|all sites|portfolio|what does|what do)\s+(?:that\s+)?(.+?)\s+(?:own|owns|operate|operates|hold|holds)/) ?? l.match(/portfolio (?:of|for)\s+(.+)$/)
+  if (port) return { tool: 'company_portfolio', input: { query: port[1].replace(/[?.!]$/, '') } }
   // competition, watchlist
   const comp = l.match(/(?:competition|competitors?|who competes with|rivals?)(?: for| of| around| near)?\s+(.+)$/)
   if (comp) return { tool: 'show_competition', input: { query: comp[1].replace(/[?.!]$/, '') } }

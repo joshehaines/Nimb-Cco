@@ -26,6 +26,8 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![My channels: email, text, Teams, quiet hours](alerts-channels.png) | ![Delivery log with the exact message text](alerts-deliveries.png) |
 | ![Map toolbar with a drawn site and its area](map-toolbar-draw.png) | ![Dropped pin: what is here](map-pin.png) |
 | ![Location Analysis drawer](location-analysis.png) | ![Assistant drafting an alert from a sentence](assistant-alert.png) |
+| ![Deal drawer: signal timeline, owner, next action](pipeline-deal.png) | ![Client report with title plan, use classes and competition](client-report.png) |
+| ![Company portfolio page](company-portfolio.png) | ![Sourcing: distressed owners](sourcing-distressed-owners.png) |
 | ![Basemap picker](basemaps.png) | ![Title colouring by proprietor type](title-colouring.png) |
 
 Full printable site report: [report.png](report.png)

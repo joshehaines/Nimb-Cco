@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Bookmark, BookmarkCheck, ExternalLink } from 'lucide-react'
+import { Bookmark, BookmarkCheck, ExternalLink, MapPin, Download, BellPlus, Upload } from 'lucide-react'
+import { useAlerts } from '@/store/alerts'
+import { useAuth } from '@/auth'
+import { blankRule } from '@/lib/alerts'
+import { logAudit } from '@/lib/audit'
+import { canDownload } from '@/lib/env'
+import { centroid } from '@/lib/geo'
+import type { Polygon } from 'geojson'
 import { provider, type Business, type Company, type Title } from '@/data'
 import { Badge, Button, Card, KV, Spinner, Stat } from '@/components/ui'
 import { dateShort, gbp, sqm } from '@/lib/format'
@@ -14,7 +21,8 @@ export function CompanyPage() {
   const [titles, setTitles] = useState<Title[]>([])
   const [biz, setBiz] = useState<Business[]>([])
   const nav = useNavigate()
-  const { addWatch, removeWatch, isWatched, watchlist, select, requestFlyTo } = useUi()
+  const { addWatch, removeWatch, isWatched, watchlist, select, requestFlyTo, setHighlight } = useUi()
+  const user = useAuth((s) => s.user)
   useEffect(() => {
     provider.getCompany(companyNumber).then((c) => setCompany(c ?? null))
     provider.getCompanyGroup(companyNumber).then(setGroup)
@@ -27,6 +35,32 @@ export function CompanyPage() {
   const tone = company.status === 'active' ? 'good' : ['dissolved', 'dormant'].includes(company.status) ? 'neutral' : 'critical'
   const operated = biz.filter((b) => group.some((g) => g.companyNumber === b.operatorCompanyNumber))
   const owned = biz.filter((b) => group.some((g) => g.companyNumber === b.freeholderCompanyNumber))
+  const distressed = biz.filter((b) => b.distressFlags.length)
+  const plot = () => {
+    setHighlight(biz.map((b) => b.businessId), `${company.name} portfolio`)
+    const first = biz[0]?.location.coordinates ?? (titles[0] ? centroid(titles[0].geometry as Polygon) : undefined)
+    if (first) requestFlyTo(first[0], first[1], 14.5)
+    nav('/map')
+  }
+  const exportCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const rows = [
+      ['Kind', 'Name / address', 'Role', 'Sector', 'Tenure', 'Title', 'Postcode', 'Site area m2', 'Price paid', 'Proprietor since', 'Leases', 'Register', 'Rating', 'Distress flags', 'Entity company'],
+      ...biz.map((b) => ['Trading site', b.name, group.some((g) => g.companyNumber === b.operatorCompanyNumber) ? 'Operator' : 'Freeholder', b.sector, b.tenure, b.titleNumber, b.postcode, '', '', '', '', b.registers[0]?.register, b.registers[0]?.rating, b.distressFlags.join('; '), group.find((g) => g.companyNumber === b.operatorCompanyNumber || g.companyNumber === b.freeholderCompanyNumber)?.name]),
+      ...titles.map((t) => ['Freehold title', t.address, 'Freeholder', '', t.tenure, t.titleNumber, t.postcode, t.areaSqm, t.pricePaid, t.dateProprietorAdded, t.leases.length, '', '', '', t.proprietors.find((p) => p.companyNumber)?.name]),
+    ]
+    const csv = `# Portfolio of ${company.name} and group. Contains HM Land Registry CCOD data: not for direct marketing. Internal use only.\n` + rows.map((r) => r.map(esc).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = `portfolio-${company.companyNumber}.csv`
+    a.click()
+    logAudit('export', `Portfolio CSV: ${company.name} (${rows.length - 1} rows)`, { entityType: 'company', entityId: company.companyNumber, licences: ['HMLR-CCOD'], count: rows.length - 1 })
+  }
+  const alertOnPortfolio = () => {
+    const r = blankRule(user?.id ?? 'demo-agent', { name: `Portfolio: ${company.name}`, tag: 'Portfolio', description: `Anything on a site ${company.name} or its group owns or operates`, scope: { mode: 'sites', radiusM: 0, siteIds: Array.from(new Set([...biz.map((b) => b.businessId), ...titles.map((t) => t.titleNumber), ...group.map((g) => g.companyNumber)])), postcodes: [], offices: [] }, frequency: 'instant' })
+    useAlerts.getState().upsertRule(r)
+    nav(`/alerts/rules/${r.id}`)
+  }
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       <div className="flex items-start justify-between gap-4">
@@ -36,13 +70,18 @@ export function CompanyPage() {
         </div>
         <div className="flex gap-2">
           <Button variant={watched ? 'secondary' : 'primary'} onClick={() => (watched ? removeWatch(watchlist.find((w) => w.entityId === companyNumber)!.id) : addWatch({ entityType: 'company', entityId: companyNumber, label: company.name }))}>{watched ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {watched ? 'Watching' : 'Watch company'}</Button>
+          <Button onClick={plot} disabled={!biz.length && !titles.length} title="Highlight every site the group owns or operates on the map"><MapPin size={14} /> Plot portfolio</Button>
+          <Button onClick={alertOnPortfolio} title="Instant alert for anything on any site in the portfolio"><BellPlus size={14} /> Alert on portfolio</Button>
+          <Button onClick={exportCsv} disabled={!canDownload || (!biz.length && !titles.length)}><Download size={14} /> CSV</Button>
+          <Button onClick={() => nav(`/crm/export?source=watchlist`)} title="Add the portfolio to My Sites first, then export"><Upload size={14} /> To CRM</Button>
           <a className="btn-secondary" href={`https://find-and-update.company-information.service.gov.uk/company/${company.companyNumber}`} target="_blank" rel="noreferrer">Companies House <ExternalLink size={13} /></a>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Freehold titles (group)" value={titles.length} sub={`${sqm(titles.reduce((s, t) => s + t.areaSqm, 0))} total`} />
         <Stat label="Sites operated" value={operated.length} />
         <Stat label="Sites owned & let" value={owned.length} />
+        <Stat label="Sites with distress signals" value={distressed.length} tone={distressed.length ? 'critical' : 'neutral'} sub={distressed.slice(0, 2).map((b) => b.name).join(', ') || 'none'} />
         <Stat label="Outstanding charges" value={company.charges.filter((c) => !c.satisfied).length} tone={company.charges.some((c) => !c.satisfied) ? 'warning' : 'neutral'} sub={company.charges.filter((c) => !c.satisfied).map((c) => c.lender).join(', ') || 'none'} />
       </div>
       <div className="grid gap-5 lg:grid-cols-3">

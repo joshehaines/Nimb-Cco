@@ -6,6 +6,8 @@ import { provider, PIPELINE_STAGES, SECTORS, type PipelineStage, type WatchItem,
 import { Badge, Button, Input, Select, Stat, Empty, cx } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { gbp, dateShort, monthsUntil } from '@/lib/format'
+import { DealDrawer } from './DealDrawer'
+import { useAlerts } from '@/store/alerts'
 
 const STAGE_TONE: Record<PipelineStage, string> = {
   Prospect: 'border-ink-300',
@@ -28,6 +30,9 @@ export function PipelinePage() {
   const [filterProject, setFilterProject] = useState('')
   const [dragId, setDragId] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
+  const [openDeal, setOpenDeal] = useState<string | null>(null)
+  const [alertCounts, setAlertCounts] = useState<Record<string, { n: number; critical: number; unread: number }>>({})
+  const alertState = useAlerts((s) => s.state)
   const [adding, setAdding] = useState(false)
   const [newQuery, setNewQuery] = useState('')
   const [newResults, setNewResults] = useState<Business[]>([])
@@ -41,11 +46,21 @@ export function PipelinePage() {
       const map: Record<string, Business> = {}
       for (const [id, b] of entries) if (b) map[id] = b
       setBizById(map)
+      // Signal counts per deal: alerts on the business, its title or its operator.
+      const all = await provider.getAlerts()
+      const counts: Record<string, { n: number; critical: number; unread: number }> = {}
+      for (const w of watchlist) {
+        const b = map[w.entityId]
+        const ids = new Set([w.entityId, b?.businessId, b?.titleNumber, b?.operatorCompanyNumber, b?.freeholderCompanyNumber].filter(Boolean) as string[])
+        const hits = all.filter((a) => ids.has(a.entityId) || (a.businessId && ids.has(a.businessId)) || (a.titleNumber && ids.has(a.titleNumber)))
+        counts[w.id] = { n: hits.length, critical: hits.filter((a) => a.severity === 'critical').length, unread: hits.filter((a) => !(alertState[a.alertId]?.read ?? a.read)).length }
+      }
+      setAlertCounts(counts)
       // Fill sector from the business when missing
       for (const w of watchlist) if (w.entityType === 'business' && !w.sector && map[w.entityId]) updateWatch(w.id, { sector: map[w.entityId].sector })
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist.length])
+  }, [watchlist.length, alertState])
 
   useEffect(() => {
     if (!newQuery.trim()) return setNewResults([])
@@ -72,12 +87,14 @@ export function PipelinePage() {
     }
   }
 
+  const dealItem = openDeal ? watchlist.find((w) => w.id === openDeal) : undefined
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {dealItem && <DealDrawer item={dealItem} onClose={() => setOpenDeal(null)} />}
       <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 bg-surface px-5 py-3">
         <div className="mr-2">
           <h1 className="text-lg font-semibold">Deal pipeline</h1>
-          <p className="text-xs text-ink-500">Drag cards between stages. Each stage prints as a client-ready stage report.</p>
+          <p className="text-xs text-ink-500">Drag cards between stages. Click a deal for its signal timeline, owner, next action and notes. Each stage prints as a client-ready stage report.</p>
         </div>
         <Select aria-label="Filter by office" value={filterOffice} onChange={(e) => setFilterOffice(e.target.value)} className="w-auto py-1 text-xs"><option value="">All offices</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
         <Select aria-label="Filter by sector" value={filterSector} onChange={(e) => setFilterSector(e.target.value)} className="w-auto py-1 text-xs"><option value="">All sectors</option>{SECTORS.map((s) => <option key={s}>{s}</option>)}</Select>
@@ -129,7 +146,7 @@ export function PipelinePage() {
                         <div className="flex items-start gap-1.5">
                           <GripVertical size={14} className="mt-0.5 shrink-0 text-ink-300" />
                           <div className="min-w-0 flex-1">
-                            <button className="block w-full truncate text-left text-sm font-medium hover:underline" onClick={() => open(w)}>{w.label}</button>
+                            <button className="block w-full truncate text-left text-sm font-medium hover:underline" onClick={() => setOpenDeal(w.id)} title="Open the deal">{w.label}</button>
                             <div className="flex flex-wrap items-center gap-1 text-[11px] text-ink-500">
                               {(w.sector || b?.sector) && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: SECTOR_COLOURS[(w.sector || b?.sector)!] }} />{w.sector || b?.sector}</span>}
                               {b && <span>· {b.tenure}</span>}
@@ -137,7 +154,7 @@ export function PipelinePage() {
                             </div>
                           </div>
                         </div>
-                        {b && b.distressFlags.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{b.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div>}
+                        {((b && b.distressFlags.length > 0) || alertCounts[w.id]?.n) ? <div className="mt-1.5 flex flex-wrap items-center gap-1">{b?.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}{alertCounts[w.id]?.n ? <Badge tone={alertCounts[w.id].critical ? 'critical' : 'info'} title="Signals on this deal">{alertCounts[w.id].n} signal{alertCounts[w.id].n === 1 ? '' : 's'}{alertCounts[w.id].unread ? ` · ${alertCounts[w.id].unread} new` : ''}</Badge> : null}</div> : null}
                         {editing === w.id ? (
                           <div className="mt-2 space-y-1.5 text-xs">
                             <Select aria-label="Office" value={w.office ?? ''} onChange={(e) => updateWatch(w.id, { office: e.target.value || undefined })} className="py-1 text-xs"><option value="">Office</option>{OFFICES.map((o) => <option key={o}>{o}</option>)}</Select>
@@ -158,7 +175,7 @@ export function PipelinePage() {
                             {w.nextAction && <div className={cx('flex items-center gap-1', isOverdue ? 'font-medium text-rose-700 dark:text-rose-300' : '')}><CalendarClock size={11} /> {w.nextAction}{w.nextActionDate ? ` · ${dateShort(w.nextActionDate)}${due !== undefined && due < 0 ? ' (overdue)' : ''}` : ''}</div>}
                             {w.assignee && <div>Owner: {w.assignee}</div>}
                             {w.notes && <div className="line-clamp-2 text-ink-500">{w.notes}</div>}
-                            <div className="flex items-center justify-between pt-1"><span className="text-ink-400">{w.stageChangedAt ? `in stage since ${dateShort(w.stageChangedAt)}` : `added ${dateShort(w.addedAt)}`}</span><button className="text-brand-700 hover:underline" onClick={() => setEditing(w.id)}>Edit</button></div>
+                            <div className="flex items-center justify-between pt-1"><span className="text-ink-400">{w.stageChangedAt ? `in stage since ${dateShort(w.stageChangedAt)}` : `added ${dateShort(w.addedAt)}`}</span><span className="flex gap-2"><button className="text-ink-500 hover:underline" onClick={() => open(w)}>Site</button><button className="text-brand-700 hover:underline" onClick={() => setEditing(w.id)}>Edit</button><button className="text-brand-700 hover:underline" onClick={() => setOpenDeal(w.id)}>Deal</button></span></div>
                           </div>
                         )}
                       </div>

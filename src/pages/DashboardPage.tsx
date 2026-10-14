@@ -93,6 +93,26 @@ export function DashboardPage() {
             ))}
           </ul>
         </Card>
+        <Card title="Deals needing action" actions={<Link to="/pipeline" className="text-xs text-brand-700">Pipeline</Link>} className="lg:col-span-3" padded={false}>
+          {(() => {
+            const today = new Date().toISOString().slice(0, 10)
+            const live = watchlist.filter((w) => w.stage && !['Completed', 'Lost'].includes(w.stage))
+            const overdue = live.filter((w) => w.nextActionDate && w.nextActionDate < today)
+            const noOwner = live.filter((w) => !w.assignee)
+            const noAction = live.filter((w) => !w.nextAction)
+            if (!live.length) return <div className="px-4 py-3 text-sm text-ink-500">No active deals. Add a site to the pipeline from the map, Sourcing or an alert.</div>
+            return (
+              <div className="grid gap-0 divide-y divide-ink-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+                {[['Overdue next actions', overdue], ['No owner assigned', noOwner], ['No next action set', noAction]].map(([label, list]) => (
+                  <div key={label as string} className="px-4 py-3">
+                    <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold uppercase tracking-wide text-ink-500">{label as string}</span><Badge tone={(list as typeof live).length ? 'warning' : 'good'}>{(list as typeof live).length}</Badge></div>
+                    <ul className="space-y-1 text-xs">{(list as typeof live).slice(0, 4).map((w) => <li key={w.id} className="flex items-center justify-between gap-2"><Link to="/pipeline" className="truncate font-medium hover:underline">{w.label}</Link><span className="shrink-0 text-ink-500">{w.stage}{w.nextActionDate ? ` · ${dateShort(w.nextActionDate)}` : ''}</span></li>)}{!(list as typeof live).length && <li className="text-ink-400">None</li>}</ul>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </Card>
         <Card title="My Sites" actions={<Link to="/watchlist" className="text-xs text-brand-700">Manage</Link>} className="lg:col-span-3">
           {watchlist.length ? <div className="flex flex-wrap gap-2">{watchlist.slice(0, 12).map((w) => <Link key={w.id} to={w.entityType === 'company' ? `/companies/${w.entityId}` : `/map/${w.entityType}/${w.entityId}`} className="rounded-md border border-ink-200 px-2.5 py-1.5 text-xs hover:bg-ink-50">{w.label}</Link>)}</div> : <div className="flex items-center gap-2 text-sm text-ink-500"><AlertTriangle size={14} /> Nothing watched yet. Open a site on the map and add it to My Sites to receive ownership, planning and regulator alerts.</div>}
         </Card>

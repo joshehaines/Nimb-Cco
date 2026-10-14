@@ -138,6 +138,17 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'company_portfolio',
+    description: 'Open a company (or group) and everything it owns or operates: the portfolio page with plot, export and alert actions.',
+    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+    run: async ({ query }, ctx) => {
+      const r = (await provider.search(String(query), 6)).find((x) => x.kind === 'company')
+      if (!r) return { text: `No company matched "${query}". Try part of the registered name or the company number.` }
+      ctx.nav(`/companies/${r.id}`)
+      return { text: `Opened ${r.label}. Plot portfolio highlights every site the group owns or operates; CSV and Alert on portfolio are on the same page.`, links: [{ label: r.label.slice(0, 40), to: `/companies/${r.id}` }] }
+    },
+  },
+  {
     name: 'show_competition',
     description: 'Open a business and run the competition analysis for it.',
     input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },

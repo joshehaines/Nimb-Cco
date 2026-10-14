@@ -356,6 +356,8 @@ export interface WatchItem {
   nextAction?: string
   nextActionDate?: ISODate
   stageChangedAt?: ISODate
+  /** Dated notes from the team working the deal. */
+  log?: { at: ISODate; by: string; text: string }[]
 }
 
 export interface SearchResult {
@@ -383,6 +385,20 @@ export interface SourcingFilters {
   excludeConstraints: ConstraintKind[]
   planningWithinMonths?: number
   text?: string
+  /** Building and land: footprint of the built form, site coverage (footprint / site area, %). */
+  minFootprintSqm?: number
+  maxFootprintSqm?: number
+  minSiteCoverage?: number
+  maxSiteCoverage?: number
+  /** Registered lease dates (ISO) on the freehold title. */
+  leaseStartAfter?: ISODate
+  leaseStartBefore?: ISODate
+  leaseEndAfter?: ISODate
+  leaseEndBefore?: ISODate
+  /** The freeholder company is in trouble (insolvency status, Gazette notice, overdue accounts). */
+  distressedOwners: boolean
+  /** A leasehold operator carries distress signals. */
+  distressedTenants: boolean
 }
 
 export const DEFAULT_FILTERS: SourcingFilters = {
@@ -392,6 +408,8 @@ export const DEFAULT_FILTERS: SourcingFilters = {
   distressFlags: [],
   registerRatings: [],
   excludeConstraints: [],
+  distressedOwners: false,
+  distressedTenants: false,
 }
 
 export interface DataSourceStatus {

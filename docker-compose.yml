@@ -1,6 +1,14 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_DATA_PROVIDER: http
+        VITE_ASSISTANT: ${VITE_ASSISTANT:-}
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
+        VITE_ADMIN_EMAILS: ${VITE_ADMIN_EMAILS:-}
+        VITE_OS_API_KEY: ${VITE_OS_API_KEY:-}
     ports:
       - "8080:80"
     depends_on:
@@ -10,6 +18,9 @@ services:
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-sonnet-5-5}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
     depends_on:
       db:
@@ -44,6 +55,7 @@ services:
       DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
     volumes:
       - ./public/data:/data:ro
+      - ./scripts/data/raw:/raw:ro      # step 1 downloads; load with: docker compose --profile load run --rm loader python -m ingest.run <job> --workdir /raw
     depends_on:
       db:
         condition: service_healthy

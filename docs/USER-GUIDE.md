@@ -55,6 +55,8 @@ Use **Add to My Sites** to watch a site, **Report** to open a printable PDF, **Z
 
 ## Sourcing
 
+Filters now also cover building footprint and site coverage (footprint over site area), commercial space, lease start and end dates, **distressed owners** (the freeholder company is insolvent, in the Gazette or late filing) separately from **distressed tenants** (a leasehold operator with signals), with strategies such as Distressed landlords and Big sites, low coverage.
+
 Open **Sourcing** (or the Filters button on the map). Pick a strategy preset such as "Distressed care homes" or "Pub leases expiring < 24 months", or combine filters: sectors, tenure, lease expiry, rateable value, floor area, EPC, owner type, distress signals, regulator rating, constraint exclusions, planning activity and free text. Results can be sorted, exported to CSV (with licence notices), watched in bulk, or plotted on the map as highlighted dots.
 
 ## My Sites and alerts
@@ -68,6 +70,8 @@ Open **Sourcing** (or the Filters button on the map). Pick a strategy preset suc
 **My channels** holds your email, mobile and Teams webhook with verification, quiet hours and digest times. **Deliveries** is the log of every message sent, simulated or suppressed, with its text and recipient, exportable as CSV. On the demo build nothing leaves the browser: messages are written to the log exactly as they would be sent.
 
 ## Pipeline
+
+Click a deal card to open the **deal drawer**: the stage, the deal owner and office, the next action and its due date, fee and guide price, the **signal timeline** (every alert on the business, its title or its operator, plus stage changes and dated notes), and the alert rules feeding it. **Alert on this deal** creates an instant rule for that site shared with the owner. Cards show a signal count; the dashboard's **Deals needing action** card lists overdue actions, deals without an owner and deals without a next action.
 
 **Pipeline** shows every watched site as a card in one of eight stages (Prospect, Approach, Instructed, Marketing, Under offer, Exchanged, Completed, Lost). Drag a card to move it, or use the stage menu on the card. The edit form on each card records office, assignee, guide price, fee estimate and next action. The header totals fees weighted by stage probability; **Stage report** opens a client-ready page for one stage that you can print.
 
@@ -114,6 +118,8 @@ A calendar of expiries from registered leases, plus breaks and rent reviews once
 Nothing is written back to the CRM automatically.
 
 ## Company pages
+
+A company page is the portfolio view for the whole group: freehold titles held, sites operated, sites owned and let, sites with distress signals and outstanding charges. **Plot portfolio** highlights every site on the map, **CSV** exports titles and sites (CCOD licence note included), **Alert on portfolio** creates an instant rule covering every site and company in the group. Ask the assistant "what does Arden Inns own" to get there.
 
 Status, officers, persons with significant control, charges and lenders, group structure, trading sites operated or owned, and all freehold titles held by the group, with a watch button.
 

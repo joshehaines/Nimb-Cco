@@ -112,6 +112,12 @@ async def main() -> None:
         recs = [{"countPointId": r["count_point_id"], "roadName": r["road_name"], "startJunction": r["start_junction"], "endJunction": r["end_junction"], "roadType": r["road_type"], "lon": r["lon"], "lat": r["lat"], "year": r["year"], "method": r["method"], "aadf": r["aadf"], "cars": r["cars"], "lgv": r["lgv"], "hgv": r["hgv"], "pedalCycles": r["pedal_cycles"], "history": r["history"]} for r in dft.parse(args.dft)]
         totals["traffic"] = await load_traffic(conn, recs)
 
+    try:
+        snapped = await conn.fetchval("select snap_places_to_buildings(30)")
+        totals["snapped"] = int(snapped or 0)
+        print(f"snapped {snapped} places onto building footprints")
+    except Exception as e:  # noqa: BLE001  (function missing on an old schema)
+        print(f"snap skipped: {e}")
     await mark(conn, "overture-places", totals.get("places", 0), "Loaded from scripts/data output")
     await mark(conn, "overture-roads", totals.get("roads", 0), "Loaded from scripts/data output")
     await mark(conn, "overture-buildings", totals.get("buildings", 0), "Loaded from scripts/data output")

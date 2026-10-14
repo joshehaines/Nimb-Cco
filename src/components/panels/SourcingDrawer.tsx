@@ -14,6 +14,9 @@ const PRESETS: { label: string; hint: string; patch: Parameters<ReturnType<typeo
   { label: 'Sub-standard EPC hospitality', hint: 'Pubs, restaurants, hotels rated E or worse', patch: { sectors: ['Pub', 'Restaurant', 'Hotel'], epcWorseThan: 'D' } },
   { label: 'Pharmacies losing volume', hint: 'Dispensing items down >8 % year on year', patch: { sectors: ['Pharmacy'], distressFlags: ['Dispensing volume falling'] } },
   { label: 'Long-held freeholds (pre-2005)', hint: 'Owner on title 20+ years', patch: { ownedSince: '2005-01-01' } },
+  { label: 'Distressed landlords', hint: 'Freeholder company insolvent, in the Gazette or late filing', patch: { distressedOwners: true } },
+  { label: 'Distressed tenants', hint: 'Leasehold operators carrying distress signals', patch: { distressedTenants: true } },
+  { label: 'Big sites, low coverage', hint: 'Over 1,500 m² with under 35 % built: development or extension potential', patch: { minAreaSqm: undefined, maxSiteCoverage: 35, minFootprintSqm: 150 } },
 ]
 
 export function SourcingDrawer() {
@@ -43,7 +46,16 @@ export function SourcingDrawer() {
           <label className="text-xs"><span className="label">Lease expiring within</span><Select value={filters.leaseExpiringWithinMonths ?? ''} onChange={(e) => setFilters({ leaseExpiringWithinMonths: e.target.value ? Number(e.target.value) : undefined })}><option value="">Any</option><option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">5 years</option></Select></label>
           <label className="text-xs"><span className="label">Min rateable value</span><Input type="number" placeholder="£" value={filters.minRateableValue ?? ''} onChange={(e) => setFilters({ minRateableValue: e.target.value ? Number(e.target.value) : undefined })} /></label>
           <label className="text-xs"><span className="label">Max rateable value</span><Input type="number" placeholder="£" value={filters.maxRateableValue ?? ''} onChange={(e) => setFilters({ maxRateableValue: e.target.value ? Number(e.target.value) : undefined })} /></label>
-          <label className="text-xs"><span className="label">Min floor area m²</span><Input type="number" value={filters.minAreaSqm ?? ''} onChange={(e) => setFilters({ minAreaSqm: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Min commercial space m²</span><Input type="number" value={filters.minAreaSqm ?? ''} onChange={(e) => setFilters({ minAreaSqm: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Max commercial space m²</span><Input type="number" value={filters.maxAreaSqm ?? ''} onChange={(e) => setFilters({ maxAreaSqm: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Min building footprint m²</span><Input type="number" value={filters.minFootprintSqm ?? ''} onChange={(e) => setFilters({ minFootprintSqm: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Max building footprint m²</span><Input type="number" value={filters.maxFootprintSqm ?? ''} onChange={(e) => setFilters({ maxFootprintSqm: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Min site coverage %</span><Input type="number" min={0} max={100} value={filters.minSiteCoverage ?? ''} onChange={(e) => setFilters({ minSiteCoverage: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Max site coverage %</span><Input type="number" min={0} max={100} value={filters.maxSiteCoverage ?? ''} onChange={(e) => setFilters({ maxSiteCoverage: e.target.value ? Number(e.target.value) : undefined })} /></label>
+          <label className="text-xs"><span className="label">Lease start after</span><Input type="date" value={filters.leaseStartAfter ?? ''} onChange={(e) => setFilters({ leaseStartAfter: e.target.value || undefined })} /></label>
+          <label className="text-xs"><span className="label">Lease start before</span><Input type="date" value={filters.leaseStartBefore ?? ''} onChange={(e) => setFilters({ leaseStartBefore: e.target.value || undefined })} /></label>
+          <label className="text-xs"><span className="label">Lease end after</span><Input type="date" value={filters.leaseEndAfter ?? ''} onChange={(e) => setFilters({ leaseEndAfter: e.target.value || undefined })} /></label>
+          <label className="text-xs"><span className="label">Lease end before</span><Input type="date" value={filters.leaseEndBefore ?? ''} onChange={(e) => setFilters({ leaseEndBefore: e.target.value || undefined })} /></label>
           <label className="text-xs"><span className="label">EPC worse than</span><Select value={filters.epcWorseThan ?? ''} onChange={(e) => setFilters({ epcWorseThan: (e.target.value || undefined) as never })}><option value="">Any</option>{['B', 'C', 'D', 'E'].map((r) => <option key={r}>{r}</option>)}</Select></label>
           <label className="text-xs"><span className="label">Owner on title since (before)</span><Input type="date" value={filters.ownedSince ?? ''} onChange={(e) => setFilters({ ownedSince: e.target.value || undefined })} /></label>
           <label className="text-xs"><span className="label">Planning activity within</span><Select value={filters.planningWithinMonths ?? ''} onChange={(e) => setFilters({ planningWithinMonths: e.target.value ? Number(e.target.value) : undefined })}><option value="">Any</option><option value="6">6 months</option><option value="12">12 months</option><option value="24">24 months</option></Select></label>
@@ -53,7 +65,9 @@ export function SourcingDrawer() {
           <div className="flex flex-wrap gap-1.5">{OWNER_CATS.map((c) => <Chip key={c} label={c.replace(' or Public Limited Company', '')} selected={filters.ownerCategories.includes(c)} onClick={() => setFilters({ ownerCategories: toggle(filters.ownerCategories, c) })} />)}</div>
         </div>
         <div>
-          <Toggle checked={filters.distressOnly} onChange={(v) => setFilters({ distressOnly: v })} label="Distressed only" hint="Any insolvency, late accounts, regulator or FHRS signal" />
+          <Toggle checked={filters.distressOnly} onChange={(v) => setFilters({ distressOnly: v })} label="Distressed only" hint="Any insolvency, late accounts, regulator or FHRS signal on the operator" />
+          <Toggle checked={filters.distressedOwners} onChange={(v) => setFilters({ distressedOwners: v })} label="Distressed owners" hint="Freeholder company insolvent, in the Gazette or with overdue accounts (Companies House)" />
+          <Toggle checked={filters.distressedTenants} onChange={(v) => setFilters({ distressedTenants: v })} label="Distressed tenants" hint="Leasehold operators with distress signals: the landlord may want out too" />
           <div className="mt-1 flex flex-wrap gap-1.5">{DISTRESS.map((d) => <Chip key={d} label={d} selected={filters.distressFlags.includes(d)} onClick={() => setFilters({ distressFlags: toggle(filters.distressFlags, d) })} />)}</div>
         </div>
         <div>

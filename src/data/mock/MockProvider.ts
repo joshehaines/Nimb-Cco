@@ -345,6 +345,25 @@ export class MockProvider implements DataProvider {
       const m = monthsUntil(lease?.expiryDate)
       if (m === undefined || m > f.leaseExpiringWithinMonths || m < 0) return false
     }
+    if (f.minFootprintSqm !== undefined && !(t?.building && t.building.footprintSqm >= f.minFootprintSqm)) return false
+    if (f.maxFootprintSqm !== undefined && !(t?.building && t.building.footprintSqm <= f.maxFootprintSqm)) return false
+    if (f.minSiteCoverage !== undefined || f.maxSiteCoverage !== undefined) {
+      const cov = t?.building && t.areaSqm ? Math.min(100, (t.building.footprintSqm / t.areaSqm) * 100) : undefined
+      if (cov === undefined) return false
+      if (f.minSiteCoverage !== undefined && cov < f.minSiteCoverage) return false
+      if (f.maxSiteCoverage !== undefined && cov > f.maxSiteCoverage) return false
+    }
+    if (f.leaseStartAfter || f.leaseStartBefore || f.leaseEndAfter || f.leaseEndBefore) {
+      const ls = t?.leases ?? []
+      const ok = ls.some((l) => (!f.leaseStartAfter || l.dateOfLease >= f.leaseStartAfter) && (!f.leaseStartBefore || l.dateOfLease <= f.leaseStartBefore) && (!f.leaseEndAfter || l.expiryDate >= f.leaseEndAfter) && (!f.leaseEndBefore || l.expiryDate <= f.leaseEndBefore))
+      if (!ok) return false
+    }
+    if (f.distressedOwners) {
+      const owner = t?.proprietors.map((p) => p.companyNumber).filter((x): x is string => !!x).map((n) => this.ds.companies.get(n)).find(Boolean)
+      const distressed = !!owner && (owner.status !== 'active' || owner.accountsOverdue || owner.gazetteNotices.length > 0)
+      if (!distressed) return false
+    }
+    if (f.distressedTenants && !(b.tenure === 'Leasehold' && b.distressFlags.length)) return false
     if (f.distressOnly && !b.distressFlags.length) return false
     if (f.distressFlags.length && !f.distressFlags.some((d) => b.distressFlags.includes(d))) return false
     if (f.registerRatings.length && !b.registers.some((r) => r.rating && f.registerRatings.includes(r.rating))) return false
@@ -388,6 +407,12 @@ export class MockProvider implements DataProvider {
       if (filters.minAreaSqm !== undefined && t.areaSqm < filters.minAreaSqm) continue
       if (filters.maxAreaSqm !== undefined && t.areaSqm > filters.maxAreaSqm) continue
       if (filters.ownedSince && !(t.dateProprietorAdded && t.dateProprietorAdded <= filters.ownedSince)) continue
+      if (filters.minFootprintSqm !== undefined && !(t.building && t.building.footprintSqm >= filters.minFootprintSqm)) continue
+      if (filters.maxFootprintSqm !== undefined && !(t.building && t.building.footprintSqm <= filters.maxFootprintSqm)) continue
+      if (filters.distressedOwners) {
+        const owner = t.proprietors.map((p) => p.companyNumber).filter((x): x is string => !!x).map((n) => this.ds.companies.get(n)).find(Boolean)
+        if (!owner || (owner.status === 'active' && !owner.accountsOverdue && !owner.gazetteNotices.length)) continue
+      }
       if (filters.text && !t.address.toLowerCase().includes(filters.text.toLowerCase()) && !t.proprietors.some((p) => p.name.toLowerCase().includes(filters.text!.toLowerCase()))) continue
       out.push(t)
     }
