@@ -30,6 +30,14 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://cpi:cpi@localhost:54
 async def lifespan(app: FastAPI):
     if getattr(app.state, "pool", None) is None:
         app.state.pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
+        try:
+            from . import accounts
+
+            async with app.state.pool.acquire() as c:
+                if await accounts.bootstrap_admin(c):
+                    print("created the first admin account from ADMIN_EMAIL")
+        except Exception as e:  # noqa: BLE001
+            print(f"admin bootstrap skipped: {e}")
     yield
     if getattr(app.state, "pool", None) is not None and hasattr(app.state.pool, "close"):
         await app.state.pool.close()
@@ -41,7 +49,7 @@ app = FastAPI(title="Christie Property Intelligence API", version="0.2.0", lifes
 @app.middleware("http")
 async def require_auth(request: Request, call_next):
     """Every /api route except health needs a user; the dependency below does the actual check."""
-    if request.url.path.startswith("/api") and request.url.path not in ("/api/health",):
+    if request.url.path.startswith("/api") and request.url.path not in ("/api/health", "/api/auth/login", "/api/auth/mode"):
         try:
             request.state.user = await current_user(request)
         except HTTPException as e:
@@ -360,6 +368,97 @@ async def list_audit(req: Request, limit: int = 500, user: User = Depends(requir
     async with req.app.state.pool.acquire() as c:
         rows = await c.fetch("select * from audit_log order by at desc limit $1", limit)
     return [{"id": r["event_id"], "at": r["at"].isoformat(), "userId": r["user_id"], "userName": r["user_name"], "kind": r["kind"], "summary": r["summary"], "entityType": r["entity_type"], "entityId": r["entity_id"], "licences": list(r["licences"] or []), "count": r["count"]} for r in rows]
+
+
+# ------------------------------------------------------------ local accounts (email + password, admin-managed)
+from . import accounts as _acct  # noqa: E402
+
+
+def _acct_out(r) -> dict[str, Any]:
+    return {"id": r["user_id"], "email": r["email"], "name": r["name"], "roles": list(r["roles"]), "office": r["office"], "mustReset": r["must_reset"], "disabled": r["disabled"], "createdAt": r["created_at"].isoformat() if r.get("created_at") else None, "lastLoginAt": r["last_login_at"].isoformat() if r.get("last_login_at") else None}
+
+
+@app.get("/api/auth/mode")
+async def auth_mode():
+    from . import auth as _auth
+
+    return {"mode": "oidc" if _auth.CONFIGURED else "local" if _acct.ENABLED else "demo"}
+
+
+@app.post("/api/auth/login")
+async def login(req: Request, body: dict[str, Any]):
+    if not _acct.ENABLED:
+        raise HTTPException(404, "local sign-in is not enabled")
+    email, password = str(body.get("email", "")).strip(), str(body.get("password", ""))
+    if not email or not password:
+        raise HTTPException(400, "email and password required")
+    async with req.app.state.pool.acquire() as c:
+        row = await _acct.authenticate(c, email, password)
+        if not row:
+            await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary) values ($1, $2, $3, 'sign-in', $4)", f"L{os.urandom(6).hex()}", email.lower(), email, "Failed sign-in")
+            raise HTTPException(401, "email or password not recognised")
+        await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary) values ($1, $2, $3, 'sign-in', 'Signed in')", f"L{os.urandom(6).hex()}", row["user_id"], row["name"])
+    return {"token": _acct.issue_token(dict(row)), "user": _acct_out(dict(row))}
+
+
+@app.post("/api/auth/password")
+async def change_password(req: Request, body: dict[str, Any], user: User = Depends(current_user)):
+    current, new = str(body.get("current", "")), str(body.get("new", ""))
+    if len(new) < 10:
+        raise HTTPException(400, "new password must be at least 10 characters")
+    async with req.app.state.pool.acquire() as c:
+        row = await c.fetchrow("select * from accounts where user_id = $1", user.id)
+        if not row or not _acct.verify_password(current, row["password_hash"]):
+            raise HTTPException(401, "current password not recognised")
+        await c.execute("update accounts set password_hash = $2, must_reset = false, token_version = token_version + 1 where user_id = $1", user.id, _acct.hash_password(new))
+        fresh = await c.fetchrow("select * from accounts where user_id = $1", user.id)
+    return {"ok": True, "token": _acct.issue_token(dict(fresh))}
+
+
+@app.get("/api/admin/users")
+async def list_users(req: Request, user: User = Depends(require_role("admin"))):
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from accounts order by created_at")
+    return [_acct_out(dict(r)) for r in rows]
+
+
+@app.post("/api/admin/users")
+async def create_user(req: Request, body: dict[str, Any], user: User = Depends(require_role("admin"))):
+    email, name = str(body.get("email", "")).strip().lower(), str(body.get("name", "")).strip()
+    if "@" not in email or not name:
+        raise HTTPException(400, "name and a valid email are required")
+    async with req.app.state.pool.acquire() as c:
+        if await _acct.get_by_email(c, email):
+            raise HTTPException(409, "an account with that email already exists")
+        acct, pw = await _acct.create_account(c, email=email, name=name, roles=body.get("roles"), office=body.get("office"), created_by=user.id)
+        await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary, entity_type, entity_id) values ($1, $2, $3, 'settings-changed', $4, 'account', $5)", f"L{os.urandom(6).hex()}", user.id, user.name, f"Created account for {email} ({', '.join(acct['roles'])})", acct["user_id"])
+    return {"user": {**acct, "id": acct["user_id"], "mustReset": True}, "temporaryPassword": pw}
+
+
+@app.post("/api/admin/users/{user_id}/reset")
+async def reset_user(req: Request, user_id: str, user: User = Depends(require_role("admin"))):
+    pw = _acct.temp_password()
+    async with req.app.state.pool.acquire() as c:
+        n = await c.execute("update accounts set password_hash = $2, must_reset = true, token_version = token_version + 1 where user_id = $1", user_id, _acct.hash_password(pw))
+        await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary, entity_type, entity_id) values ($1, $2, $3, 'settings-changed', 'Reset a password', 'account', $4)", f"L{os.urandom(6).hex()}", user.id, user.name, user_id)
+    return {"ok": True, "updated": n, "temporaryPassword": pw}
+
+
+@app.post("/api/admin/users/{user_id}/disabled")
+async def set_disabled(req: Request, user_id: str, body: dict[str, Any], user: User = Depends(require_role("admin"))):
+    if user_id == user.id:
+        raise HTTPException(400, "you cannot disable your own account")
+    async with req.app.state.pool.acquire() as c:
+        await c.execute("update accounts set disabled = $2, token_version = token_version + 1 where user_id = $1", user_id, bool(body.get("disabled", True)))
+        await c.execute("insert into audit_log (event_id, user_id, user_name, kind, summary, entity_type, entity_id) values ($1, $2, $3, 'settings-changed', $4, 'account', $5)", f"L{os.urandom(6).hex()}", user.id, user.name, "Disabled an account" if body.get("disabled", True) else "Re-enabled an account", user_id)
+    return {"ok": True}
+
+
+@app.put("/api/admin/users/{user_id}")
+async def update_user(req: Request, user_id: str, body: dict[str, Any], user: User = Depends(require_role("admin"))):
+    async with req.app.state.pool.acquire() as c:
+        await c.execute("update accounts set name = coalesce($2, name), roles = coalesce($3, roles), office = coalesce($4, office), token_version = token_version + 1 where user_id = $1", user_id, body.get("name"), _acct.clean_roles(body["roles"]) if body.get("roles") is not None else None, body.get("office"))
+    return {"ok": True}
 
 
 # ------------------------------------------------------------ assistant (Claude relay; tools run in the browser)

@@ -8,6 +8,7 @@ services:
         VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-}
         VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
         VITE_ADMIN_EMAILS: ${VITE_ADMIN_EMAILS:-}
+        VITE_AUTH: ${VITE_AUTH:-}
         VITE_OS_API_KEY: ${VITE_OS_API_KEY:-}
     ports:
       - "8080:80"
@@ -21,6 +22,10 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      LOCAL_AUTH_SECRET: ${LOCAL_AUTH_SECRET:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
       DATABASE_URL: postgresql://cpi:cpi@db:5432/cpi
     depends_on:
       db:

@@ -7,13 +7,16 @@ import { create } from 'zustand'
  * in demo mode with a local persona, so the audit trail and role gates can still be exercised.
  */
 export type Role = 'agent' | 'admin' | 'compliance'
-export interface User { id: string; name: string; email?: string; office?: string; roles: Role[]; demo: boolean }
+export interface User { id: string; name: string; email?: string; office?: string; roles: Role[]; demo: boolean; mustReset?: boolean }
 
 const AUTHORITY = (import.meta.env.VITE_OIDC_AUTHORITY as string | undefined)?.replace(/\/$/, '')
 const CLIENT_ID = import.meta.env.VITE_OIDC_CLIENT_ID as string | undefined
 const SCOPE = (import.meta.env.VITE_OIDC_SCOPE as string | undefined) ?? 'openid profile email'
 const ADMIN_EMAILS = ((import.meta.env.VITE_ADMIN_EMAILS as string | undefined) ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 export const authConfigured = !!(AUTHORITY && CLIENT_ID)
+/** Email and password accounts managed inside the platform (VITE_AUTH=local; the API needs LOCAL_AUTH_SECRET). */
+export const localAuth = !authConfigured && (import.meta.env.VITE_AUTH as string | undefined) === 'local'
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
 const DEMO_PERSONAS: User[] = [
   { id: 'demo-agent', name: 'Demo agent', email: 'agent@example.internal', office: 'Birmingham', roles: ['agent'], demo: true },
@@ -28,12 +31,15 @@ interface AuthState {
   status: 'idle' | 'loading' | 'signed-in' | 'signed-out' | 'error'
   error?: string
   signIn: () => Promise<void>
+  /** Local accounts: returns an error message or null. */
+  signInLocal: (email: string, password: string) => Promise<string | null>
+  changePassword: (current: string, next: string) => Promise<string | null>
   signOut: () => void
   setDemoPersona: (id: string) => void
   hasRole: (r: Role) => boolean
 }
 
-const SS = { verifier: 'cpi-pkce-verifier', tokens: 'cpi-tokens', persona: 'cpi-demo-persona' }
+const SS = { verifier: 'cpi-pkce-verifier', tokens: 'cpi-tokens', persona: 'cpi-demo-persona', local: 'cpi-local-session' }
 
 function b64url(bytes: ArrayBuffer | Uint8Array) {
   const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
@@ -76,7 +82,49 @@ export const useAuth = create<AuthState>()((set, get) => ({
     }
     set({ user: u, status: 'signed-in' })
   },
+  signInLocal: async (email, password) => {
+    set({ status: 'loading', error: undefined })
+    try {
+      const r = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) })
+      if (!r.ok) {
+        const msg = r.status === 401 ? 'Email or password not recognised.' : `Sign-in failed (${r.status}).`
+        set({ status: 'signed-out', error: msg })
+        return msg
+      }
+      const { token, user } = (await r.json()) as { token: string; user: { id: string; name: string; email: string; roles: Role[]; office?: string; mustReset: boolean } }
+      sessionStorage.setItem(SS.local, JSON.stringify({ token, user }))
+      set({ accessToken: token, user: { ...user, demo: false }, status: 'signed-in', error: undefined })
+      return null
+    } catch (e) {
+      const msg = `Cannot reach the sign-in service: ${(e as Error).message}`
+      set({ status: 'signed-out', error: msg })
+      return msg
+    }
+  },
+  changePassword: async (current, next) => {
+    const r = await fetch(`${API_BASE}/auth/password`, { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify({ current, new: next }) })
+    if (!r.ok) return r.status === 401 ? 'Current password not recognised.' : r.status === 400 ? 'Use at least 10 characters.' : `Could not change the password (${r.status}).`
+    const { token } = (await r.json()) as { token: string }
+    const u = { ...get().user!, mustReset: false }
+    sessionStorage.setItem(SS.local, JSON.stringify({ token, user: u }))
+    set({ accessToken: token, user: u })
+    return null
+  },
   signIn: async () => {
+    if (localAuth) {
+      try {
+        const saved = sessionStorage.getItem(SS.local)
+        if (saved) {
+          const { token, user } = JSON.parse(saved) as { token: string; user: User }
+          set({ accessToken: token, user: { ...user, demo: false }, status: 'signed-in' })
+          return
+        }
+      } catch {
+        /* ignore */
+      }
+      set({ user: null, status: 'signed-out' })
+      return
+    }
     if (!authConfigured) {
       // A persona chosen earlier in this browser signs straight in; otherwise the sign-in page offers the choice.
       // Demo builds always open on the sign-in page: the persona lives in sessionStorage, so a
@@ -131,6 +179,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
   signOut: () => {
     sessionStorage.removeItem(SS.tokens)
+    sessionStorage.removeItem(SS.local)
     try {
       sessionStorage.removeItem(SS.persona)
     } catch {

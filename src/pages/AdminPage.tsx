@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react'
 import { provider, type DataSourceStatus } from '@/data'
 import { Badge, Card, Stat } from '@/components/ui'
 import { ago, num } from '@/lib/format'
+import { UsersCard } from '@/components/UsersCard'
 
 const tone = (s: DataSourceStatus['status']) => (s === 'ok' ? 'good' : s === 'stale' ? 'warning' : s === 'error' ? 'critical' : s === 'paid' ? 'violet' : 'neutral')
 const LICENCE_NOTE: Record<string, string> = {
@@ -52,6 +53,7 @@ export function AdminPage() {
           </tbody>
         </table>
       </Card>
+      <UsersCard />
       <Card title="Licence classes">
         <ul className="space-y-1 text-sm">{Object.entries(LICENCE_NOTE).map(([k, v]) => <li key={k}><Badge className="mr-2">{k}</Badge>{v}</li>)}</ul>
       </Card>

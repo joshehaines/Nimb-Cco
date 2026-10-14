@@ -285,6 +285,22 @@ CREATE TABLE users (
   office    text
 );
 
+-- Local sign-in accounts (pilot mode without single sign-on). See app/accounts.py.
+CREATE TABLE accounts (
+  user_id       text PRIMARY KEY REFERENCES users,
+  email         text UNIQUE NOT NULL,
+  name          text NOT NULL,
+  password_hash text NOT NULL,
+  roles         text[] NOT NULL DEFAULT '{agent}',
+  office        text,
+  must_reset    boolean NOT NULL DEFAULT true,
+  disabled      boolean NOT NULL DEFAULT false,
+  token_version integer NOT NULL DEFAULT 0,                  -- bump to sign a user out everywhere
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  created_by    text,
+  last_login_at timestamptz
+);
+
 CREATE TABLE watch_items (
   id          bigserial PRIMARY KEY,
   user_id     text REFERENCES users,

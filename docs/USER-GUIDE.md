@@ -93,6 +93,8 @@ The **Appraise** button in the info panel builds an appraisal pack for one busin
 
 ## Signing in, roles and settings
 
+On a pilot build the sign-in page asks for your email and the temporary password an administrator gave you; you choose your own password at first sign-in and can change it in Settings. Administrators create, reset and disable accounts under Data sources, **Users and sign-in**.
+
 The app opens on a sign-in page. With single sign-on configured (Microsoft Entra ID, Okta or any OpenID Connect provider) **Continue with your company account** sends you to the company sign-in and back; without it the page offers three demo personas so the role gates and the audit trail can be tried. Three roles matter: everyone is an agent; **compliance** can approve campaigns and read the audit log; **admin** can do both and see the data sources page. **Sign out** in Settings returns to the sign-in page. Settings also holds the Ordnance Survey key for the British basemap, the demo areas, the theme and the guided tour.
 
 ## Export to CRM

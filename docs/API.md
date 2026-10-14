@@ -50,6 +50,13 @@ Backend: FastAPI + PostgreSQL/PostGIS. Suggested tables: `titles`, `proprietors`
 | GET / PUT | `/me/notifications` | body `NotificationPrefs` | Email, mobile, Teams webhook, quiet hours, digest time. Changing an address clears its verified flag |
 | POST | `/me/notifications/verify` | `{channel: 'email' \| 'sms'}` | Sends a six-digit code over that channel |
 | POST | `/me/notifications/confirm` | `{code}` | Marks the channel verified |
+| GET | `/auth/mode` | | `{mode: 'oidc' \| 'local' \| 'demo'}` |
+| POST | `/auth/login` | `{email, password}` | Local accounts: `{token, user}`; token is a 12-hour HS256 session |
+| POST | `/auth/password` | `{current, new}` | Change own password; returns a fresh token and clears the first-sign-in flag |
+| GET / POST | `/admin/users` | body `{name, email, roles?, office?}` | Admin: list accounts; create one and receive `temporaryPassword` once |
+| POST | `/admin/users/{id}/reset` | | Admin: new temporary password, ends their sessions |
+| POST | `/admin/users/{id}/disabled` | `{disabled}` | Admin: disable or re-enable |
+| PUT | `/admin/users/{id}` | `{name?, roles?, office?}` | Admin: edit |
 | POST | `/assistant` | `{messages, tools, context}` | Claude relay for the in-app assistant: returns Messages API content blocks (text or tool_use); tools run in the browser and results come back as the next turn. 503 until `ANTHROPIC_API_KEY` is set |
 | GET | `/staff` | | Colleagues who can be added to an alert (synced from the identity provider) |
 | POST | `/documents/orders` | `{ titleNumber, kind }` | `DocumentOrder` (status transitions Queued → Downloading → Stored → Parsed) |

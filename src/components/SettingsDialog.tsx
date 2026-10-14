@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, Settings as SettingsIcon, MapPinned, KeyRound, UserRound, Compass, LogOut } from 'lucide-react'
 import { useUi } from '@/store/ui'
-import { authConfigured, DEMO_PERSONAS, useAuth } from '@/auth'
+import { authConfigured, localAuth, DEMO_PERSONAS, useAuth } from '@/auth'
 import { Button, Input, Select } from '@/components/ui'
 import { logAudit } from '@/lib/audit'
 import { DEMO_AREAS } from '@/data/real'
@@ -9,8 +9,10 @@ import { DEMO_AREAS } from '@/data/real'
 /** User settings: persona (demo), Ordnance Survey key, theme, demo areas, tour, sign out. */
 export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; onClose: () => void; onStartTour: () => void }) {
   const { osKey, setOsKey, theme, setTheme, requestFlyTo } = useUi()
-  const { user, signOut, setDemoPersona } = useAuth()
+  const { user, signOut, setDemoPersona, changePassword } = useAuth()
   const [key, setKey] = useState(osKey ?? '')
+  const [pw, setPw] = useState({ current: '', next: '', again: '' })
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
   if (!open) return null
   const saveKey = () => {
     setOsKey(key.trim() || undefined)
@@ -26,7 +28,25 @@ export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; 
             <div className="mb-1 flex items-center gap-2 font-medium"><UserRound size={14} /> Signed in</div>
             <div className="text-ink-700">{user?.name}{user?.email ? ` · ${user.email}` : ''}</div>
             <div className="text-xs text-ink-500">Roles: {user?.roles.join(', ')}{user?.office ? ` · ${user.office} office` : ''}</div>
-            {!authConfigured && (
+            {localAuth && (
+              <form className="mt-3 space-y-2 rounded-md border border-ink-200 p-3" onSubmit={async (e) => {
+                e.preventDefault()
+                if (pw.next !== pw.again) return setPwMsg({ ok: false, text: 'The two new passwords do not match.' })
+                const err = await changePassword(pw.current, pw.next)
+                setPwMsg(err ? { ok: false, text: err } : { ok: true, text: 'Password changed. Your other sessions have been signed out.' })
+                if (!err) setPw({ current: '', next: '', again: '' })
+              }}>
+                <div className="flex items-center gap-2 text-xs font-medium"><KeyRound size={13} /> Change password</div>
+                <label className="block text-xs"><span className="label">Current password</span><Input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" required /></label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block text-xs"><span className="label">New password</span><Input type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" minLength={10} required /></label>
+                  <label className="block text-xs"><span className="label">New password again</span><Input type="password" value={pw.again} onChange={(e) => setPw({ ...pw, again: e.target.value })} autoComplete="new-password" minLength={10} required /></label>
+                </div>
+                {pwMsg && <p className={pwMsg.ok ? 'text-xs text-emerald-700' : 'text-xs text-rose-700'}>{pwMsg.text}</p>}
+                <Button type="submit" size="sm" disabled={!pw.current || pw.next.length < 10}>Save password</Button>
+              </form>
+            )}
+            {!authConfigured && !localAuth && (
               <label className="mt-2 block text-xs"><span className="label">Demo persona (no single sign-on configured)</span>
                 <Select value={user?.id} onChange={(e) => { setDemoPersona(e.target.value); logAudit('sign-in', `Switched demo persona to ${e.target.value}`) }} aria-label="Demo persona">{DEMO_PERSONAS.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.roles.join(', ')})</option>)}</Select>
                 <span className="mt-1 block text-ink-500">Campaign approval needs the compliance role; the audit log needs compliance or admin. Set VITE_OIDC_AUTHORITY and VITE_OIDC_CLIENT_ID to use company accounts instead.</span>

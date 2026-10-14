@@ -59,7 +59,14 @@ A virtual server avoids the laptop entirely: fast datacentre downloads, always o
 5. Nightly backups: `crontab -e` and add `0 2 * * * /opt/Nimb-Cco/scripts/backup-db.sh`. Hostinger's own VPS backups cover the disk as well.
 6. Firewall: in hPanel allow only ports 22, 80 and 443. The database and API are not exposed; everything goes through the HTTPS proxy.
 
-Who can get in: anyone with the address can reach the sign-in page, which on the demo build lets them choose a persona. Before sharing the address beyond a few trusted colleagues, ask me to turn on per-user passwords (a day's work, no IT needed) or connect single sign-on (needs IT).
+**Logins for colleagues (no IT needed).** Before starting the stack, set these in `.env`:
+```
+VITE_AUTH=local
+LOCAL_AUTH_SECRET=<paste the output of: openssl rand -hex 32>
+ADMIN_EMAIL=you@christie.com
+ADMIN_PASSWORD=<a strong password for yourself>
+```
+Then `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. The sign-in page now asks for email and password; sign in as the admin, open Data sources, and use **Users and sign-in** to create each colleague. You get a temporary password to pass on (by phone, not email); they choose their own at first sign-in. Reset and Disable are on the same card, and every sign-in and account change is in the audit log. Remove `ADMIN_PASSWORD` from `.env` once you have signed in and changed it. Switching to company single sign-on later keeps all the data.
 
 ## Step 2. Stand up the backend once (an hour)
 

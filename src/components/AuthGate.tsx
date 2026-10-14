@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Building2, LogIn, ShieldCheck, Map as MapIcon, Database, UserRound, ChevronRight, Lock } from 'lucide-react'
-import { authConfigured, useAuth, DEMO_PERSONAS, type Role } from '@/auth'
+import { authConfigured, localAuth, useAuth, DEMO_PERSONAS, type Role } from '@/auth'
+import { Input } from '@/components/ui'
 import { Button, Spinner, Badge } from '@/components/ui'
 import { logAudit } from '@/lib/audit'
 
@@ -9,10 +10,31 @@ const VERSION = `${(import.meta.env.MODE as string) === 'production' ? 'build' :
 
 /** Signs the user in (OIDC when configured, a chosen demo persona otherwise) before the app renders. */
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { status, user, error, signIn, setDemoPersona } = useAuth()
+  const { status, user, error, signIn, setDemoPersona, signInLocal, changePassword, signOut } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
   useEffect(() => {
     if (status === 'idle') void signIn()
   }, [status, signIn])
+  if (user && status === 'signed-in' && user.mustReset) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center bg-ink-50 p-6">
+        <form className="card w-full max-w-sm p-8" onSubmit={async (e) => { e.preventDefault(); if (pw1 !== pw2) return setFormError('The two passwords do not match.'); setFormError(await changePassword(password, pw1)) }}>
+          <h2 className="text-xl font-semibold">Choose your password</h2>
+          <p className="mt-1 text-sm text-ink-500">You signed in with a temporary password. Pick one of your own, at least 10 characters, before carrying on.</p>
+          <label className="mt-4 block text-xs"><span className="label">Temporary password</span><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></label>
+          <label className="mt-2 block text-xs"><span className="label">New password</span><Input type="password" value={pw1} onChange={(e) => setPw1(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
+          <label className="mt-2 block text-xs"><span className="label">New password again</span><Input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" minLength={10} required /></label>
+          {formError && <p className="mt-3 text-sm text-rose-700">{formError}</p>}
+          <Button type="submit" variant="primary" className="mt-5 w-full justify-center">Save and continue</Button>
+          <button type="button" className="mt-3 w-full text-center text-xs text-ink-500 hover:underline" onClick={signOut}>Sign out</button>
+        </form>
+      </div>
+    )
+  }
   if (user && status === 'signed-in') return <>{children}</>
   const pick = (id: string) => {
     setDemoPersona(id)
@@ -51,7 +73,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           </div>
           <div className="card p-6 sm:p-8">
             <h2 className="text-xl font-semibold">Sign in</h2>
-            <p className="mt-1 text-sm text-ink-500">{authConfigured ? 'Use your Christie & Co account. You will be taken to the company sign-in page and back.' : 'Single sign-on is not configured on this build. Choose a demo persona to try the platform with its role gates and audit trail.'}</p>
+            <p className="mt-1 text-sm text-ink-500">{authConfigured ? 'Use your Christie & Co account. You will be taken to the company sign-in page and back.' : localAuth ? 'Sign in with the email and password your administrator gave you.' : 'Single sign-on is not configured on this build. Choose a demo persona to try the platform with its role gates and audit trail.'}</p>
 
             {status === 'loading' && <div className="mt-6"><Spinner label={authConfigured ? 'Signing in…' : 'Loading…'} /></div>}
             {status === 'error' && <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">{error}</p>}
@@ -60,7 +82,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <Button variant="primary" className="mt-6 w-full justify-center py-2.5" onClick={() => signIn()}><LogIn size={15} /> Continue with your company account</Button>
             )}
 
-            {!authConfigured && status !== 'loading' && (
+            {localAuth && status !== 'loading' && (
+              <form className="mt-5 space-y-3" onSubmit={async (e) => { e.preventDefault(); setFormError(await signInLocal(email.trim(), password)) }}>
+                <label className="block text-xs"><span className="label">Email</span><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required placeholder="you@christie.com" /></label>
+                <label className="block text-xs"><span className="label">Password</span><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></label>
+                {formError && <p className="text-sm text-rose-700">{formError}</p>}
+                <Button type="submit" variant="primary" className="w-full justify-center py-2.5"><LogIn size={15} /> Sign in</Button>
+                <p className="text-[11px] text-ink-500">Forgotten it? Ask an administrator to reset it; you will get a temporary password to change on first sign-in.</p>
+              </form>
+            )}
+            {!authConfigured && !localAuth && status !== 'loading' && (
               <div className="mt-5 space-y-2" role="group" aria-label="Demo persona">
                 {DEMO_PERSONAS.map((p) => (
                   <button key={p.id} onClick={() => pick(p.id)} className="group flex w-full items-center gap-3 rounded-md border border-ink-200 px-3 py-2.5 text-left transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
@@ -81,7 +112,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <span>Access is limited to Christie &amp; Co staff. Every document order, export, CRM transfer and campaign approval is recorded in the audit log. Data is used under the licences listed on the Data sources page.</span>
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-between text-[11px] text-ink-400"><span>Property Intelligence · {VERSION}</span><span>Problems signing in? Contact IT service desk.</span></div>
+          <div className="mt-4 flex items-center justify-between text-[11px] text-ink-400"><span>Property Intelligence · {VERSION}</span><span>{localAuth ? "Problems signing in? Ask your administrator." : "Problems signing in? Contact IT service desk."}</span></div>
         </div>
       </main>
     </div>
