@@ -1,6 +1,6 @@
 import type { Point, Polygon } from 'geojson'
 import { Rng } from '../../lib/rng'
-import { rect, offset, centroid, polygonAreaSqm, hexagon, haversineM, point } from '../../lib/geo'
+import { rect, offset, centroid, polygonAreaSqm, hexagon, haversineM, point, pointInPolygon } from '../../lib/geo'
 import type {
   Alert,
   Business,
@@ -155,11 +155,50 @@ export function generateDataset(seed = 20261013): Dataset {
 
   // ------------------------------------------------------------------ titles
   const titles = new Map<string, Title>()
-  const titleNumber = () => `WK${rng.int(100000, 999999)}`
+  const usedTitleNumbers = new Set<string>()
+  const titleNumber = () => {
+    let tn = `WK${rng.int(100000, 999999)}`
+    while (usedTitleNumbers.has(tn)) tn = `WK${rng.int(100000, 999999)}`
+    usedTitleNumbers.add(tn)
+    return tn
+  }
   let inspireCounter = 25_000_000 + rng.int(0, 500_000)
 
-  type Parcel = { title: Title; street: (typeof N.STREETS)[number]; commercial: boolean; houseNo: number }
+  type Parcel = { title: Title; street: (typeof N.STREETS)[number]; commercial: boolean; houseNo: number; cx: number; cy: number }
   const parcels: Parcel[] = []
+
+  // Parcel fabric. Real INSPIRE polygons tile the land along each street frontage and
+  // do not overlap, so plots are laid end to end on both sides of every street, rotated
+  // to the street bearing, and dropped where they would cross another road or an
+  // existing plot (junctions, back-to-back plots).
+  const streetGeom = N.STREETS.map((st) => {
+    const b = (st.bearing * Math.PI) / 180
+    return { st, dir: [Math.sin(b), Math.cos(b)] as const, half: st.major ? 11 : 8 }
+  })
+  const lat0 = N.STREETS[0].lat
+  const mPerLon = 111_320 * Math.cos((lat0 * Math.PI) / 180)
+  const toM = (lon: number, lat: number): [number, number] => [(lon - N.STREETS[0].lon) * mPerLon, (lat - lat0) * 111_320]
+  const nearOtherRoad = (lon: number, lat: number, self: (typeof N.STREETS)[number]) => {
+    const [px, py] = toM(lon, lat)
+    for (const g of streetGeom) {
+      if (g.st === self) continue
+      const [sx, sy] = toM(g.st.lon, g.st.lat)
+      const t = Math.max(0, Math.min(g.st.lengthM, (px - sx) * g.dir[0] + (py - sy) * g.dir[1]))
+      const dx = px - (sx + g.dir[0] * t)
+      const dy = py - (sy + g.dir[1] * t)
+      if (Math.hypot(dx, dy) < g.half + 2) return true
+    }
+    return false
+  }
+  const insideExisting = (lon: number, lat: number) => {
+    const [px, py] = toM(lon, lat)
+    for (const q of parcels) {
+      const [qx, qy] = toM(q.cx, q.cy)
+      if (Math.abs(qx - px) > 70 || Math.abs(qy - py) > 70) continue
+      if (pointInPolygon([lon, lat], q.title.geometry as Polygon)) return true
+    }
+    return false
+  }
 
   for (const street of N.STREETS) {
     const b = (street.bearing * Math.PI) / 180
@@ -167,16 +206,31 @@ export function generateDataset(seed = 20261013): Dataset {
     const dirY = Math.cos(b)
     const perpX = Math.cos(b)
     const perpY = -Math.sin(b)
+    const half = street.major ? 11 : 8
     let houseNo = 1
     for (const side of [-1, 1]) {
       let along = 0
       while (along < street.lengthM) {
-        const width = rng.int(9, 28)
-        const depth = rng.int(22, 60)
-        const cx = street.lon
-        const cy = street.lat
-        const [plon, plat] = offset(cx, cy, dirX * (along + width / 2) + perpX * side * (10 + depth / 2), dirY * (along + width / 2) + perpY * side * (10 + depth / 2))
-        const geometry = rect(plon, plat, width, depth, -street.bearing)
+        const commercialStreet = street.commercial >= 0.6
+        const big = rng.bool(0.07)
+        const width = big ? rng.int(26, 44) : commercialStreet ? rng.int(6, 14) : rng.int(8, 18)
+        const depth = big ? rng.int(40, 70) : commercialStreet ? rng.int(24, 46) : rng.int(30, 60)
+        if (along + width > street.lengthM) break
+        const [plon, plat] = offset(street.lon, street.lat, dirX * (along + width / 2) + perpX * side * (half + depth / 2), dirY * (along + width / 2) + perpY * side * (half + depth / 2))
+        const geometry = rect(plon, plat, width, depth, 90 - street.bearing)
+        const ring = geometry.coordinates[0]
+        const swallows = () => {
+          const [px, py] = toM(plon, plat)
+          return parcels.some((q) => {
+            const [qx, qy] = toM(q.cx, q.cy)
+            return Math.abs(qx - px) < 80 && Math.abs(qy - py) < 80 && pointInPolygon([q.cx, q.cy], geometry)
+          })
+        }
+        const blocked = ring.some(([x, y]) => nearOtherRoad(x, y, street)) || insideExisting(plon, plat) || ring.slice(0, 4).some(([x, y]) => insideExisting(x, y)) || swallows()
+        if (blocked) {
+          along += width
+          continue
+        }
         const commercial = rng.bool(street.commercial)
         const tn = titleNumber()
         const catRoll = rng.next()
@@ -226,9 +280,9 @@ export function generateDataset(seed = 20261013): Dataset {
           charges: rng.bool(0.35) ? [{ lender: rng.pick(N.LENDERS), date: rng.date(2012, 2026) }] : [],
         }
         titles.set(tn, title)
-        parcels.push({ title, street, commercial, houseNo })
+        parcels.push({ title, street, commercial, houseNo, cx: plon, cy: plat })
         houseNo += 2
-        along += width + rng.int(0, 3)
+        along += width
       }
       houseNo = 2
     }

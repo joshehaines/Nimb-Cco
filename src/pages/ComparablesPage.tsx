@@ -133,11 +133,11 @@ export function ComparablesPage() {
             <Stat label="Median EBITDA multiple" value={stats!.medianEbitdaMultiple ? `${stats!.medianEbitdaMultiple.toFixed(1)}x` : '—'} />
             <Stat label="Freehold share" value={`${Math.round((result.comps.filter((c) => c.tenure === 'Freehold').length / result.comps.length) * 100)}%`} />
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-3">
             <Card title="Median price by year"><BarList rows={stats!.byYear.map((y) => ({ label: `${y.year} (${y.count})`, value: y.medianPrice }))} format={(n) => gbp(n, { compact: true })} /></Card>
-            <Card title={`Schedule · ${sorted.length}`} className="lg:col-span-2 overflow-x-auto" padded={false} actions={<Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto py-1 text-xs"><option value="date">Newest</option><option value="price">Price</option><option value="ppu">£ per unit</option>{filters.centre && <option value="distance">Distance</option>}</Select>}>
-              <table className="w-full min-w-[900px] text-xs">
-                <thead className="bg-ink-50 text-left text-ink-500"><tr><th className="font-medium">Business</th><th className="font-medium">Sold</th><th className="font-medium text-right">Price</th><th className="font-medium">Tenure</th><th className="font-medium text-right">Capacity</th><th className="font-medium text-right">£/unit</th><th className="font-medium text-right">RV x</th><th className="font-medium text-right">EBITDA x</th><th className="font-medium">Buyer</th>{filters.centre && <th className="font-medium text-right">Dist.</th>}<th className="font-medium">Source</th></tr></thead>
+            <Card title={`Schedule · ${sorted.length}`} className="overflow-x-auto xl:col-span-2" padded={false} actions={<Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto py-1 text-xs"><option value="date">Newest</option><option value="price">Price</option><option value="ppu">£ per unit</option>{filters.centre && <option value="distance">Distance</option>}</Select>}>
+              <table className="w-full min-w-[640px] text-xs">
+                <thead className="bg-ink-50 text-left text-ink-500"><tr><th className="font-medium">Business</th><th className="font-medium">Sold</th><th className="font-medium text-right">Price</th><th className="font-medium">Tenure</th><th className="font-medium text-right">Capacity</th><th className="font-medium text-right">£/unit</th><th className="font-medium text-right">RV x</th><th className="font-medium text-right">EBITDA x</th><th className="hidden font-medium xl:table-cell">Buyer</th>{filters.centre && <th className="font-medium text-right">Dist.</th>}<th className="hidden font-medium lg:table-cell">Source</th></tr></thead>
                 <tbody>
                   {sorted.slice(0, 200).map((c) => (
                     <tr key={c.compId} className="border-t border-ink-100 hover:bg-ink-50">
@@ -149,9 +149,9 @@ export function ComparablesPage() {
                       <td className="text-right tabular-nums">{c.pricePerUnit ? gbp(c.pricePerUnit) : '—'}</td>
                       <td className="text-right tabular-nums">{c.rvMultiple ?? '—'}</td>
                       <td className="text-right tabular-nums">{c.ebitdaMultiple ?? '—'}</td>
-                      <td>{c.buyerType}</td>
+                      <td className="hidden xl:table-cell">{c.buyerType}</td>
                       {filters.centre && <td className="text-right tabular-nums">{num(haversineM(filters.centre, c.location.coordinates) / 1000, 1)} km</td>}
-                      <td><Badge tone={c.contributed ? 'brand' : 'neutral'}>{c.contributed ? 'Christie' : c.confidence}</Badge></td>
+                      <td className="hidden lg:table-cell"><Badge tone={c.contributed ? 'brand' : 'neutral'}>{c.contributed ? 'Christie' : c.confidence}</Badge></td>
                     </tr>
                   ))}
                 </tbody>

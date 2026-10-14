@@ -70,9 +70,9 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
-  map.addLayer({ id: 'titles-fill', type: 'fill', source: 'titles', paint: { 'fill-color': ownerMatch, 'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.45, 0.18] } })
-  map.addLayer({ id: 'titles-line', type: 'line', source: 'titles', paint: { 'line-color': ownerMatch, 'line-width': 0.9, 'line-opacity': 0.9 } })
-  map.addLayer({ id: 'titles-distress', type: 'line', source: 'titles', filter: ['==', ['get', 'distress'], true], paint: { 'line-color': '#be123c', 'line-width': 2 } })
+  map.addLayer({ id: 'titles-fill', type: 'fill', source: 'titles', paint: { 'fill-color': ownerMatch, 'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.4, dk ? 0.14 : 0.1] } })
+  map.addLayer({ id: 'titles-line', type: 'line', source: 'titles', paint: { 'line-color': ownerMatch, 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 17, 1], 'line-opacity': 0.85 } })
+  map.addLayer({ id: 'titles-distress', type: 'line', source: 'titles', filter: ['==', ['get', 'distress'], true], paint: { 'line-color': '#be123c', 'line-width': 1.5, 'line-opacity': 0.9 } })
   map.addLayer({ id: 'titles-selected', type: 'line', source: 'titles', filter: ['==', ['get', 'titleNumber'], ''], paint: { 'line-color': '#0f2340', 'line-width': 3 } })
   map.addLayer({ id: 'constraints-points', type: 'circle', source: 'constraints', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': constraintMatch, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } })
   map.addLayer({
