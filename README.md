@@ -86,14 +86,9 @@ docker run -p 8080:80 cpi-web
 
 The image serves the static bundle with nginx and proxies `/api` to a backend named `api` (see `nginx.conf`). Put it behind the company SSO proxy.
 
-## Moving this app to its own repository
+## Hosting
 
-It currently lives in a folder of the Shopify theme repository because GitHub access for repository creation was unavailable when it was built. To split it out with history preserved:
-
-```bash
-git subtree split --prefix=christie-property-intelligence -b cpi-only
-git push git@github.com:<org>/christie-property-intelligence.git cpi-only:main
-```
+Pushes to `main` build, test and deploy to GitHub Pages at https://joshehaines.github.io/Nim-CCO/ once Pages is set to "GitHub Actions" in the repository settings. For internal production use, build the Docker image and run it behind company single sign-on.
 
 ## Next: data collection (phase 2)
 
