@@ -242,7 +242,7 @@ export function CrmPage() {
                     <div key={g.groupId} className={cx('p-4', merged[g.groupId] && 'opacity-60')}>
                       <div className="mb-2 flex items-center justify-between"><div className="text-xs font-semibold text-ink-700">{g.groupId} · {g.recordIds.length} records · {g.reason}</div>{merged[g.groupId] ? <Badge tone="good">Merged</Badge> : <Button size="sm" variant="primary" onClick={() => setMerged({ ...merged, [g.groupId]: true })}><Merge size={13} /> Merge into survivor</Button>}</div>
                       <table className="w-full text-xs">
-                        <tbody>{g.recordIds.map((id) => { const r = records.find((x) => x.recordId === id)!; return <tr key={id} className={cx('border-t border-ink-100', id === g.survivorId && 'bg-green-50')}><td className="py-1 pr-2 font-mono">{id}</td><td className="pr-2">{r.businessName}</td><td className="pr-2 text-ink-600">{r.address}{r.postcode ? `, ${r.postcode}` : ''}</td><td className="pr-2 text-ink-500">{r.office}</td><td className="pr-2 text-ink-500">{r.lastContact ? dateShort(r.lastContact) : ''}</td><td>{id === g.survivorId ? <Badge tone="good">survivor</Badge> : <span className="text-ink-400">merge</span>}</td></tr> })}</tbody>
+                        <tbody>{g.recordIds.map((id) => { const r = records.find((x) => x.recordId === id)!; return <tr key={id} className={cx('border-t border-ink-100', id === g.survivorId && 'bg-green-50 dark:bg-green-950/40')}><td className="py-1 pr-2 font-mono">{id}</td><td className="pr-2">{r.businessName}</td><td className="pr-2 text-ink-600">{r.address}{r.postcode ? `, ${r.postcode}` : ''}</td><td className="pr-2 text-ink-500">{r.office}</td><td className="pr-2 text-ink-500">{r.lastContact ? dateShort(r.lastContact) : ''}</td><td>{id === g.survivorId ? <Badge tone="good">survivor</Badge> : <span className="text-ink-400">merge</span>}</td></tr> })}</tbody>
                       </table>
                     </div>
                   ))}
@@ -282,7 +282,7 @@ function MatchSide({ m }: { m: MatchCandidate }) {
   }, [m.businessId])
   if (!m.businessId) return <div className="rounded-md border border-dashed border-ink-200 p-3 text-xs text-ink-500"><div className="label mb-1">Best candidate</div>{m.reasons.join(' · ')}<div className="mt-1">No confident match. Check the address or search the map manually.</div></div>
   return (
-    <div className="rounded-md border border-brand-100 bg-brand-50/50 p-3 text-xs">
+    <div className="rounded-md border border-brand-100 bg-brand-50/60 p-3 text-xs">
       <div className="label mb-1">Matched · {pct(m.confidence)} · {m.reasons.join(', ')}</div>
       {biz ? (
         <>

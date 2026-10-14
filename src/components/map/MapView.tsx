@@ -7,7 +7,7 @@ import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 
 const OS_KEY = import.meta.env.VITE_OS_API_KEY as string | undefined
 
-function baseStyle(satellite: boolean): string | StyleSpecification {
+function baseStyle(satellite: boolean, dark = false): string | StyleSpecification {
   if (satellite) {
     return {
       version: 8,
@@ -21,22 +21,23 @@ function baseStyle(satellite: boolean): string | StyleSpecification {
     return {
       version: 8,
       glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-      sources: { os: { type: 'raster', tiles: [`https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=${OS_KEY}`], tileSize: 256, attribution: 'Contains OS data © Crown copyright and database right 2026', maxzoom: 20 } },
+      sources: { os: { type: 'raster', tiles: [`https://api.os.uk/maps/raster/v1/zxy/${dark ? 'Road_3857' : 'Light_3857'}/{z}/{x}/{y}.png?key=${OS_KEY}`], tileSize: 256, attribution: 'Contains OS data © Crown copyright and database right 2026', maxzoom: 20 } },
       layers: [{ id: 'os', type: 'raster', source: 'os' }],
     }
   }
-  return 'https://tiles.openfreemap.org/styles/liberty'
+  return dark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/liberty'
 }
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const
 
 /** Used when the basemap style cannot be fetched (offline, corporate proxy): data layers still render on a neutral canvas. */
-const BLANK_STYLE: StyleSpecification = {
+const blankStyle = (dark: boolean): StyleSpecification => ({
   version: 8,
   glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sources: {},
-  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e9edf2' } }],
-}
+  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': dark ? '#161b26' : '#e9edf2' } }],
+})
+const isDark = () => document.documentElement.classList.contains('dark')
 
 const sectorMatch = ['match', ['get', 'sector'], ...Object.entries(SECTOR_COLOURS).flatMap(([k, v]) => [k, v]), '#64748b'] as unknown as maplibregl.ExpressionSpecification
 const ownerMatch = ['match', ['get', 'category'], ...Object.entries(OWNER_CATEGORY_COLOURS).flatMap(([k, v]) => [k, v]), '#64748b'] as unknown as maplibregl.ExpressionSpecification
@@ -62,9 +63,10 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   ;['streets', 'footfall', 'constraints', 'titles', 'planning', 'traffic', 'businesses'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
-  map.addLayer({ id: 'streets-casing', type: 'line', source: 'streets', paint: { 'line-color': '#cfd6e0', 'line-width': ['case', ['==', ['get', 'major'], true], 14, 9], 'line-opacity': 0.9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
-  map.addLayer({ id: 'streets-fill', type: 'line', source: 'streets', paint: { 'line-color': '#ffffff', 'line-width': ['case', ['==', ['get', 'major'], true], 10, 6] }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
-  if (withLabels) map.addLayer({ id: 'streets-labels', type: 'symbol', source: 'streets', layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': '#67748c', 'text-halo-color': '#fff', 'text-halo-width': 1 } })
+  const dk = isDark()
+  map.addLayer({ id: 'streets-casing', type: 'line', source: 'streets', paint: { 'line-color': dk ? '#2a3242' : '#cfd6e0', 'line-width': ['case', ['==', ['get', 'major'], true], 14, 9], 'line-opacity': 0.9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  map.addLayer({ id: 'streets-fill', type: 'line', source: 'streets', paint: { 'line-color': dk ? '#3a4356' : '#ffffff', 'line-width': ['case', ['==', ['get', 'major'], true], 10, 6] }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  if (withLabels) map.addLayer({ id: 'streets-labels', type: 'symbol', source: 'streets', layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': dk ? '#aab4c5' : '#67748c', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
@@ -123,7 +125,7 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
     source: 'businesses',
     minzoom: 15.5,
     layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-optional': true },
-    paint: { 'text-color': '#161a23', 'text-halo-color': '#fff', 'text-halo-width': 1.2 },
+    paint: { 'text-color': dk ? '#f3f5f8' : '#161a23', 'text-halo-color': dk ? '#161b26' : '#fff', 'text-halo-width': 1.2 },
   })
 }
 
@@ -150,7 +152,7 @@ export function MapView() {
     if (!containerRef.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: baseStyle(false),
+      style: baseStyle(false, isDark()),
       center: [initialView.current.lon, initialView.current.lat],
       zoom: initialView.current.zoom,
       attributionControl: { compact: true },
@@ -180,7 +182,7 @@ export function MapView() {
       styleOk = true
       basemapFailedRef.current = true
       setBasemapFailed(true)
-      map.setStyle(BLANK_STYLE)
+      map.setStyle(blankStyle(isDark()))
     }
     map.on('error', (e) => {
       const msg = String((e as { error?: Error }).error?.message ?? '')
@@ -271,14 +273,19 @@ export function MapView() {
     map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', highlightIds]])
   }, [highlightIds])
 
-  // Basemap switch
+  // Basemap switch (satellite toggle or theme change)
+  const theme = useUi((s) => s.theme)
   const satRef = useRef(layers.satellite)
+  const themeRef = useRef(theme)
   useEffect(() => {
     const map = mapRef.current
-    if (!map || satRef.current === layers.satellite) return
+    if (!map) return
+    if (satRef.current === layers.satellite && themeRef.current === theme) return
     satRef.current = layers.satellite
-    map.setStyle((basemapFailed && !layers.satellite ? BLANK_STYLE : baseStyle(layers.satellite)) as never)
-  }, [layers.satellite])
+    themeRef.current = theme
+    // Give the theme hook a tick to update the html class before reading it.
+    window.setTimeout(() => map.setStyle((basemapFailed && !layers.satellite ? blankStyle(isDark()) : baseStyle(layers.satellite, isDark())) as never), 50)
+  }, [layers.satellite, theme, basemapFailed])
 
   // Selection highlight
   useEffect(() => {
@@ -303,7 +310,7 @@ export function MapView() {
     <>
       <div ref={containerRef} className="h-full w-full" />
       {basemapFailed && (
-        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-[11px] text-amber-900 shadow">
+        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-center text-[11px] text-amber-900 dark:text-amber-200 shadow">
           Street tiles blocked on this network; showing data layers over a schematic street outline.
         </div>
       )}

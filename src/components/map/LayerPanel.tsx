@@ -42,7 +42,7 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
       </div>
       <div className="overflow-y-auto">
         {highlightIds.length > 0 && (
-          <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <div className="flex items-center justify-between gap-2 border-b border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
             <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-amber-700 bg-yellow-300" />{highlightIds.length} highlighted{highlightLabel ? ` · ${highlightLabel}` : ''}</span>
             <button className="font-medium hover:underline" onClick={() => setHighlight([])}>clear</button>
           </div>

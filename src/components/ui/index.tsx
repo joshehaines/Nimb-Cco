@@ -7,11 +7,11 @@ export function Badge({ children, tone = 'neutral', className, title }: { childr
   const tones = {
     neutral: 'bg-ink-100 text-ink-700 border-ink-200',
     brand: 'bg-brand-50 text-brand-700 border-brand-200',
-    good: 'bg-green-50 text-green-800 border-green-200',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200',
-    critical: 'bg-rose-50 text-rose-800 border-rose-200',
-    info: 'bg-sky-50 text-sky-800 border-sky-200',
-    violet: 'bg-violet-50 text-violet-800 border-violet-200',
+    good: 'bg-green-50 dark:bg-green-950/40 text-green-800 dark:text-green-200 border-green-200 dark:border-green-900/60',
+    warning: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-900/60',
+    critical: 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-900/60',
+    info: 'bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-900/60',
+    violet: 'bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 border-violet-200 dark:border-violet-900/60',
   }
   return <span title={title} className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap', tones[tone], className)}>{children}</span>
 }
@@ -51,7 +51,7 @@ export function Toggle({ checked, onChange, label, hint, colour }: { checked: bo
         </span>
       </span>
       <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={cx('relative h-5 w-9 shrink-0 rounded-full transition-colors', checked ? 'bg-brand-600' : 'bg-ink-300')}>
-        <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0.5')} />
+        <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0.5')} />
       </button>
     </label>
   )
@@ -72,7 +72,7 @@ export function Card({ title, actions, children, className, padded = true }: { t
 }
 
 export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'good' | 'warning' | 'critical' | 'neutral' }) {
-  const toneCls = tone === 'good' ? 'text-green-700' : tone === 'warning' ? 'text-amber-700' : tone === 'critical' ? 'text-rose-700' : 'text-ink-900'
+  const toneCls = tone === 'good' ? 'text-green-700 dark:text-green-300' : tone === 'warning' ? 'text-amber-700 dark:text-amber-300' : tone === 'critical' ? 'text-rose-700 dark:text-rose-300' : 'text-ink-900'
   return (
     <div className="card px-4 py-3">
       <div className="label">{label}</div>
@@ -131,7 +131,7 @@ export function Drawer({ open, onClose, title, children, width = 'w-[420px]' }: 
   return (
     <div className="fixed inset-0 z-40 flex">
       <div className="flex-1 bg-black/20" onClick={onClose} />
-      <aside className={cx('flex h-full flex-col bg-white shadow-2xl', width)}>
+      <aside className={cx('flex h-full flex-col bg-surface shadow-2xl', width)}>
         <header className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>
           <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Close">
@@ -146,7 +146,7 @@ export function Drawer({ open, onClose, title, children, width = 'w-[420px]' }: 
 
 export function Chip({ label, selected, onClick, colour }: { label: string; selected: boolean; onClick: () => void; colour?: string }) {
   return (
-    <button type="button" onClick={onClick} className={cx('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors', selected ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50')}>
+    <button type="button" onClick={onClick} className={cx('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors', selected ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-ink-200 bg-surface text-ink-700 hover:bg-ink-50')}>
       {colour && <span className="h-2 w-2 rounded-full" style={{ background: colour }} />}
       {label}
     </button>

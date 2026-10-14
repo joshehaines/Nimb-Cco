@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor } from 'lucide-react'
+import { useUi } from '@/store/ui'
+import { useTheme } from '@/hooks/useTheme'
 import { SearchBox } from '@/components/SearchBox'
 import { useEffect, useState } from 'react'
 import { provider } from '@/data'
@@ -19,8 +21,37 @@ const NAV = [
 
 const PREVIEW_HOST = import.meta.env.VITE_PREVIEW_HOST as string | undefined
 
+function ThemeToggle({ compact }: { compact?: boolean }) {
+  const theme = useUi((s) => s.theme)
+  const setTheme = useUi((s) => s.setTheme)
+  const opts = [
+    { id: 'light' as const, icon: Sun, label: 'Light' },
+    { id: 'dark' as const, icon: Moon, label: 'Dark' },
+    { id: 'system' as const, icon: Monitor, label: 'System' },
+  ]
+  if (compact) {
+    const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'
+    const cur = opts.find((o) => o.id === theme)!
+    return (
+      <button className="btn-ghost btn-sm w-full justify-center" onClick={() => setTheme(next)} title={`Theme: ${cur.label} (click to change)`}>
+        <cur.icon size={16} />
+      </button>
+    )
+  }
+  return (
+    <div className="flex rounded-md border border-ink-200 p-0.5" role="radiogroup" aria-label="Theme">
+      {opts.map((o) => (
+        <button key={o.id} role="radio" aria-checked={theme === o.id} onClick={() => setTheme(o.id)} title={o.label} className={cx('flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium', theme === o.id ? 'bg-brand-50 text-brand-800' : 'text-ink-500 hover:text-ink-800')}>
+          <o.icon size={13} /> {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function AppShell() {
   const loc = useLocation()
+  useTheme()
   const [unread, setUnread] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
@@ -61,14 +92,14 @@ export function AppShell() {
   return (
     <div className="flex h-full flex-col">
       {PREVIEW_HOST && (
-        <div className="no-print flex items-center gap-2 bg-amber-100 px-4 py-1.5 text-xs text-amber-900">
+        <div className="no-print flex items-center gap-2 bg-amber-100 dark:bg-amber-950/40 px-4 py-1.5 text-xs text-amber-900 dark:text-amber-200">
           <span className="font-semibold">Preview build.</span>
           <span>This host blocks outside connections, so map tiles, CSV downloads and printing are unavailable here. All data is synthetic. Use the GitHub Pages or internal deployment for the full experience.</span>
         </div>
       )}
       <div className="flex min-h-0 flex-1">
         {/* Desktop / tablet rail */}
-        <nav className={cx('no-print hidden shrink-0 flex-col border-r border-ink-200 bg-white md:flex', collapsed ? 'w-[60px]' : 'w-[196px]')}>
+        <nav className={cx('no-print hidden shrink-0 flex-col border-r border-ink-200 bg-surface md:flex', collapsed ? 'w-[60px]' : 'w-[196px]')}>
           <div className={cx('flex items-center gap-2 border-b border-ink-200 py-3', collapsed ? 'justify-center px-0' : 'px-4')}>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-700 text-white">
               <Building2 size={18} />
@@ -81,13 +112,14 @@ export function AppShell() {
             )}
           </div>
           {navList(collapsed)}
-          <div className="border-t border-ink-200 p-2">
+          <div className="space-y-2 border-t border-ink-200 p-2">
             {!collapsed && (
-              <div className="px-1 pb-2 text-[11px] text-ink-500">
+              <div className="px-1 text-[11px] text-ink-500">
                 <div className="font-medium text-ink-700">Data provider: {provider.name}</div>
                 <div>Demo area: Leamington Spa &amp; Warwick (synthetic)</div>
               </div>
             )}
+            <ThemeToggle compact={collapsed} />
             <button className="btn-ghost btn-sm w-full justify-center" onClick={() => setCollapsed(!collapsed)} title={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
               {collapsed ? <ChevronsRight size={16} /> : <><ChevronsLeft size={16} /> Collapse</>}
             </button>
@@ -96,7 +128,7 @@ export function AppShell() {
         {/* Mobile drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-50 flex md:hidden">
-            <nav className="flex w-[260px] flex-col bg-white shadow-2xl">
+            <nav className="flex w-[260px] flex-col bg-surface shadow-2xl">
               <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-700 text-white"><Building2 size={18} /></div>
@@ -105,12 +137,13 @@ export function AppShell() {
                 <button className="btn-ghost btn-sm" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={16} /></button>
               </div>
               {navList(false)}
+              <div className="border-t border-ink-200 p-3"><ThemeToggle /></div>
             </nav>
             <div className="flex-1 bg-black/30" onClick={() => setMobileOpen(false)} />
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="no-print flex h-12 shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 md:px-4">
+          <header className="no-print flex h-12 shrink-0 items-center gap-2 border-b border-ink-200 bg-surface px-3 md:px-4">
             <button className="btn-ghost btn-sm md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={18} /></button>
             <SearchBox />
             <div className="ml-auto hidden items-center gap-2 text-xs text-ink-500 xl:flex">

@@ -28,6 +28,7 @@ export interface UiState {
   highlightIds: string[]
   highlightLabel?: string
   alertRules: AlertRules
+  theme: 'light' | 'dark' | 'system'
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
   setConstraintKinds: (k: string[]) => void
@@ -46,6 +47,7 @@ export interface UiState {
   addProject: (p: string) => void
   setHighlight: (ids: string[], label?: string) => void
   setAlertRules: (patch: Partial<AlertRules>) => void
+  setTheme: (t: 'light' | 'dark' | 'system') => void
 }
 
 export interface AlertRules {
@@ -81,6 +83,7 @@ export const useUi = create<UiState>()(
       projects: ['Midlands care disposals', 'Pubco lease expiries 2027'],
       highlightIds: [],
       alertRules: DEFAULT_ALERT_RULES,
+      theme: 'system',
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
@@ -100,10 +103,11 @@ export const useUi = create<UiState>()(
       addProject: (p) => set((s) => (s.projects.includes(p) ? s : { projects: [...s.projects, p] })),
       setHighlight: (highlightIds, highlightLabel) => set({ highlightIds, highlightLabel }),
       setAlertRules: (patch) => set((s) => ({ alertRules: { ...s.alertRules, ...patch } })),
+      setTheme: (theme) => set({ theme }),
     }),
     {
       name: 'cpi-ui',
-      partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules }),
+      partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UiState>
@@ -117,6 +121,7 @@ export const useUi = create<UiState>()(
           constraintKinds: Array.isArray(p.constraintKinds) ? p.constraintKinds : current.constraintKinds,
           mapView: p.mapView && Number.isFinite(p.mapView.lon) ? p.mapView : current.mapView,
           highlightIds: [],
+          theme: p.theme === 'light' || p.theme === 'dark' ? p.theme : 'system',
           alertRules: { ...DEFAULT_ALERT_RULES, ...(p.alertRules ?? {}), channels: { ...DEFAULT_ALERT_RULES.channels, ...(p.alertRules?.channels ?? {}) } },
         }
       },

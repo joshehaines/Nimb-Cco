@@ -86,7 +86,7 @@ export function SearchBox() {
         />
       </div>
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-md border border-ink-200 bg-white py-1 shadow-xl">
+        <ul className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-md border border-ink-200 bg-surface py-1 shadow-xl">
           {results.map((r, i) => {
             const Icon = ICON[r.kind]
             return (

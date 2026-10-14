@@ -48,7 +48,7 @@ export function SourcingPage() {
   const active = [filters.sectors.length && `${filters.sectors.length} sectors`, filters.tenure, filters.distressOnly && 'distressed', filters.distressFlags.length && `${filters.distressFlags.length} signals`, filters.leaseExpiringWithinMonths && `lease < ${filters.leaseExpiringWithinMonths} mo`, filters.epcWorseThan && `EPC worse than ${filters.epcWorseThan}`, filters.ownerCategories.length && `${filters.ownerCategories.length} owner types`, filters.minRateableValue && `RV ≥ ${gbp(filters.minRateableValue)}`, filters.ownedSince && `owned since ${filters.ownedSince}`, filters.excludeConstraints.length && `excl. ${filters.excludeConstraints.length} constraints`, filters.text && `"${filters.text}"`].filter(Boolean) as string[]
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 bg-white px-5 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 bg-surface px-5 py-3">
         <h1 className="text-lg font-semibold">Site sourcing</h1>
         <Button size="sm" variant="primary" onClick={() => setShowFilters(true)}><SlidersHorizontal size={14} /> Filters</Button>
         {active.map((a) => <Badge key={a} tone="brand">{a}</Badge>)}
@@ -85,7 +85,7 @@ export function SourcingPage() {
                         <td className="text-xs">{b.tenure}</td>
                         <td className="text-right text-xs tabular-nums">{gbp(h?.rateableValue)}</td>
                         <td className="text-right text-xs tabular-nums">{num(h?.totalAreaSqm)}</td>
-                        <td className="text-xs">{lease ? <span className={m !== undefined && m <= 24 ? 'font-medium text-amber-700' : ''}>{dateShort(lease.expiryDate)}</span> : '—'}</td>
+                        <td className="text-xs">{lease ? <span className={m !== undefined && m <= 24 ? 'font-medium text-amber-700 dark:text-amber-300' : ''}>{dateShort(lease.expiryDate)}</span> : '—'}</td>
                         <td className="text-xs">{reg ? `${reg.register}${reg.rating ? ` · ${reg.rating}` : ''}${reg.capacity ? ` · ${reg.capacity} ${reg.capacityLabel}` : ''}` : '—'}</td>
                         <td><div className="flex flex-wrap gap-1">{b.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}{b.distressFlags.length > 2 && <Badge>+{b.distressFlags.length - 2}</Badge>}</div></td>
                         <td className="pr-2"><div className="flex gap-1"><button className="btn-ghost btn-sm" title="Show on map" onClick={() => { select({ type: 'business', id: b.businessId }); useUi.getState().requestFlyTo(b.location.coordinates[0], b.location.coordinates[1], 17.5); nav(`/map/business/${b.businessId}`) }}><MapPin size={14} /></button><button className="btn-ghost btn-sm" title="Watch" onClick={() => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name })}><Bookmark size={14} /></button></div></td>

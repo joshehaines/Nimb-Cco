@@ -27,7 +27,7 @@ export function InfoPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
-    <aside className="no-print absolute inset-y-0 right-0 z-30 flex w-full max-w-[440px] flex-col border-l border-ink-200 bg-white shadow-xl lg:static lg:z-auto lg:shrink-0">
+    <aside className="no-print absolute inset-y-0 right-0 z-30 flex w-full max-w-[440px] flex-col border-l border-ink-200 bg-surface shadow-xl lg:static lg:z-auto lg:shrink-0">
       {selected?.type === 'planning' && <PlanningDetail reference={selected.id} onClose={close} />}
       {selected?.type === 'traffic' && <TrafficDetail id={selected.id} onClose={close} />}
       {(selected?.type === 'title' || selected?.type === 'business') && <SitePanel key={selected.id} sel={selected} onClose={close} />}
@@ -65,7 +65,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
   const { addWatch, removeWatch, isWatched, watchlist, requestFlyTo } = useUi()
   const watched = isWatched('title', titleNumber ?? '')
 
-  if (error) return <><Header title="Not found" onClose={onClose} /><div className="p-4 text-sm text-rose-700">{error}</div></>
+  if (error) return <><Header title="Not found" onClose={onClose} /><div className="p-4 text-sm text-rose-700 dark:text-rose-300">{error}</div></>
   if (!bundle || loading) return <><Header title={business?.name ?? sel.id} onClose={onClose} /><Spinner label="Assembling site bundle…" /></>
   const t = bundle.title
   const b = business ?? bundle.businesses[0] ?? null
@@ -138,7 +138,7 @@ function Overview({ bundle, b }: { bundle: SiteBundle; b: Business | null }) {
   return (
     <>
       {b && b.distressFlags.length > 0 && (
-        <div className="m-4 mb-0 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+        <div className="m-4 mb-0 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-800 dark:text-rose-200">
           <div className="font-semibold">Distress signals</div>
           <div className="mt-1 flex flex-wrap gap-1">{b.distressFlags.map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div>
         </div>
@@ -425,7 +425,7 @@ function Mobility({ bundle }: { bundle: SiteBundle }) {
   return (
     <>
       <Section title="Footfall (mobile location, demo vendor cells)">
-        {ff.length ? <KV rows={[['Monthly visits (cell avg)', num(avg)], ['12-month trend', <span className={trend >= 0 ? 'text-green-700' : 'text-rose-700'}>{trend >= 0 ? '+' : ''}{pct(trend, 1)}</span>], ['Avg dwell', `${Math.round(ff.reduce((s, f) => s + (f.dwellMinutes ?? 0), 0) / ff.length)} min`], ['Cells within 220 m', String(ff.length)]]} /> : <div className="text-xs text-ink-500">No footfall coverage here. Vendor feed not contracted.</div>}
+        {ff.length ? <KV rows={[['Monthly visits (cell avg)', num(avg)], ['12-month trend', <span className={trend >= 0 ? 'text-green-700 dark:text-green-300' : 'text-rose-700 dark:text-rose-300'}>{trend >= 0 ? '+' : ''}{pct(trend, 1)}</span>], ['Avg dwell', `${Math.round(ff.reduce((s, f) => s + (f.dwellMinutes ?? 0), 0) / ff.length)} min`], ['Cells within 220 m', String(ff.length)]]} /> : <div className="text-xs text-ink-500">No footfall coverage here. Vendor feed not contracted.</div>}
       </Section>
       <Section title="Traffic counts within 600 m (DfT)">
         {bundle.traffic.length ? (

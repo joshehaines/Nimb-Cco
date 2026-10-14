@@ -8,13 +8,13 @@ import { canDownload } from '@/lib/env'
 export function ReportPage() {
   const { titleNumber = '' } = useParams()
   const { bundle, loading, error } = useSite(titleNumber)
-  if (loading || !bundle) return <div className="p-8">{error ? <span className="text-rose-700">{error}</span> : <Spinner label="Building report…" />}</div>
+  if (loading || !bundle) return <div className="p-8">{error ? <span className="text-rose-700 dark:text-rose-300">{error}</span> : <Spinner label="Building report…" />}</div>
   const { title: t, businesses, hereditaments, epcs, planning, nearbyPlanning, constraints, traffic, footfall, leases, operatorCompanies, proprietorCompanies } = bundle
   const b = businesses[0]
   const h = hereditaments[0]
   const e = epcs[0]
   return (
-    <div className="mx-auto max-w-4xl bg-white p-10 text-ink-900 print:p-0">
+    <div className="mx-auto max-w-4xl bg-surface p-10 text-ink-900 print:p-0">
       <div className="no-print mb-4 flex justify-end gap-2">{canDownload ? <button className="btn-primary" onClick={() => window.print()}>Print / save as PDF</button> : <span className="text-xs text-ink-500">Printing is disabled on this preview host.</span>}</div>
       <header className="mb-6 border-b-2 border-brand-700 pb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-brand-700">Christie &amp; Co · Property Intelligence · Site report</div>
