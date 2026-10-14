@@ -27,15 +27,15 @@ export function AdminPage() {
         <h1 className="text-xl font-semibold">Data sources</h1>
         <p className="text-sm text-ink-500">Every upstream feed, its licence class, cadence and last successful run. Ingestion jobs are the phase 2 build; statuses below describe the intended pipeline, with the demo running on synthetic data.</p>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Stat label="Healthy" value={count('ok')} tone="good" />
         <Stat label="Stale" value={count('stale')} tone="warning" />
         <Stat label="Errors" value={count('error')} tone={count('error') ? 'critical' : 'neutral'} />
         <Stat label="Not configured" value={count('not-configured')} />
         <Stat label="Paid / optional" value={count('paid')} />
       </div>
-      <Card padded={false}>
-        <table className="w-full text-sm">
+      <Card padded={false} className="overflow-x-auto">
+        <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-ink-50 text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Source</th><th className="font-medium">Provider</th><th className="font-medium">Licence</th><th className="font-medium">Cadence</th><th className="font-medium">Last run</th><th className="font-medium text-right">Records</th><th className="font-medium">Status</th></tr></thead>
           <tbody>
             {sources.map((s) => (

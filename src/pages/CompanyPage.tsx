@@ -39,7 +39,7 @@ export function CompanyPage() {
           <a className="btn-secondary" href={`https://find-and-update.company-information.service.gov.uk/company/${company.companyNumber}`} target="_blank" rel="noreferrer">Companies House <ExternalLink size={13} /></a>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Freehold titles (group)" value={titles.length} sub={`${sqm(titles.reduce((s, t) => s + t.areaSqm, 0))} total`} />
         <Stat label="Sites operated" value={operated.length} />
         <Stat label="Sites owned & let" value={owned.length} />
@@ -56,14 +56,14 @@ export function CompanyPage() {
           <ul className="divide-y divide-ink-100 text-sm">{company.charges.length ? company.charges.map((c, i) => <li key={i} className="flex items-center justify-between px-4 py-2"><span>{c.lender}</span><span className="text-xs text-ink-500">{dateShort(c.created)} {c.satisfied ? '· satisfied' : ''}</span></li>) : <li className="px-4 py-3 text-xs text-ink-500">No charges registered.</li>}</ul>
         </Card>
       </div>
-      <Card title={`Trading sites · ${biz.length}`} padded={false}>
-        <table className="w-full text-sm">
+      <Card title={`Trading sites · ${biz.length}`} padded={false} className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Business</th><th className="font-medium">Role</th><th className="font-medium">Tenure</th><th className="font-medium">Register</th><th className="font-medium">Signals</th></tr></thead>
           <tbody>{biz.map((b) => <tr key={b.businessId} className="cursor-pointer border-t border-ink-100 hover:bg-ink-50" onClick={() => { select({ type: 'business', id: b.businessId }); requestFlyTo(b.location.coordinates[0], b.location.coordinates[1], 17.5); nav(`/map/business/${b.businessId}`) }}><td className="px-4 py-2"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SECTOR_COLOURS[b.sector] }} /><div><div className="font-medium">{b.name}</div><div className="text-xs text-ink-500">{b.sector} · {b.address}</div></div></div></td><td className="text-xs">{group.some((g) => g.companyNumber === b.operatorCompanyNumber) ? 'Operator' : 'Freeholder'}</td><td className="text-xs">{b.tenure}</td><td className="text-xs">{b.registers[0] ? `${b.registers[0].register}${b.registers[0].rating ? ` · ${b.registers[0].rating}` : ''}` : '—'}</td><td><div className="flex gap-1">{b.distressFlags.slice(0, 2).map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div></td></tr>)}</tbody>
         </table>
       </Card>
-      <Card title={`Freehold titles held · ${titles.length}`} padded={false}>
-        <table className="w-full text-sm">
+      <Card title={`Freehold titles held · ${titles.length}`} padded={false} className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Title</th><th className="font-medium">Address</th><th className="font-medium text-right">Site area</th><th className="font-medium">Added</th><th className="font-medium text-right">Price paid</th><th className="font-medium">Leases</th></tr></thead>
           <tbody>{titles.map((t) => <tr key={t.titleNumber} className="cursor-pointer border-t border-ink-100 hover:bg-ink-50" onClick={() => { select({ type: 'title', id: t.titleNumber }); nav(`/map/title/${t.titleNumber}`) }}><td className="px-4 py-2 font-mono text-xs">{t.titleNumber}</td><td className="text-xs">{t.address}</td><td className="text-right text-xs tabular-nums">{sqm(t.areaSqm)}</td><td className="text-xs">{dateShort(t.dateProprietorAdded)}</td><td className="text-right text-xs tabular-nums">{gbp(t.pricePaid)}</td><td className="text-xs">{t.leases.length}</td></tr>)}</tbody>
         </table>

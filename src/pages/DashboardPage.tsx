@@ -36,14 +36,14 @@ export function DashboardPage() {
   }
   return (
     <div className="mx-auto max-w-7xl space-y-5 p-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink-900">Market dashboard</h1>
           <p className="text-sm text-ink-500">Leamington Spa &amp; Warwick demo area · all figures from the connected sources, refreshed on their own cadence.</p>
         </div>
-        <Link to="/map" className="btn-primary">Open map <ArrowRight size={14} /></Link>
+        <Link to="/map" className="btn-primary shrink-0">Open map <ArrowRight size={14} /></Link>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Stat label="Trading businesses tracked" value={businesses.length} sub="across 11 Christie sectors" />
         <Stat label="With distress signals" value={distressed.length} tone={distressed.length ? 'critical' : 'neutral'} sub="insolvency, late accounts, regulator, FHRS" />
         <Stat label="Lease events next 36 mo" value={leases.length} tone="warning" sub="registered leases expiring" />
@@ -68,8 +68,8 @@ export function DashboardPage() {
         <Card title="Businesses by sector">
           <BarList rows={bySector} />
         </Card>
-        <Card title="Distressed operators" actions={<Button size="sm" onClick={() => { resetFilters(); setFilters({ distressOnly: true }); nav('/sourcing') }}>Source these</Button>} className="lg:col-span-2" padded={false}>
-          <table className="w-full text-sm">
+        <Card title="Distressed operators" actions={<Button size="sm" onClick={() => { resetFilters(); setFilters({ distressOnly: true }); nav('/sourcing') }}>Source these</Button>} className="lg:col-span-2 overflow-x-auto" padded={false}>
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Business</th><th className="font-medium">Operator</th><th className="font-medium">Signals</th><th className="font-medium">Tenure</th></tr></thead>
             <tbody>
               {distressed.slice(0, 8).map((b) => (

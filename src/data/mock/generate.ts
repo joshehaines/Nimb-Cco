@@ -22,6 +22,7 @@ import type {
 import * as N from './names'
 
 export interface Dataset {
+  streets: { name: string; major: boolean; coordinates: [number, number][] }[]
   titles: Map<string, Title>
   companies: Map<string, Company>
   businesses: Map<string, Business>
@@ -662,7 +663,12 @@ export function generateDataset(seed = 20261013): Dataset {
     crm.push({ recordId: `CRM-${rid++}`, office: rng.pick(offices), businessName: rng.pick(['The Old Bell', 'Spa Fish Bar', 'Avonside Care Home', 'Jubilee Day Nursery', 'Crown Pharmacy', 'The Railway Tavern']), address: p.title.address, postcode: p.title.postcode, companyName: rng.pick(['Old Bell Inns Ltd', 'Avonside Care Ltd', 'Jubilee Childcare Ltd']), companyNumber: String(rng.int(3_000_000, 9_000_000)).padStart(8, '0'), sector: rng.pick(['Pub', 'Care Home', 'Childcare', 'Pharmacy']), lastContact: rng.date(2014, 2019), raw: {} })
   }
 
-  return { titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre }
+  const streets = N.STREETS.map((s) => {
+    const b = (s.bearing * Math.PI) / 180
+    const end = offset(s.lon, s.lat, Math.sin(b) * s.lengthM, Math.cos(b) * s.lengthM)
+    return { name: s.name, major: !!s.major, coordinates: [[s.lon, s.lat], end] as [number, number][] }
+  })
+  return { streets, titles, companies, businesses, hereditaments, epcs, planning, constraints, traffic, footfall, alerts, crm, centre }
 }
 
 export function crmToCsv(rows: CrmRecord[]): string {

@@ -7,6 +7,7 @@ import { Badge, Button, Empty, Spinner } from '@/components/ui'
 import { SourcingDrawer } from '@/components/panels/SourcingDrawer'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { gbp, dateShort, monthsUntil, num } from '@/lib/format'
+import { canDownload } from '@/lib/env'
 
 type Row = { b: Business; t?: Title; h?: Hereditament }
 
@@ -59,15 +60,15 @@ export function SourcingPage() {
           </select>
           <Button size="sm" onClick={() => { setHighlight(sorted.map(({ b }) => b.businessId), 'sourcing results'); nav('/map') }} disabled={!sorted.length}><MapPin size={13} /> Plot on map</Button>
           <Button size="sm" onClick={() => sorted.forEach(({ b }) => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name }))}><Bookmark size={13} /> Watch all</Button>
-          <Button size="sm" onClick={exportCsv} disabled={!sorted.length}><Download size={13} /> CSV</Button>
+          <Button size="sm" onClick={exportCsv} disabled={!sorted.length || !canDownload} title={canDownload ? 'Export CSV' : 'Downloads are disabled on this preview host'}><Download size={13} /> CSV</Button>
         </div>
       </div>
       <div className="flex-1 overflow-auto p-5">
         {!rows ? <Spinner label="Running filters across sources…" /> : !rows.length ? <Empty title="No businesses match" hint="Loosen the filters or switch off 'current map area only'." action={<Button onClick={() => setShowFilters(true)}>Edit filters</Button>} /> : (
           <>
             <div className="mb-2 text-xs text-ink-500">{rows.length} businesses · {rows.filter((r) => r.b.distressFlags.length).length} with distress signals · combined RV {gbp(rows.reduce((s, r) => s + (r.h?.rateableValue ?? 0), 0), { compact: true })}</div>
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="card overflow-x-auto">
+              <table className="w-full min-w-[1100px] text-sm">
                 <thead className="bg-ink-50 text-left text-xs text-ink-500 whitespace-nowrap">
                   <tr><th className="px-3 py-2 font-medium">Business</th><th className="font-medium">Operator</th><th className="font-medium">Freeholder</th><th className="font-medium">Tenure</th><th className="font-medium text-right">RV</th><th className="font-medium text-right">Area m²</th><th className="font-medium">Lease expiry</th><th className="font-medium">Register</th><th className="font-medium">Signals</th><th></th></tr>
                 </thead>
@@ -78,7 +79,7 @@ export function SourcingPage() {
                     const reg = b.registers.find((r) => r.rating || r.capacity)
                     return (
                       <tr key={b.businessId} className="border-t border-ink-100 hover:bg-ink-50">
-                        <td className="px-3 py-2"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SECTOR_COLOURS[b.sector] }} /><div><button className="font-medium text-ink-900 hover:underline" onClick={() => { select({ type: 'business', id: b.businessId }); nav(`/map/business/${b.businessId}`) }}>{b.name}</button><div className="text-xs text-ink-500">{b.sector} · {b.address}</div></div></div></td>
+                        <td className="px-3 py-2"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SECTOR_COLOURS[b.sector] }} /><div className="min-w-[180px]"><button className="text-left font-medium text-ink-900 hover:underline" onClick={() => { select({ type: 'business', id: b.businessId }); nav(`/map/business/${b.businessId}`) }}>{b.name}</button><div className="text-xs text-ink-500">{b.sector} · {b.address}</div></div></div></td>
                         <td className="text-xs">{b.operatorName}</td>
                         <td className="text-xs">{b.freeholderName}</td>
                         <td className="text-xs">{b.tenure}</td>

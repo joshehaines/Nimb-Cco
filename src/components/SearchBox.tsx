@@ -81,7 +81,7 @@ export function SearchBox() {
             if (e.key === 'Enter' && results[active]) go(results[active])
             if (e.key === 'Escape') setOpen(false)
           }}
-          placeholder="Search address, postcode, title number, business, company or planning ref…  (⌘K)"
+          placeholder={typeof window !== 'undefined' && window.innerWidth < 768 ? 'Search…' : 'Search address, postcode, title, business, company or planning ref…  (⌘K)'}
           className="input pl-8"
         />
       </div>

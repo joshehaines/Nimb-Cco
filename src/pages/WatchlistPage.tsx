@@ -37,8 +37,8 @@ export function WatchlistPage() {
         <Empty title="No sites watched yet" hint="Open any site from the map or the sourcing table and click 'Add to My Sites'. Use 'Watch all' on a sourcing result to bulk-add a strategy." action={<Link to="/sourcing" className="btn-primary">Go to sourcing</Link>} />
       ) : (
         Array.from(grouped.entries()).map(([project, ws]) => (
-          <Card key={project} title={`${project} · ${ws.length}`} padded={false}>
-            <table className="w-full text-sm">
+          <Card key={project} title={`${project} · ${ws.length}`} padded={false} className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
               <thead className="text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Site</th><th className="font-medium">Type</th><th className="font-medium">Project</th><th className="font-medium">Notes</th><th className="font-medium">Added</th><th className="font-medium">Recent alerts</th><th></th></tr></thead>
               <tbody>
                 {ws.map((w) => {

@@ -6,20 +6,26 @@ import { SECTORS } from '@/data/types'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 import { CONSTRAINT_COLOURS } from './MapView'
 
-export function LayerPanel() {
-  const [open, setOpen] = useState(true)
+export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
+  const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
   const { layers, toggleLayer, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight } = useUi()
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length].reduce((a, b) => a + b, 0)
 
+  if (hidden) return null
   if (!open)
     return (
-      <button onClick={() => setOpen(true)} className="card absolute left-3 top-3 z-10 flex items-center gap-2 px-3 py-2 text-sm font-medium">
-        <Layers size={16} /> Layers
-      </button>
+      <div className="absolute left-3 top-3 z-10 flex gap-2">
+        <button onClick={() => setOpen(true)} className="card flex items-center gap-2 px-3 py-2 text-sm font-medium">
+          <Layers size={16} /> Layers
+        </button>
+        <button onClick={() => setShowFilters(true)} className={cx('card flex items-center gap-2 px-3 py-2 text-sm font-medium', activeFilterCount > 0 && 'text-brand-700')}>
+          <SlidersHorizontal size={16} /> Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+        </button>
+      </div>
     )
 
   return (
-    <div className="card absolute left-3 top-3 z-10 flex max-h-[calc(100%-24px)] w-[280px] flex-col overflow-hidden">
+    <div className="card absolute left-3 top-3 z-10 flex max-h-[calc(100%-24px)] w-[min(280px,calc(100%-24px))] flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink-200 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Layers size={16} /> Layers

@@ -93,6 +93,7 @@ export class MockProvider implements DataProvider {
     const footfall = this.ds.footfall.map((f) => ({ type: 'Feature' as const, geometry: f.geometry, properties: { h3: f.h3, band: f.band, monthlyVisits: f.monthlyVisits } }))
     const constraints = this.ds.constraints.map((c) => ({ type: 'Feature' as const, geometry: c.geometry, properties: { id: c.id, kind: c.kind, name: c.name } }))
     return {
+      streets: { type: 'FeatureCollection', features: this.ds.streets.map((s) => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: s.coordinates }, properties: { name: s.name, major: s.major } })) },
       titles: { type: 'FeatureCollection', features: titles },
       businesses: { type: 'FeatureCollection', features: businesses },
       planning: { type: 'FeatureCollection', features: planning },

@@ -9,7 +9,7 @@
  * (mock today, FastAPI + PostGIS later). Keep them backend-agnostic.
  */
 
-import type { Feature, FeatureCollection, Point, Polygon, MultiPolygon } from 'geojson'
+import type { Feature, FeatureCollection, Point, Polygon, MultiPolygon, LineString } from 'geojson'
 
 export type ISODate = string
 export type Tenure = 'Freehold' | 'Leasehold'
@@ -455,7 +455,11 @@ export type TrafficFeature = Feature<Point, { countPointId: string; aadf: number
 export type FootfallFeature = Feature<Polygon, { h3: string; band: number; monthlyVisits: number }>
 export type ConstraintFeature = Feature<Polygon | MultiPolygon | Point, { id: string; kind: ConstraintKind; name: string }>
 
+export type StreetFeature = Feature<LineString, { name: string; major: boolean }>
+
 export interface MapLayers {
+  /** Schematic street centrelines for the offline fallback basemap (optional). */
+  streets?: FeatureCollection<LineString, StreetFeature['properties']>
   titles: FeatureCollection<TitleFeature['geometry'], TitleFeature['properties']>
   businesses: FeatureCollection<Point, BusinessFeature['properties']>
   planning: FeatureCollection<Point, PlanningFeature['properties']>

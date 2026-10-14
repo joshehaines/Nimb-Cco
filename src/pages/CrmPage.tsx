@@ -6,6 +6,7 @@ import { Upload, Download, Play, Check, X, Merge, FileSpreadsheet, MapPin } from
 import { provider, type CrmRecord, type MatchCandidate, type DuplicateGroup, type CrmIssue } from '@/data'
 import { Badge, Button, Card, Stat, Tabs, BarList, Empty, Spinner, Select, cx } from '@/components/ui'
 import { dateShort, pct } from '@/lib/format'
+import { canDownload } from '@/lib/env'
 
 type Decision = 'accepted' | 'rejected' | undefined
 type Tab = 'queue' | 'duplicates' | 'records' | 'pipeline'
@@ -171,7 +172,7 @@ export function CrmPage() {
           <Button onClick={loadSample}><FileSpreadsheet size={14} /> Load sample export</Button>
           <Button variant="primary" onClick={run} disabled={!records.length} loading={running}><Play size={14} /> Run matching</Button>
           <Button onClick={plotMatched} disabled={!matches}><MapPin size={14} /> Plot matched on map</Button>
-          <Button onClick={exportCleaned} disabled={!matches}><Download size={14} /> Export cleaned CSV</Button>
+          <Button onClick={exportCleaned} disabled={!matches || !canDownload} title={canDownload ? 'Export cleaned CSV' : 'Downloads are disabled on this preview host'}><Download size={14} /> Export cleaned CSV</Button>
         </div>
       </div>
 
@@ -196,7 +197,7 @@ export function CrmPage() {
 
       {stats && matches && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Stat label="Records" value={records.length} />
             <Stat label="Matched (high)" value={stats.high} tone="good" sub="≥ 85% confidence" />
             <Stat label="Matched (review)" value={stats.medium} tone="warning" sub="62–85% confidence" />

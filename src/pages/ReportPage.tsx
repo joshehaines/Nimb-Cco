@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { useSite } from '@/hooks/useSite'
 import { Spinner, Badge, KV } from '@/components/ui'
 import { dateShort, gbp, num, sqm, sqft, monthsUntil } from '@/lib/format'
+import { canDownload } from '@/lib/env'
 
 /** Printable site report. Opens in a new tab; use the browser print dialog for PDF. */
 export function ReportPage() {
@@ -14,7 +15,7 @@ export function ReportPage() {
   const e = epcs[0]
   return (
     <div className="mx-auto max-w-4xl bg-white p-10 text-ink-900 print:p-0">
-      <div className="no-print mb-4 flex justify-end gap-2"><button className="btn-primary" onClick={() => window.print()}>Print / save as PDF</button></div>
+      <div className="no-print mb-4 flex justify-end gap-2">{canDownload ? <button className="btn-primary" onClick={() => window.print()}>Print / save as PDF</button> : <span className="text-xs text-ink-500">Printing is disabled on this preview host.</span>}</div>
       <header className="mb-6 border-b-2 border-brand-700 pb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-brand-700">Christie &amp; Co · Property Intelligence · Site report</div>
         <h1 className="mt-1 text-2xl font-semibold">{b ? b.name : t.address}</h1>

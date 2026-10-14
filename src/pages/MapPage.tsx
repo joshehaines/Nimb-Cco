@@ -43,7 +43,7 @@ export function MapPage() {
     <div className="relative flex h-full">
       <div className="relative min-w-0 flex-1">
         <MapView />
-        <LayerPanel />
+        <LayerPanel hidden={!!selected && typeof window !== 'undefined' && window.innerWidth < 1024} />
       </div>
       {selected && <InfoPanel />}
       <SourcingDrawer />

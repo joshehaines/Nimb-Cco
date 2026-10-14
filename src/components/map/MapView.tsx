@@ -59,9 +59,12 @@ function addDataLayers(map: MLMap, withLabels: boolean) {
   const src = (id: string) => {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY as never, promoteId: undefined })
   }
-  ;['footfall', 'constraints', 'titles', 'planning', 'traffic', 'businesses'].forEach(src)
+  ;['streets', 'footfall', 'constraints', 'titles', 'planning', 'traffic', 'businesses'].forEach(src)
 
   if (map.getLayer('footfall-fill')) return
+  map.addLayer({ id: 'streets-casing', type: 'line', source: 'streets', paint: { 'line-color': '#cfd6e0', 'line-width': ['case', ['==', ['get', 'major'], true], 14, 9], 'line-opacity': 0.9 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  map.addLayer({ id: 'streets-fill', type: 'line', source: 'streets', paint: { 'line-color': '#ffffff', 'line-width': ['case', ['==', ['get', 'major'], true], 10, 6] }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  if (withLabels) map.addLayer({ id: 'streets-labels', type: 'symbol', source: 'streets', layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': '#67748c', 'text-halo-color': '#fff', 'text-halo-width': 1 } })
   map.addLayer({ id: 'footfall-fill', type: 'fill', source: 'footfall', paint: { 'fill-color': FOOTFALL_RAMP, 'fill-opacity': 0.42 } })
   map.addLayer({ id: 'constraints-fill', type: 'fill', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'fill-color': constraintMatch, 'fill-opacity': 0.14 } })
   map.addLayer({ id: 'constraints-line', type: 'line', source: 'constraints', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': constraintMatch, 'line-width': 1.5, 'line-dasharray': [3, 2] } })
@@ -183,13 +186,13 @@ export function MapView() {
       const msg = String((e as { error?: Error }).error?.message ?? '')
       if (!styleOk && /style|fetch|tunnel|network/i.test(msg)) fallback()
     })
-    const fallbackTimer = window.setTimeout(fallback, 6000)
+    const fallbackTimer = window.setTimeout(fallback, 3000)
     map.on('style.load', () => {
       styleOk = true
       window.clearTimeout(fallbackTimer)
       // Symbol layers need glyphs; on the offline fallback a failed glyph fetch would drop whole tiles, so skip labels there.
       addDataLayers(map, !basemapFailedRef.current)
-      applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter)
+      applyVisibility(map, useUi.getState().layers, useUi.getState().constraintKinds, useUi.getState().sectorFilter, basemapFailedRef.current)
       map.setFilter('businesses-highlight', ['in', ['get', 'businessId'], ['literal', useUi.getState().highlightIds]])
       if (dataRef.current) for (const k of Object.keys(dataRef.current) as (keyof MapLayers)[]) (map.getSource(k) as maplibregl.GeoJSONSource | undefined)?.setData(dataRef.current[k] as never)
       else scheduleLoad()
@@ -258,7 +261,7 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded()) return
-    applyVisibility(map, layers, constraintKinds, sectorFilter)
+    applyVisibility(map, layers, constraintKinds, sectorFilter, basemapFailedRef.current)
   }, [layers, constraintKinds, sectorFilter])
 
   // CRM / sourcing highlight
@@ -300,16 +303,17 @@ export function MapView() {
     <>
       <div ref={containerRef} className="h-full w-full" />
       {basemapFailed && (
-        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-900 shadow">
-          Basemap tiles unavailable on this network. Showing data layers on a blank canvas; set VITE_OS_API_KEY or allow tiles.openfreemap.org.
+        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 w-[min(520px,calc(100%-24px))] -translate-x-1/2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-[11px] text-amber-900 shadow">
+          Street tiles blocked on this network; showing data layers over a schematic street outline.
         </div>
       )}
     </>
   )
 }
 
-function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[]) {
+function applyVisibility(map: MLMap, layers: Record<string, boolean>, constraintKinds: string[], sectorFilter: string[], schematic = false) {
   const vis = (ids: string[], on: boolean) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'))
+  vis(['streets-casing', 'streets-fill', 'streets-labels'], schematic)
   vis(['titles-fill', 'titles-line', 'titles-distress', 'titles-selected'], layers.titles)
   vis(['businesses-points', 'businesses-labels', 'businesses-ring', 'businesses-highlight'], layers.businesses)
   vis(['planning-points'], layers.planning)

@@ -27,7 +27,7 @@ export function InfoPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
-    <aside className="no-print flex h-full w-[440px] shrink-0 flex-col border-l border-ink-200 bg-white shadow-xl">
+    <aside className="no-print absolute inset-y-0 right-0 z-30 flex w-full max-w-[440px] flex-col border-l border-ink-200 bg-white shadow-xl lg:static lg:z-auto lg:shrink-0">
       {selected?.type === 'planning' && <PlanningDetail reference={selected.id} onClose={close} />}
       {selected?.type === 'traffic' && <TrafficDetail id={selected.id} onClose={close} />}
       {(selected?.type === 'title' || selected?.type === 'business') && <SitePanel key={selected.id} sel={selected} onClose={close} />}

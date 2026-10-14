@@ -45,9 +45,27 @@ body,
   }
 }
 
+@layer base {
+  table th,
+  table td {
+    @apply px-2 py-1.5 align-middle;
+  }
+  table th:first-child,
+  table td:first-child {
+    @apply pl-4;
+  }
+  table th:last-child,
+  table td:last-child {
+    @apply pr-4;
+  }
+  table button {
+    @apply text-left;
+  }
+}
+
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700;

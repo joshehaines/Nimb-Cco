@@ -25,7 +25,7 @@ export function DocumentsPage() {
         <Stat label="HMLR spend this session" value={gbp(spend)} sub="pass-through at cost" />
         <Stat label="Parsed into data" value={docs.filter((d) => d.status === 'Parsed').length} tone="good" />
       </div>
-      <Card title="Orders" padded={false}>
+      <Card title="Orders" padded={false} className="overflow-x-auto">
         {!docs.length ? <div className="p-4"><Empty title="No documents ordered yet" hint="Open a title on the map and order the register, title plan or lease from the Ownership or Leases tab." /></div> : (
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-ink-500"><tr><th className="px-4 py-2 font-medium">Order</th><th className="font-medium">Title</th><th className="font-medium">Document</th><th className="font-medium">Status</th><th className="font-medium">Extracted</th><th className="font-medium">Ordered</th></tr></thead>
