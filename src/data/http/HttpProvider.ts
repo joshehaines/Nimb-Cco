@@ -1,4 +1,6 @@
 import type { DataProvider } from '../provider'
+import { authHeaders } from '../../auth'
+import type { AuditEvent, WatchItem } from '../types'
 import type { BoundsQuery, ComparableFilters, CrmRecord, DocumentOrder, SourcingFilters } from '../types'
 
 /**
@@ -13,13 +15,13 @@ export class HttpProvider implements DataProvider {
   private async get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
     const url = new URL(this.base + path, window.location.origin)
     if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v))
-    const res = await fetch(url.toString(), { credentials: 'include' })
+    const res = await fetch(url.toString(), { credentials: 'include', headers: authHeaders() })
     if (res.status === 404) return undefined as T
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
     return res.json()
   }
   private async post<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(this.base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) })
+    const res = await fetch(this.base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, credentials: 'include', body: JSON.stringify(body) })
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
     return res.json()
   }
@@ -50,6 +52,10 @@ export class HttpProvider implements DataProvider {
   sourceTitles = (filters: SourcingFilters, bounds?: BoundsQuery) => this.post<never>('/sourcing/titles', { filters, bounds })
   getComparables = (filters: ComparableFilters) => this.post<never>('/comparables/search', { filters })
   getComparable = (id: string) => this.get<never>(`/comparables/${id}`)
+  recordAudit = (e: AuditEvent) => this.post<void>('/audit', e)
+  getAudit = () => this.get<AuditEvent[]>('/audit')
+  getWatchlist = () => this.get<WatchItem[] | undefined>('/me/watchlist')
+  saveWatchlist = (items: WatchItem[]) => this.post<void>('/me/watchlist', items)
   getCatchment = (lon: number, lat: number, radiusM: number) => this.get<never>('/catchment', { lon, lat, radius: radiusM })
   getPoi = (id: string) => this.get<never>(`/places/${encodeURIComponent(id)}`)
   getPoisNear = (lon: number, lat: number, radiusM: number, sector?: string) => this.get<never>('/places', { lon, lat, radius: radiusM, ...(sector ? { sector } : {}) })

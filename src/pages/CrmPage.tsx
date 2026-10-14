@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useUi } from '@/store/ui'
+import { logAudit } from '@/lib/audit'
 import Papa from 'papaparse'
 import { Upload, Download, Play, Check, X, Merge, FileSpreadsheet, MapPin } from 'lucide-react'
 import { provider, type CrmRecord, type MatchCandidate, type DuplicateGroup, type CrmIssue } from '@/data'
@@ -87,6 +88,7 @@ export function CrmPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const nav = useNavigate()
   const setHighlight = useUi((s) => s.setHighlight)
+  const setCrmRecords = useUi((s) => s.setCrmRecords)
   const plotMatched = () => {
     const ids = Array.from(new Set((matches ?? []).map((m) => m.businessId).filter((x): x is string => !!x)))
     setHighlight(ids, `CRM ${sourceName}`)
@@ -101,6 +103,8 @@ export function CrmPage() {
     const m = guessMapping(hs)
     setMapping(m)
     setRecords(toRecords(parsed.data, m))
+    setCrmRecords(toRecords(parsed.data, m), name)
+    logAudit('crm-upload', `CRM export uploaded: ${name}, ${parsed.data.length} rows`, { count: parsed.data.length })
     setMatches(null)
     setDups([])
     setDecisions({})

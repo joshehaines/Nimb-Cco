@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Mail, Plus, Printer, ShieldCheck, ShieldAlert, Trash2, Download } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Mail, Plus, Printer, ShieldCheck, ShieldAlert, Trash2, Download, Upload } from 'lucide-react'
 import { provider, SECTORS, type Business, type Campaign, type CampaignRecipient, type LetterTemplate, type RecipientBasis, type Sector, type Title } from '@/data'
 import { useUi } from '@/store/ui'
+import { useAuth } from '@/auth'
+import { logAudit } from '@/lib/audit'
 import { Badge, Button, Card, Input, Select, Stat, Empty, Toggle, cx } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { dateShort } from '@/lib/format'
@@ -86,6 +88,7 @@ export function CampaignsPage() {
     }
     const c: Campaign = { campaignId: `CMP-${Date.now().toString(36).toUpperCase()}`, name: name || `${sector || 'Mixed'} ${role.toLowerCase()} letters ${new Date().toISOString().slice(0, 10)}`, sector: sector || undefined, templateId, createdAt: new Date().toISOString(), status: 'Draft', recipients, liaCompleted: false, responses: 0 }
     upsertCampaign(c)
+    logAudit('campaign-created', `Campaign created: ${c.name} (${c.recipients.filter((r) => r.included).length} eligible of ${c.recipients.length})`, { entityType: 'campaign', entityId: c.campaignId, licences: ['HMLR-CCOD', 'OGL'] })
     setOpenId(c.campaignId)
     setCreating(false)
     setBuilding(false)
@@ -139,6 +142,7 @@ export function CampaignsPage() {
 }
 
 function CampaignDetail({ c, onChange, onDelete, onExport }: { c: Campaign; onChange: (c: Campaign) => void; onDelete: () => void; onExport: () => void }) {
+  const nav = useNavigate()
   const tpl = TEMPLATES.find((t) => t.templateId === c.templateId) ?? TEMPLATES[0]
   const [preview, setPreview] = useState<CampaignRecipient | null>(c.recipients.find((r) => r.included) ?? null)
   const [tab, setTab] = useState<'all' | 'eligible' | 'blocked'>('all')
@@ -146,7 +150,8 @@ function CampaignDetail({ c, onChange, onDelete, onExport }: { c: Campaign; onCh
   const eligible = c.recipients.filter((r) => r.included)
   const blocked = c.recipients.filter((r) => r.basis.startsWith('Blocked'))
   const shown = tab === 'all' ? c.recipients : tab === 'eligible' ? eligible : blocked
-  const canApprove = c.liaCompleted && eligible.length > 0
+  const mayApprove = useAuth((s) => s.hasRole('compliance') || s.hasRole('admin'))
+  const canApprove = c.liaCompleted && eligible.length > 0 && mayApprove
   const basisTone = (b: RecipientBasis) => (b.startsWith('Blocked') ? 'critical' : b === 'Register purchased' ? 'good' : 'info')
   return (
     <div className="space-y-4">
@@ -195,8 +200,9 @@ function CampaignDetail({ c, onChange, onDelete, onExport }: { c: Campaign; onCh
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={onExport} disabled={!eligible.length || !canDownload}><Download size={14} /> Mail-merge CSV</Button>
         <Link to={`/print/campaign/${c.campaignId}`} target="_blank" className={cx('btn-secondary', !eligible.length && 'pointer-events-none opacity-50')}><Printer size={14} /> Print letters</Link>
-        {c.status === 'Draft' && <Button variant="primary" disabled={!canApprove} title={canApprove ? '' : 'Complete the LIA and include at least one eligible recipient'} onClick={() => onChange({ ...c, status: 'Approved' })}><ShieldCheck size={14} /> Approve for sending</Button>}
-        {c.status === 'Approved' && <Button variant="primary" onClick={() => onChange({ ...c, status: 'Sent', sentAt: new Date().toISOString() })}><Mail size={14} /> Mark as sent ({eligible.length})</Button>}
+        {c.status === 'Draft' && <Button variant="primary" disabled={!canApprove} title={canApprove ? '' : !mayApprove ? 'Approval needs the compliance or admin role' : 'Complete the LIA and include at least one eligible recipient'} onClick={() => { onChange({ ...c, status: 'Approved' }); logAudit('campaign-approved', `Campaign approved: ${c.name}, ${eligible.length} recipients, LIA: ${c.liaNotes || 'recorded'}`, { entityType: 'campaign', entityId: c.campaignId, count: eligible.length, licences: Array.from(new Set(eligible.map((r) => (r.basis === 'Register purchased' ? 'HMLR-Doc' : 'OGL')))) }) }}><ShieldCheck size={14} /> Approve for sending</Button>}
+        {c.status === 'Approved' && <Button variant="primary" onClick={() => { onChange({ ...c, status: 'Sent', sentAt: new Date().toISOString() }); logAudit('campaign-sent', `Campaign marked as sent: ${c.name}, ${eligible.length} letters`, { entityType: 'campaign', entityId: c.campaignId, count: eligible.length }) }}><Mail size={14} /> Mark as sent ({eligible.length})</Button>}
+        <Button onClick={() => nav(`/crm/export?source=campaign&id=${c.campaignId}`)} title="Export the eligible recipients as CRM accounts and contacts"><Upload size={14} /> Export to CRM</Button>
         {c.status === 'Sent' && <label className="flex items-center gap-2 text-sm">Responses <Input type="number" className="w-20 py-1" value={c.responses} onChange={(e) => onChange({ ...c, responses: Number(e.target.value) })} /><Button size="sm" onClick={() => onChange({ ...c, status: 'Closed' })}>Close</Button></label>}
         <button className="ml-auto flex items-center gap-1 text-xs text-rose-700 dark:text-rose-300 hover:underline" onClick={onDelete}><Trash2 size={12} /> Delete campaign</button>
       </div>

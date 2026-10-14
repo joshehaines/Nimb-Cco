@@ -10,6 +10,7 @@ import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/compon
 import { SECTOR_COLOURS, SECTOR_ICON } from '@/lib/sectors'
 import { gbp, num, sqm, sqft, dateShort, ago, monthsUntil, pct } from '@/lib/format'
 import { dealScore } from '@/lib/dealScore'
+import { logAudit } from '@/lib/audit'
 import { mock } from '@/data'
 
 type Tab = 'overview' | 'ownership' | 'leases' | 'operator' | 'planning' | 'rates' | 'mobility' | 'constraints'
@@ -202,7 +203,7 @@ function OrderButton({ titleNumber, kind, label, onOrdered, disabled }: { titleN
   }, [order, onOrdered])
   if (order) return <Badge tone={order.status === 'Parsed' ? 'good' : 'info'}>{order.status === 'Parsed' ? 'Stored & parsed' : `${order.status}…`}</Badge>
   return (
-    <Button size="sm" disabled={disabled} onClick={async () => setOrder(await provider.orderDocument(titleNumber, kind))}>
+    <Button size="sm" disabled={disabled} onClick={async () => { const o = await provider.orderDocument(titleNumber, kind); setOrder(o); logAudit('document-order', `${label} ordered for ${titleNumber} (£7)`, { entityType: 'title', entityId: titleNumber, licences: ['HMLR-Doc'] }) }}>
       <Download size={13} /> {label} · £7
     </Button>
   )

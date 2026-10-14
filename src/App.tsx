@@ -6,6 +6,8 @@ import { SourcingPage } from '@/pages/SourcingPage'
 import { WatchlistPage } from '@/pages/WatchlistPage'
 import { AlertsPage } from '@/pages/AlertsPage'
 import { CrmPage } from '@/pages/CrmPage'
+import { CrmExportPage } from '@/pages/CrmExportPage'
+import { AuditPage } from '@/pages/AuditPage'
 import { CompanyPage } from '@/pages/CompanyPage'
 import { ReportPage } from '@/pages/ReportPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
@@ -38,9 +40,11 @@ export default function App() {
         <Route path="/catchment" element={<CatchmentPage />} />
         <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/crm" element={<CrmPage />} />
+        <Route path="/crm/export" element={<CrmExportPage />} />
         <Route path="/companies/:companyNumber" element={<CompanyPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/audit" element={<AuditPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

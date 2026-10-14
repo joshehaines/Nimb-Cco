@@ -26,6 +26,8 @@ import type {
   TrafficCount,
   FootfallCell,
   Sector,
+  WatchItem,
+  AuditEvent,
 } from './types'
 
 /**
@@ -77,6 +79,12 @@ export interface DataProvider {
   /** HM Land Registry price paid transaction by id. */
   getPricePaid(id: string): Promise<PricePaidRow | undefined>
   getPricePaidNear(lon: number, lat: number, radiusM: number, opts?: { nonResidentialOnly?: boolean; limit?: number }): Promise<(PricePaidRow & { distanceM: number })[]>
+  /** Optional: persist an audit event server-side (the UI keeps a local copy regardless). */
+  recordAudit?(e: AuditEvent): Promise<void>
+  getAudit?(): Promise<AuditEvent[]>
+  /** Optional: per-user watchlist storage; the UI falls back to local persistence. */
+  getWatchlist?(): Promise<WatchItem[] | undefined>
+  saveWatchlist?(items: WatchItem[]): Promise<void>
   getCatchment(lon: number, lat: number, radiusM: number): Promise<Catchment>
 
   // Alerts and documents

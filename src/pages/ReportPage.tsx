@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom'
 import { useSite } from '@/hooks/useSite'
 import { Spinner, Badge, KV } from '@/components/ui'
 import { dateShort, gbp, num, sqm, sqft, monthsUntil } from '@/lib/format'
-import { canDownload } from '@/lib/env'
+import { ReportFrame } from '@/components/ReportFrame'
 
 /** Printable site report. Opens in a new tab; use the browser print dialog for PDF. */
 export function ReportPage() {
@@ -14,14 +14,7 @@ export function ReportPage() {
   const h = hereditaments[0]
   const e = epcs[0]
   return (
-    <div className="mx-auto max-w-4xl bg-surface p-10 text-ink-900 print:p-0">
-      <div className="no-print mb-4 flex justify-end gap-2">{canDownload ? <button className="btn-primary" onClick={() => window.print()}>Print / save as PDF</button> : <span className="text-xs text-ink-500">Printing is disabled on this preview host.</span>}</div>
-      <header className="mb-6 border-b-2 border-brand-700 pb-4">
-        <div className="text-xs font-semibold uppercase tracking-widest text-brand-700">Christie &amp; Co · Property Intelligence · Site report</div>
-        <h1 className="mt-1 text-2xl font-semibold">{b ? b.name : t.address}</h1>
-        <div className="text-sm text-ink-600">{t.address}, {t.postcode} · Title {t.titleNumber} · UPRN {t.uprn}</div>
-        <div className="mt-1 text-xs text-ink-500">Generated {new Date().toLocaleString('en-GB')}. Contains HM Land Registry data © Crown copyright (CCOD licence: not for direct marketing), VOA data under restricted terms, OGL data from MHCLG, DfT, CQC, Ofsted, FSA, NHSBSA and Companies House. Internal use only.</div>
-      </header>
+    <ReportFrame kind="Site report" title={b ? b.name : t.address} subtitle={`${t.address}, ${t.postcode} · Title ${t.titleNumber} · UPRN ${t.uprn}`} entityType="title" entityId={t.titleNumber}>
       <div className="grid grid-cols-2 gap-8">
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-600">Ownership</h2>
@@ -58,6 +51,6 @@ export function ReportPage() {
         </section>
       </div>
       <footer className="mt-10 border-t border-ink-200 pt-3 text-[10px] text-ink-500">Sources and refresh: {[t, h, e, ...(b?.registers ?? [])].filter(Boolean).map((s) => `${(s as { source: string }).source} (${dateShort((s as { fetchedAt: string }).fetchedAt)})`).join(' · ')}. Title extents from INSPIRE index polygons show general position only and are not definitive boundaries.</footer>
-    </div>
+    </ReportFrame>
   )
 }

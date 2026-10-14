@@ -17,6 +17,10 @@ api/
 - `ingest/open_data.py`: loads `public/data/warwick` and the national tiles into `places`, `roads`, `buildings`, `traffic_counts`, `price_paid` and `postcode_centroids`.
 - `tests/`: 32 tests. Parsers run against fixtures in `tests/fixtures` (fictional records in the published layouts); API handlers run against a scripted fake pool; loaders run against a recording connection. Integration against a live PostGIS needs Docker (`docker compose up db`), which was not available where this was written, so run `pytest` plus one manual load before relying on the SQL.
 
+## Authentication and audit
+
+`app/auth.py` verifies bearer tokens against `OIDC_ISSUER` / `OIDC_AUDIENCE` (JWKS) and derives roles from `roles`/`groups` claims or `ADMIN_EMAILS`. Without those variables the API accepts an `X-Demo-User` header (`demo-agent`, `demo-compliance`, `demo-admin`). `/api/audit` (POST by anyone signed in, GET for compliance) writes to the append-only `audit_log` table; `/api/me/watchlist` stores each user's sites and pipeline fields.
+
 ## Run
 
 ```bash

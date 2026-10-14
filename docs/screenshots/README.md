@@ -16,5 +16,8 @@ Captured headlessly from the mock dataset with `npm run e2e` (basemap tiles were
 | ![Comparables on the map](map-comp.png) | ![Stage report](stage-report.png) |
 | ![Real roads, places, buildings and price paid](real-data-map.png) | ![Real DfT traffic counts with history](real-traffic.png) |
 | ![National coverage: Birmingham places, price paid and traffic from the GB tiles](national-birmingham.png) | ![Sourcing with the likely-to-transact score](sourcing-score.png) |
+| ![Export to CRM with the licence gate](crm-export.png) | ![Audit log](audit.png) |
+| ![Bristol demo area on real streets](bristol.png) | ![Branded site report](report-frame.png) |
+| ![Guided tour](tour.png) | |
 
 Full printable site report: [report.png](report.png)

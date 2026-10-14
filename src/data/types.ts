@@ -605,3 +605,31 @@ export interface MapLayers {
   footfall: FeatureCollection<Polygon, FootfallFeature['properties']>
   constraints: FeatureCollection<ConstraintFeature['geometry'], ConstraintFeature['properties']>
 }
+
+/** Audit trail entry: who did what, with the licence classes the action touched. */
+export type AuditKind =
+  | 'sign-in'
+  | 'document-order'
+  | 'export'
+  | 'crm-export'
+  | 'crm-upload'
+  | 'campaign-created'
+  | 'campaign-approved'
+  | 'campaign-sent'
+  | 'report-printed'
+  | 'settings-changed'
+  | 'watch-added'
+  | 'watch-removed'
+
+export interface AuditEvent {
+  id: string
+  at: ISODate
+  userId: string
+  userName: string
+  kind: AuditKind
+  summary: string
+  entityType?: string
+  entityId?: string
+  licences?: string[]
+  count?: number
+}

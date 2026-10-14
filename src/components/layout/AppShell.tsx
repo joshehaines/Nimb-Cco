@@ -1,9 +1,12 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor, KanbanSquare, Scale, Radar, Mail } from 'lucide-react'
+import { Upload, ShieldCheck, Settings as SettingsIcon, Map as MapIcon, LayoutDashboard, Crosshair, Bookmark, Bell, Users, FileText, Database, CalendarClock, Building2, Menu, X, ChevronsLeft, ChevronsRight, Sun, Moon, Monitor, KanbanSquare, Scale, Radar, Mail } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { useTheme } from '@/hooks/useTheme'
 import { SearchBox } from '@/components/SearchBox'
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/auth'
+import { SettingsDialog } from '@/components/SettingsDialog'
+import { Tour } from '@/components/Tour'
 import { provider } from '@/data'
 import { cx } from '@/components/ui'
 
@@ -18,9 +21,11 @@ const NAV = [
   { to: '/catchment', label: 'Catchment', icon: Radar },
   { to: '/campaigns', label: 'Campaigns', icon: Mail },
   { to: '/leases', label: 'Lease events', icon: CalendarClock },
+  { to: '/crm/export', label: 'Export to CRM', icon: Upload },
   { to: '/crm', label: 'CRM clean-up', icon: Users },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/admin', label: 'Data sources', icon: Database },
+  { to: '/audit', label: 'Audit log', icon: ShieldCheck, role: 'compliance' as const },
 ]
 
 const PREVIEW_HOST = import.meta.env.VITE_PREVIEW_HOST as string | undefined
@@ -79,11 +84,27 @@ export function AppShell() {
   }, [collapsed])
   const isMap = loc.pathname.startsWith('/map')
 
+  const user = useAuth((s) => s.user)
+  const hasRole = useAuth((s) => s.hasRole)
+  const tourDone = useUi((s) => s.tourDone)
+  const setTourDone = useUi((s) => s.setTourDone)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
+  useEffect(() => {
+    if (!tourDone && window.innerWidth >= 900) {
+      const t = window.setTimeout(() => setTourOpen(true), 1200)
+      return () => window.clearTimeout(t)
+    }
+  }, [tourDone])
+  const closeTour = () => {
+    setTourOpen(false)
+    setTourDone(true)
+  }
   const navList = (compact: boolean) => (
     <ul className="flex-1 space-y-0.5 p-2">
-      {NAV.map((n) => (
+      {NAV.filter((n) => !('role' in n) || hasRole(n.role as 'compliance')).map((n) => (
         <li key={n.to}>
-          <NavLink to={n.to} end={n.end} title={n.label} className={({ isActive }) => cx('relative flex items-center gap-2.5 rounded-md py-2 text-sm font-medium transition-colors', compact ? 'justify-center px-0' : 'px-2.5', isActive ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-ink-100')}>
+          <NavLink to={n.to} end={n.end} title={n.label} data-tour={`nav-${n.to.replace(/^\//, '').replace(/\//g, '-') || 'dashboard'}`} className={({ isActive }) => cx('relative flex items-center gap-2.5 rounded-md py-2 text-sm font-medium transition-colors', compact ? 'justify-center px-0' : 'px-2.5', isActive ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-ink-100')}>
             <n.icon size={18} />
             {!compact && <span className="flex-1">{n.label}</span>}
             {n.to === '/alerts' && unread > 0 && <span className={cx('rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold text-white', compact && 'absolute right-1 top-1')}>{unread}</span>}
@@ -120,10 +141,13 @@ export function AppShell() {
             {!collapsed && (
               <div className="px-1 text-[11px] text-ink-500">
                 <div className="font-medium text-ink-700">Data provider: {provider.name}</div>
-                <div>Demo area: Leamington Spa &amp; Warwick · real roads, places, traffic and price paid; synthetic ownership and operators</div>
+                <div>Demo areas: Leamington Spa &amp; Warwick, Bristol · real roads, places, traffic and price paid everywhere; synthetic ownership and operators in the demo areas</div>
               </div>
             )}
             <ThemeToggle compact={collapsed} />
+            <button data-tour="settings" className={cx('btn-ghost btn-sm w-full', collapsed ? 'justify-center' : 'justify-start')} onClick={() => setSettingsOpen(true)} title="Settings and account">
+              <SettingsIcon size={16} />{!collapsed && <span className="truncate">{user?.name ?? 'Settings'}</span>}
+            </button>
             <button className="btn-ghost btn-sm w-full justify-center" onClick={() => setCollapsed(!collapsed)} title={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
               {collapsed ? <ChevronsRight size={16} /> : <><ChevronsLeft size={16} /> Collapse</>}
             </button>
@@ -156,6 +180,8 @@ export function AppShell() {
           </header>
           <main className={cx('min-h-0 flex-1', isMap ? 'overflow-hidden' : 'overflow-y-auto')}>
             <Outlet />
+            <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onStartTour={() => setTourOpen(true)} />
+            <Tour open={tourOpen} onClose={closeTour} />
           </main>
         </div>
       </div>

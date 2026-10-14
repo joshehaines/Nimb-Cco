@@ -295,6 +295,7 @@ CREATE TABLE watch_items (
   radius_m    integer,
   project     text,
   added_at    timestamptz NOT NULL DEFAULT now(),
+  extra       jsonb NOT NULL DEFAULT '{}'::jsonb,            -- pipeline stage, fee estimate, assignee and so on
   UNIQUE (user_id, entity_type, entity_id)
 );
 
@@ -472,3 +473,20 @@ INSERT INTO data_sources (id, name, provider, licence, cadence, status, docs_url
   ('hmlr-ppd', 'HM Land Registry price paid', 'HM Land Registry', 'OGL', 'Monthly', 'not-configured', 'https://www.gov.uk/government/collections/price-paid-data'),
   ('dft-aadf', 'DfT traffic counts', 'Department for Transport', 'OGL', 'Annual', 'not-configured', 'https://roadtraffic.dft.gov.uk/downloads')
 ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------- Audit trail
+-- Who ordered which document, exported which list, approved which campaign. Append-only.
+CREATE TABLE audit_log (
+  event_id    text PRIMARY KEY,
+  at          timestamptz NOT NULL DEFAULT now(),
+  user_id     text NOT NULL,
+  user_name   text,
+  kind        text NOT NULL,
+  summary     text NOT NULL,
+  entity_type text,
+  entity_id   text,
+  licences    text[] NOT NULL DEFAULT '{}',
+  count       integer
+);
+CREATE INDEX audit_log_at_idx ON audit_log (at desc);
+CREATE INDEX audit_log_user_idx ON audit_log (user_id, at desc);

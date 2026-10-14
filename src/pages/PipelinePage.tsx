@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Printer, CalendarClock, GripVertical } from 'lucide-react'
+import { Plus, Printer, CalendarClock, GripVertical, Upload } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { provider, PIPELINE_STAGES, SECTORS, type PipelineStage, type WatchItem, type Business } from '@/data'
 import { Badge, Button, Input, Select, Stat, Empty, cx } from '@/components/ui'
@@ -83,6 +83,7 @@ export function PipelinePage() {
         <Select aria-label="Filter by sector" value={filterSector} onChange={(e) => setFilterSector(e.target.value)} className="w-auto py-1 text-xs"><option value="">All sectors</option>{SECTORS.map((s) => <option key={s}>{s}</option>)}</Select>
         <Select aria-label="Filter by project" value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="w-auto py-1 text-xs"><option value="">All projects</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
         <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" onClick={() => nav('/crm/export?source=pipeline')} disabled={!watchlist.length} title="Export deals, sites and accounts to the CRM"><Upload size={14} /> Export to CRM</Button>
           <Button size="sm" variant="primary" onClick={() => setAdding(!adding)}><Plus size={14} /> Add site</Button>
         </div>
       </div>

@@ -192,7 +192,8 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
     }
     for (const [k, v] of poisBySector) poisBySector.set(k, rng.shuffle(v))
   }
-  const townFor = (pc: string | undefined, lon: number) => (pc?.startsWith('CV34') ? 'Warwick' : pc?.startsWith('CV8') ? 'Kenilworth' : pc ? 'Leamington Spa' : lon < -1.56 ? 'Warwick' : 'Leamington Spa')
+  const townFor = (pc: string | undefined, lon: number, locality?: string) => locality ?? (pc?.startsWith('CV34') ? 'Warwick' : pc?.startsWith('CV8') ? 'Kenilworth' : pc?.startsWith('BS') ? 'Bristol' : pc ? 'Leamington Spa' : lon < -2 ? 'Bristol' : lon < -1.56 ? 'Warwick' : 'Leamington Spa')
+  const authorityFor = (lon: number, lat: number) => real?.areas.find((a) => a.windows.some(([w, s0, e, n]) => lon >= w && lon <= e && lat >= s0 && lat <= n))?.authority ?? 'Warwick District Council'
   const nearestPostcode = (x: number, y: number): string | undefined => {
     let best: Poi | undefined
     let bd = 400
@@ -212,7 +213,7 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
   const streets: StreetLike[] = []
   const blockers: StreetLike[] = [] // every road that plots must not cross, district-wide
   const HALF: Record<string, number> = { motorway: 14, trunk: 11, primary: 9, secondary: 8, tertiary: 7, residential: 6, unclassified: 6, living_street: 5, pedestrian: 5 }
-  const WINDOWS: [number, number, number, number][] = [[-1.552, 52.277, -1.518, 52.3], [-1.6, 52.274, -1.566, 52.291]]
+  const WINDOWS: [number, number, number, number][] = real ? real.areas.flatMap((a) => a.windows) : [[-1.552, 52.277, -1.518, 52.3], [-1.6, 52.274, -1.566, 52.291]]
   const inWindow = (lon: number, lat: number) => WINDOWS.some(([a, b, c, d]) => lon >= a && lon <= c && lat >= b && lat <= d)
   if (real) {
     for (const f of real.roads.features) {
@@ -248,7 +249,7 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
             const pcs = pois.map((q) => q.postcode).filter((q): q is string => !!q)
             const fallback = nearestPostcode(mx, my) ?? (midLon < -1.56 ? 'CV34 4AB' : 'CV32 4AB')
             st.postcodes = pcs.length ? pcs : [fallback]
-            st.town = townFor(st.postcodes[0], midLon)
+            st.town = townFor(st.postcodes[0], midLon, pois.find((q) => q.locality)?.locality)
             streets.push(st)
           }
           i = j
@@ -521,7 +522,7 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
 
   let bizCounter = 1
   for (const plan of SECTOR_PLAN) {
-    const names = demoNames(plan.sector, plan.names, plan.count)
+    const names = demoNames(plan.sector, plan.names, plan.count * Math.max(1, real?.areas.length ?? 1))
     for (const name of names) {
       const sector = plan.sector
       const parcel = nextParcel(sector)
@@ -687,7 +688,7 @@ export function generateDataset(seed = 20261013, real?: RealLayers): Dataset {
     const received = rng.date(2015, 2026)
     const status = new Date(received) > new Date(Date.now() - 100 * 86400000) ? 'Pending' : rng.pick(statuses)
     const year = received.slice(0, 4)
-    const authority = parcel.street.postcodes[0].startsWith('CV34') ? 'Warwick District Council' : 'Warwick District Council'
+    const authority = authorityFor(parcel.cx, parcel.cy)
     const ref = `W/${year.slice(2)}/${rng.int(100, 2499).toString().padStart(4, '0')}`
     const c = centroid(parcel.title.geometry as Polygon)
     planning.set(ref, {

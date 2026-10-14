@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dealScore } from '@/lib/dealScore'
+import { logAudit } from '@/lib/audit'
 import { useNavigate } from 'react-router-dom'
-import { SlidersHorizontal, Download, Bookmark, MapPin } from 'lucide-react'
+import { SlidersHorizontal, Download, Bookmark, MapPin, Upload } from 'lucide-react'
 import { provider, type Business, type Hereditament, type Title } from '@/data'
 import { useUi } from '@/store/ui'
 import { Badge, Button, Empty, Spinner } from '@/components/ui'
@@ -46,6 +47,7 @@ export function SourcingPage() {
     a.href = URL.createObjectURL(blob)
     a.download = `sourcing-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
+    logAudit('export', `Sourcing CSV: ${sorted.length} businesses`, { licences: ['OGL', 'HMLR-CCOD', 'VOA-Restricted'], count: sorted.length })
   }
   const active = [filters.sectors.length && `${filters.sectors.length} sectors`, filters.tenure, filters.distressOnly && 'distressed', filters.distressFlags.length && `${filters.distressFlags.length} signals`, filters.leaseExpiringWithinMonths && `lease < ${filters.leaseExpiringWithinMonths} mo`, filters.epcWorseThan && `EPC worse than ${filters.epcWorseThan}`, filters.ownerCategories.length && `${filters.ownerCategories.length} owner types`, filters.minRateableValue && `RV ≥ ${gbp(filters.minRateableValue)}`, filters.ownedSince && `owned since ${filters.ownedSince}`, filters.excludeConstraints.length && `excl. ${filters.excludeConstraints.length} constraints`, filters.text && `"${filters.text}"`].filter(Boolean) as string[]
   return (
@@ -63,6 +65,7 @@ export function SourcingPage() {
           <Button size="sm" onClick={() => { setHighlight(sorted.map(({ b }) => b.businessId), 'sourcing results'); nav('/map') }} disabled={!sorted.length}><MapPin size={13} /> Plot on map</Button>
           <Button size="sm" onClick={() => sorted.forEach(({ b }) => addWatch({ entityType: 'business', entityId: b.businessId, label: b.name }))}><Bookmark size={13} /> Watch all</Button>
           <Button size="sm" onClick={exportCsv} disabled={!sorted.length || !canDownload} title={canDownload ? 'Export CSV' : 'Downloads are disabled on this preview host'}><Download size={13} /> CSV</Button>
+          <Button size="sm" variant="primary" onClick={() => nav('/crm/export?source=sourcing')} disabled={!sorted.length} title="Clean, de-duplicated accounts, contacts and sites for the CRM"><Upload size={13} /> Export to CRM</Button>
         </div>
       </div>
       <div className="flex-1 overflow-auto p-5">

@@ -34,10 +34,13 @@ If basemap tiles are blocked by the network the map falls back to a blank canvas
 | Info panel | Overview, Ownership (CCOD, charges, register and plan ordering at £7), Leases & docs (registered leases, lease purchase and LLM-extracted rent/breaks/reviews, document store), Operator (Companies House plus every sector register record), Planning (on title and within 250 m), Rates & EPC (VOA summary valuation floors, MEES), Mobility (footfall cells, DfT counts with sparklines), Constraints | Info panel |
 | Sourcing | Strategy presets, 15 filters across sectors, tenure, owner type, RV, area, EPC, lease expiry, distress signals, regulator rating, constraints exclusion, planning activity; results table with CSV export and bulk watch | Site sourcing |
 | My Sites | Watchlist with projects and notes, related alerts | My Sites |
+| Demo areas | Leamington Spa and Warwick, and central Bristol, carry the synthetic overlay on real streets; `public/data/areas.json` lists them and `scripts/data/fetch_sources.sh` downloads the licensed feeds from an office machine | none |
 | Pipeline | Kanban over My Sites: eight stages from Prospect to Completed, drag-and-drop, office/sector/project filters, fee forecast weighted by stage, printable stage reports | My Sites stages and stage reports (Enterprise) |
 | Comparables | Sold trading-business evidence with £ per bed/place/room, RV and EBITDA multiples, radius search from a site, tenure/date/capacity/price filters, Christie & Co deals flagged as confidential, CSV export, map layer | Complete Comparables Tool |
 | Catchment | Demographics and competitor supply within a radius, supply ratios against England benchmarks (care beds per 100 aged 85+, nursery places per 100 aged 0 to 4, pubs/pharmacies/dentists per 10k), two-site comparison, movement summary | none (Carterwood-style need assessment) |
 | Campaigns | Direct-to-owner letter campaigns built from a sourcing result or site list, with a compliance gate: recipients from free CCOD data are blocked until a register is bought, a legitimate-interests assessment is recorded before approval, suppression list, templates per sector, mail-merge CSV and print-ready letters | Direct-to-vendor letters (Stannp) |
+| Export to CRM | Clean accounts, contacts, sites and deals for Salesforce, HubSpot, Dynamics or generic import, with stable external IDs, de-duplication against an uploaded CRM export and the licence gate applied | none |
+| Audit log | Document orders, exports, CRM transfers and campaign decisions with user and licence classes (compliance and admin) | none |
 | Appraisal | Indicative value range for a site from nearby comps (per-unit and RV methods, IQR), adjustments for EPC/MEES, short lease, distress and regulator rating, catchment summary and comparable schedule; printable | none |
 | Alerts | Ownership, planning, regulator, company, lease, EPC and VOA events with filters | Planning alerts, ownership alerts |
 | Lease events | Expiry, break and rent-review calendar across the client base | none |
@@ -82,6 +85,10 @@ scripts/
 ```
 
 Every record carries `source`, `fetchedAt` and `licence`. The UI shows provenance everywhere and the CSV exports carry licence notices (HMLR CCOD: no direct marketing; VOA: restricted terms).
+
+## Sign-in and roles
+
+Set `VITE_OIDC_AUTHORITY` and `VITE_OIDC_CLIENT_ID` (and `OIDC_ISSUER`, `OIDC_AUDIENCE` on the API) to use Microsoft Entra ID or any OpenID Connect provider; the app runs the authorization-code flow with PKCE in the browser. Roles come from the `roles` or `groups` claims (`cpi.admin`, `cpi.compliance`) or `VITE_ADMIN_EMAILS`. Without configuration the app uses demo personas so the role gates and audit trail can be shown.
 
 ## Deploy internally
 

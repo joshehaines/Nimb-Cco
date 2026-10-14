@@ -6,3 +6,4 @@ pydantic==2.10.4
 python-dateutil==2.9.0.post0
 pyproj==3.7.2
 shapely==2.1.2
+PyJWT[crypto]==2.10.1

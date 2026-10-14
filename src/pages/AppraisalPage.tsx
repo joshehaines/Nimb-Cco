@@ -5,7 +5,7 @@ import { provider, type Business, type Catchment, type Comparable, type Comparab
 import { useSite } from '@/hooks/useSite'
 import { Spinner, Badge, KV } from '@/components/ui'
 import { dateShort, gbp, num, sqm, monthsUntil } from '@/lib/format'
-import { canDownload } from '@/lib/env'
+import { ReportFrame } from '@/components/ReportFrame'
 import { centroid, haversineM } from '@/lib/geo'
 
 /**
@@ -56,14 +56,7 @@ export function AppraisalPage() {
   const ratio = catchment?.ratios.find((r) => (b.sector === 'Care Home' && r.label.startsWith('Care')) || (b.sector === 'Childcare' && r.label.startsWith('Nursery')) || (b.sector === 'Pub' && r.label.startsWith('Pubs')) || (b.sector === 'Pharmacy' && r.label.startsWith('Pharmacies')) || (b.sector === 'Dental' && r.label.startsWith('Dental')))
   const titleCentre = centroid(t.geometry as Polygon)
   return (
-    <div className="mx-auto max-w-4xl bg-surface p-10 text-ink-900 print:p-0">
-      <div className="no-print mb-4 flex justify-end gap-2">{canDownload ? <button className="btn-primary" onClick={() => window.print()}>Print / save as PDF</button> : <span className="text-xs text-ink-500">Printing is disabled on this preview host.</span>}</div>
-      <header className="mb-6 border-b-2 border-brand-700 pb-4">
-        <div className="text-xs font-semibold uppercase tracking-widest text-brand-700">Christie &amp; Co · Property Intelligence · Indicative appraisal</div>
-        <h1 className="mt-1 text-2xl font-semibold">{b.name}</h1>
-        <div className="text-sm text-ink-600">{b.sector}{b.subSector ? ` · ${b.subSector}` : ''} · {b.tenure} · {b.address}, {b.postcode}</div>
-        <div className="mt-1 text-xs text-ink-500">Prepared {new Date().toLocaleDateString('en-GB')} from public registers and Christie &amp; Co records. Indicative only: not a RICS Red Book valuation and not for lending or reporting purposes.</div>
-      </header>
+    <ReportFrame kind="Indicative appraisal" title={b.name} subtitle={`${b.sector}${b.subSector ? ` · ${b.subSector}` : ''} · ${b.tenure} · ${b.address}, ${b.postcode}`} meta={<div className="mt-1 max-w-[220px]">Indicative only: not a RICS Red Book valuation and not for lending or reporting purposes.</div>} entityType="business" entityId={b.businessId}>
 
       <section className="mb-6 rounded-lg border border-brand-200 bg-brand-50 p-5">
         <div className="text-xs font-semibold uppercase tracking-wide text-brand-800">Indicative value range ({b.tenure})</div>
@@ -112,6 +105,6 @@ export function AppraisalPage() {
         </table>
       </section>
       <footer className="mt-10 border-t border-ink-200 pt-3 text-[10px] text-ink-500">Comparable prices from HM Land Registry entries and Christie &amp; Co transaction records (confidential). Rateable values under VOA restricted terms. Demographics from ONS mid-year estimates. This document is an internal desktop appraisal; a formal valuation requires inspection, trading accounts and a RICS-qualified valuer.</footer>
-    </div>
+    </ReportFrame>
   )
 }

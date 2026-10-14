@@ -1,8 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "vite/client"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -10,7 +17,18 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    }
   },
-  "include": ["vite.config.ts", "scripts/mockApiPlugin.ts", "src/data/**/*.ts", "src/lib/**/*.ts"]
+  "include": [
+    "vite.config.ts",
+    "scripts/mockApiPlugin.ts",
+    "src/data/**/*.ts",
+    "src/lib/**/*.ts"
+  ]
 }

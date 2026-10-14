@@ -57,6 +57,18 @@ Open **Sourcing** (or the Filters button on the map). Pick a strategy preset suc
 
 The **Appraise** button in the info panel builds an appraisal pack for one business: comps of the same sector within 25 km (widened to 60 km when thin), preferring the same tenure, an indicative range from the per-unit and rateable-value methods, adjustments for EPC and MEES risk, short unexpired lease, distress flags and regulator rating, a catchment summary and the comparable schedule. Print it from the browser.
 
+## Signing in, roles and settings
+
+With single sign-on configured the app asks for your company account; otherwise it runs with a demo persona you can switch in **Settings** (bottom of the navigation). Three roles matter: everyone is an agent; **compliance** can approve campaigns and read the audit log; **admin** can do both and see the data sources page. Settings also holds the Ordnance Survey key for the British basemap, the demo areas, the theme and the guided tour.
+
+## Export to CRM
+
+**Export to CRM** builds clean records for your CRM from a sourcing result, the pipeline (or one stage), My Sites or a campaign's recipients. Pick the preset for your CRM (Salesforce, HubSpot, Dynamics 365 or generic), choose the objects (accounts, contacts, sites, deals), and download a zip with one CSV per object and a README. External IDs are stable, so re-importing updates rather than duplicates. The licence gate runs automatically: accounts known only from free HM Land Registry ownership data are excluded (or exported with Marketing Allowed = FALSE if you untick the option), redacted private individuals never become contacts, and VOA rateable values stay in the platform unless you choose otherwise. Upload your current CRM export on the clean-up page first and the export can skip records you already hold. Column headers are editable in the preview and saved as your template.
+
+## Audit log
+
+Every document order, CSV export, CRM export, campaign creation, approval and send is recorded with who did it and the licence classes involved. Compliance and admin users see it under **Audit log** and can export it. When the API is in use the server keeps the record.
+
 ## Lease events
 
 A calendar of expiries from registered leases, plus breaks and rent reviews once the lease has been bought and parsed. Filter by horizon and event type; click a row to open the site.

@@ -9,6 +9,7 @@ import { gbp, dateShort, num } from '@/lib/format'
 import { haversineM } from '@/lib/geo'
 import { useUi } from '@/store/ui'
 import { canDownload } from '@/lib/env'
+import { logAudit } from '@/lib/audit'
 
 const RADII = [1000, 2000, 5000, 10000, 25000]
 
@@ -73,6 +74,7 @@ export function ComparablesPage() {
     a.href = URL.createObjectURL(blob)
     a.download = `comparables-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
+    logAudit('export', `Comparables schedule CSV: ${sorted.length} rows`, { licences: ['OGL', 'Internal'], count: sorted.length })
   }
   const plot = () => {
     setLayer('comparables', true)

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { REAL_DATA_BASE } from '@/data/real'
+import { DATA_BASE, DEMO_AREAS } from '@/data/real'
 import maplibregl, { type Map as MLMap, type MapMouseEvent, type StyleSpecification } from 'maplibre-gl'
 import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
 import { useUi } from '@/store/ui'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 
-const OS_KEY = import.meta.env.VITE_OS_API_KEY as string | undefined
+const osKey = () => useUi.getState().osKey || (import.meta.env.VITE_OS_API_KEY as string | undefined)
 
 function baseStyle(satellite: boolean, dark = false): string | StyleSpecification {
   if (satellite) {
@@ -18,6 +18,7 @@ function baseStyle(satellite: boolean, dark = false): string | StyleSpecificatio
       layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
     }
   }
+  const OS_KEY = osKey()
   if (OS_KEY) {
     return {
       version: 8,
@@ -149,11 +150,11 @@ export function MapView() {
     const map = mapRef.current
     if (!layers.buildings || buildingsLoadedRef.current || !map) return
     buildingsLoadedRef.current = true
-    fetch(`${REAL_DATA_BASE}buildings.geojson`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((fc) => {
+    Promise.all(DEMO_AREAS.filter((a) => a.files.buildings).map((a) => fetch(`${DATA_BASE}${a.files.buildings}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
+      .then((fcs) => {
         const src = map.getSource('buildings') as maplibregl.GeoJSONSource | undefined
-        if (fc && src) src.setData(fc)
+        const features = fcs.flatMap((fc) => (fc ? (fc as { features: unknown[] }).features : []))
+        if (src && features.length) src.setData({ type: 'FeatureCollection', features } as never)
       })
       .catch(() => undefined)
   }, [layers.buildings])

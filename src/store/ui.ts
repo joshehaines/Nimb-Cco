@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Alert, BoundsQuery, Campaign, PipelineStage, Sector, SourcingFilters, WatchItem } from '@/data/types'
+import type { Alert, AuditEvent, BoundsQuery, Campaign, CrmRecord, PipelineStage, Sector, SourcingFilters, WatchItem } from '@/data/types'
 import { DEFAULT_FILTERS } from '@/data/types'
 
 export type LayerKey = 'titles' | 'businesses' | 'poi' | 'buildings' | 'pricePaid' | 'comparables' | 'planning' | 'traffic' | 'footfall' | 'constraints' | 'satellite'
@@ -33,6 +33,15 @@ export interface UiState {
   alertRules: AlertRules
   campaigns: Campaign[]
   theme: 'light' | 'dark' | 'system'
+  /** Who did what, newest first (also posted to the API when one is configured). */
+  audit: AuditEvent[]
+  /** The last CRM export uploaded on the CRM page, kept in memory for de-duplicating exports back to the CRM. */
+  crmRecords: CrmRecord[]
+  crmRecordsName?: string
+  /** Column header overrides per CRM preset and object, e.g. { hubspot: { accounts: { name: 'Company name' } } }. */
+  crmTemplates: Record<string, Record<string, Record<string, string>>>
+  tourDone: boolean
+  osKey?: string
   toggleLayer: (k: LayerKey) => void
   setLayer: (k: LayerKey, v: boolean) => void
   setConstraintKinds: (k: string[]) => void
@@ -55,6 +64,12 @@ export interface UiState {
   setStage: (id: string, stage: PipelineStage) => void
   upsertCampaign: (c: Campaign) => void
   removeCampaign: (id: string) => void
+  pushAudit: (e: AuditEvent) => void
+  clearAudit: () => void
+  setCrmRecords: (records: CrmRecord[], name?: string) => void
+  setCrmTemplate: (preset: string, object: string, field: string, header: string) => void
+  setTourDone: (v: boolean) => void
+  setOsKey: (k?: string) => void
 }
 
 export interface AlertRules {
@@ -104,6 +119,11 @@ export const useUi = create<UiState>()(
       alertRules: DEFAULT_ALERT_RULES,
       campaigns: [],
       theme: 'system',
+      audit: [],
+      crmRecords: [],
+      crmTemplates: {},
+      tourDone: false,
+      osKey: undefined,
       toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
       setLayer: (k, v) => set((s) => ({ layers: { ...s.layers, [k]: v } })),
       setConstraintKinds: (constraintKinds) => set({ constraintKinds }),
@@ -127,10 +147,16 @@ export const useUi = create<UiState>()(
       setStage: (id, stage) => set((s) => ({ watchlist: s.watchlist.map((w) => (w.id === id ? { ...w, stage, stageChangedAt: new Date().toISOString() } : w)) })),
       upsertCampaign: (c) => set((s) => ({ campaigns: s.campaigns.some((x) => x.campaignId === c.campaignId) ? s.campaigns.map((x) => (x.campaignId === c.campaignId ? c : x)) : [c, ...s.campaigns] })),
       removeCampaign: (id) => set((s) => ({ campaigns: s.campaigns.filter((c) => c.campaignId !== id) })),
+      pushAudit: (e) => set((s) => ({ audit: [e, ...s.audit].slice(0, 1000) })),
+      clearAudit: () => set({ audit: [] }),
+      setCrmRecords: (crmRecords, crmRecordsName) => set({ crmRecords, crmRecordsName }),
+      setCrmTemplate: (preset, object, field, header) => set((s) => ({ crmTemplates: { ...s.crmTemplates, [preset]: { ...(s.crmTemplates[preset] ?? {}), [object]: { ...((s.crmTemplates[preset] ?? {})[object] ?? {}), [field]: header } } } })),
+      setTourDone: (tourDone) => set({ tourDone }),
+      setOsKey: (osKey) => set({ osKey: osKey || undefined }),
     }),
     {
       name: 'cpi-ui',
-      partialize: (s) => ({ layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
+      partialize: (s) => ({ audit: s.audit, crmTemplates: s.crmTemplates, tourDone: s.tourDone, osKey: s.osKey, layers: s.layers, constraintKinds: s.constraintKinds, mapView: s.mapView, watchlist: s.watchlist, projects: s.projects, filters: s.filters, alertRules: s.alertRules, theme: s.theme, campaigns: s.campaigns }),
       // Tolerate older or partial persisted shapes: fill gaps from defaults instead of crashing.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UiState>
@@ -144,6 +170,10 @@ export const useUi = create<UiState>()(
           constraintKinds: Array.isArray(p.constraintKinds) ? p.constraintKinds : current.constraintKinds,
           mapView: p.mapView && Number.isFinite(p.mapView.lon) ? p.mapView : current.mapView,
           highlightIds: [],
+          audit: Array.isArray(p.audit) ? p.audit : [],
+          crmTemplates: p.crmTemplates && typeof p.crmTemplates === 'object' ? p.crmTemplates : {},
+          crmRecords: [],
+          tourDone: !!p.tourDone,
           theme: p.theme === 'light' || p.theme === 'dark' ? p.theme : 'system',
           campaigns: Array.isArray(p.campaigns) ? p.campaigns : [],
           alertRules: { ...DEFAULT_ALERT_RULES, ...(p.alertRules ?? {}), channels: { ...DEFAULT_ALERT_RULES.channels, ...(p.alertRules?.channels ?? {}) } },

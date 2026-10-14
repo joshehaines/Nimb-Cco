@@ -5,6 +5,7 @@ import { useUi } from '@/store/ui'
 import { Badge } from '@/components/ui'
 import { dateShort, gbp } from '@/lib/format'
 import { canDownload } from '@/lib/env'
+import { ReportFrame } from '@/components/ReportFrame'
 import { TEMPLATES, mergeLetter } from './CampaignsPage'
 
 function PrintBar() {
@@ -26,13 +27,7 @@ export function StageReportPage() {
   }, [stage])
   const fees = items.reduce((s, w) => s + (w.feeEstimate ?? 0), 0)
   return (
-    <div className="mx-auto max-w-4xl bg-surface p-10 text-ink-900 print:p-0">
-      <PrintBar />
-      <header className="mb-6 border-b-2 border-brand-700 pb-4">
-        <div className="text-xs font-semibold uppercase tracking-widest text-brand-700">Christie &amp; Co · Pipeline stage report</div>
-        <h1 className="mt-1 text-2xl font-semibold">{decodeURIComponent(stage)}</h1>
-        <div className="text-sm text-ink-600">{items.length} sites · fee estimate {gbp(fees)} · generated {new Date().toLocaleDateString('en-GB')}</div>
-      </header>
+    <ReportFrame kind="Pipeline stage report" title={decodeURIComponent(stage)} subtitle={`${items.length} sites · fee estimate ${gbp(fees)}`} entityType="stage" entityId={decodeURIComponent(stage)}>
       {items.map((w) => {
         const b = biz[w.entityId]
         return (
@@ -51,8 +46,7 @@ export function StageReportPage() {
         )
       })}
       {!items.length && <p className="text-sm text-ink-500">No sites in this stage.</p>}
-      <footer className="mt-8 text-[10px] text-ink-500">Internal and client use. Ownership from HM Land Registry; regulator data from CQC, Ofsted, FSA and NHSBSA; company data from Companies House.</footer>
-    </div>
+    </ReportFrame>
   )
 }
 

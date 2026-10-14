@@ -18,8 +18,10 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import asyncpg
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+
+from .auth import User, current_user, require_role
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://cpi:cpi@localhost:5432/cpi")
 
@@ -33,7 +35,18 @@ async def lifespan(app: FastAPI):
         await app.state.pool.close()
 
 
-app = FastAPI(title="Christie Property Intelligence API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Christie Property Intelligence API", version="0.2.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def require_auth(request: Request, call_next):
+    """Every /api route except health needs a user; the dependency below does the actual check."""
+    if request.url.path.startswith("/api") and request.url.path not in ("/api/health",):
+        try:
+            request.state.user = await current_user(request)
+        except HTTPException as e:
+            return JSONResponse({"error": e.detail}, status_code=e.status_code)
+    return await call_next(request)
 
 
 def not_implemented(what: str) -> JSONResponse:
@@ -287,11 +300,57 @@ async def map_open_data(req: Request, bbox: str = Query(..., description="west,s
 
 
 @app.get("/api/admin/sources")
-async def admin_sources(req: Request):
+async def admin_sources(req: Request, user: User = Depends(require_role("admin"))):
     async with req.app.state.pool.acquire() as c:
         rows = await c.fetch("select * from data_sources order by name")
     return [{"id": r["id"], "name": r["name"], "provider": r["provider"], "licence": r["licence"], "cadence": r["cadence"], "lastRun": r["last_run"].isoformat() if r["last_run"] else None,
              "nextRun": r["next_run"].isoformat() if r["next_run"] else None, "status": r["status"], "records": r["records"], "note": r["note"], "docsUrl": r["docs_url"]} for r in rows]
+
+
+# ------------------------------------------------------------ users, watchlists, audit
+@app.get("/api/me")
+async def me(user: User = Depends(current_user)):
+    return {"id": user.id, "name": user.name, "email": user.email, "roles": user.roles}
+
+
+@app.get("/api/me/watchlist")
+async def get_watchlist(req: Request, user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from watch_items where user_id = $1 order by added_at desc", user.id)
+    return [{"id": str(r["id"]), "entityType": r["entity_type"], "entityId": r["entity_id"], "label": r["label"], "notes": r["notes"], "radiusM": r["radius_m"], "project": r["project"], "addedAt": r["added_at"].isoformat(), **(json.loads(r["extra"]) if r.keys().__contains__("extra") and r["extra"] else {})} for r in rows]
+
+
+@app.post("/api/me/watchlist")
+async def save_watchlist(req: Request, items: list[dict[str, Any]], user: User = Depends(current_user)):
+    """Replace the caller's watchlist (the UI is the source of truth for ordering and pipeline fields)."""
+    async with req.app.state.pool.acquire() as c:
+        async with c.transaction():
+            await c.execute("insert into users (user_id, email) values ($1, $2) on conflict (user_id) do update set email = excluded.email", user.id, user.email)
+            await c.execute("delete from watch_items where user_id = $1", user.id)
+            for w in items:
+                extra = {k: v for k, v in w.items() if k not in ("id", "entityType", "entityId", "label", "notes", "radiusM", "project", "addedAt")}
+                await c.execute(
+                    "insert into watch_items (user_id, entity_type, entity_id, label, notes, radius_m, project, added_at, extra) values ($1,$2,$3,$4,$5,$6,$7,coalesce($8::timestamptz, now()),$9::jsonb) on conflict (user_id, entity_type, entity_id) do nothing",
+                    user.id, w.get("entityType"), w.get("entityId"), w.get("label"), w.get("notes"), w.get("radiusM"), w.get("project"), w.get("addedAt"), json.dumps(extra),
+                )
+    return {"ok": True, "count": len(items)}
+
+
+@app.post("/api/audit")
+async def record_audit(req: Request, e: dict[str, Any], user: User = Depends(current_user)):
+    async with req.app.state.pool.acquire() as c:
+        await c.execute(
+            "insert into audit_log (event_id, at, user_id, user_name, kind, summary, entity_type, entity_id, licences, count) values ($1, coalesce($2::timestamptz, now()), $3, $4, $5, $6, $7, $8, $9, $10) on conflict (event_id) do nothing",
+            e.get("id"), e.get("at"), user.id, user.name, e.get("kind"), e.get("summary"), e.get("entityType"), e.get("entityId"), e.get("licences") or [], e.get("count"),
+        )
+    return {"ok": True}
+
+
+@app.get("/api/audit")
+async def list_audit(req: Request, limit: int = 500, user: User = Depends(require_role("compliance"))):
+    async with req.app.state.pool.acquire() as c:
+        rows = await c.fetch("select * from audit_log order by at desc limit $1", limit)
+    return [{"id": r["event_id"], "at": r["at"].isoformat(), "userId": r["user_id"], "userName": r["user_name"], "kind": r["kind"], "summary": r["summary"], "entityType": r["entity_type"], "entityId": r["entity_id"], "licences": list(r["licences"] or []), "count": r["count"]} for r in rows]
 
 
 # ------------------------------------------------------------ remaining endpoints
