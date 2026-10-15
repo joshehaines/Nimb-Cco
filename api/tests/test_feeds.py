@@ -214,3 +214,11 @@ def test_search_ranks_place_then_records(make_client):
     assert kinds == ["postcode", "business", "address"], kinds
     assert r.json()[0]["location"]["coordinates"] == [-1.5365, 52.289] and "score" not in r.json()[0]
     assert client.get("/api/search", params={"q": "a"}, headers={"X-Demo-User": "demo-agent"}).json() == []
+
+
+def test_every_word_clause():
+    from app.main import _every_word
+
+    sql, params = _every_word(["name", "address"], ["londis", "leamington"], 5)
+    assert sql == "(name ilike $5 or address ilike $5) and (name ilike $6 or address ilike $6)"
+    assert params == ["%londis%", "%leamington%"]
