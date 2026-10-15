@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/audit'
 
 /** User settings: persona (demo), Ordnance Survey key, theme, demo areas, tour, sign out. */
 export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; onClose: () => void; onStartTour: () => void }) {
-  const { osKey, setOsKey, theme, setTheme, requestFlyTo } = useUi()
+  const { osKey, setOsKey, theme, setTheme } = useUi()
   const { user, signOut, setDemoPersona, changePassword } = useAuth()
   const [key, setKey] = useState(osKey ?? '')
   const [pw, setPw] = useState({ current: '', next: '', again: '' })
