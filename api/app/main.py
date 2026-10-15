@@ -130,7 +130,7 @@ async def map_layers(req: Request, bbox: str = Query(..., description="west,sout
             """,
             w, s, e, n,
         )
-        businesses = await c.fetch(f"select business_id, sector, name, cardinality(distress_flags) > 0 distress, ST_AsGeoJSON(geom)::json geom from businesses where geom && {env}", w, s, e, n)
+        businesses = await c.fetch(f"select business_id, sector, name, cardinality(distress_flags) > 0 distress, ST_AsGeoJSON(geom)::json geom from businesses where geom && {env} limit 5000", w, s, e, n)
         planning = await c.fetch(f"select reference, status, type, ST_AsGeoJSON(geom)::json geom from planning_applications where geom && {env} limit 5000", w, s, e, n)
         traffic = await c.fetch(f"select count_point_id, aadf, year, method, ST_AsGeoJSON(geom)::json geom from traffic_counts where geom && {env}", w, s, e, n)
         footfall = await c.fetch(f"select h3, band, monthly_visits, ST_AsGeoJSON(geom)::json geom from footfall_cells where month = (select max(month) from footfall_cells) and geom && {env}", w, s, e, n)
