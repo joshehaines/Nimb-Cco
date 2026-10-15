@@ -3,6 +3,8 @@ import asyncio
 import io
 import json
 import zipfile
+
+import pytest
 from datetime import date
 from pathlib import Path
 
@@ -31,6 +33,10 @@ class RecordingConn:
     async def fetchval(self, sql, *args):
         self.sql.append((" ".join(sql.split()), args))
         return self._fetchval
+
+    async def fetch(self, sql, *args):
+        self.sql.append((" ".join(sql.split()), args))
+        return []
 
 
 def _codepoint_zip(tmp_path: Path) -> Path:
@@ -231,3 +237,36 @@ def test_sector_and_place():
     assert sector_and_place(["care", "home", "Bath"]) == ("Care Home", "Bath")
     assert sector_and_place(["Greene", "King"]) is None
     assert sector_and_place(["pub"]) is None
+
+
+def test_overture_buildings_bbox_filter_and_row_shape():
+    pa = pytest.importorskip("pyarrow")
+    from ingest import overture_buildings as ob
+
+    table = pa.table({
+        "id": ["in", "out"],
+        "class": ["commercial", None],
+        "subtype": [None, None],
+        "height": [7.5, None],
+        "num_floors": [2, None],
+        "names": [{"primary": "The Kings Head"}, None],
+        "bbox": [{"xmin": -1.54, "xmax": -1.539, "ymin": 52.29, "ymax": 52.291}, {"xmin": 30.0, "xmax": 30.1, "ymin": 10.0, "ymax": 10.1}],
+        "geometry": [b"\x01\x03", b"\x01\x03"],
+    })
+    rows = list(ob.rows_in_bbox(table, ob.BBOX))
+    assert rows == [("in", "The Kings Head", "commercial", None, 7.5, 2, b"\x01\x03")]
+
+
+def test_linkage_drops_invalid_indexes_before_creating():
+    from ingest import linkage
+
+    class Conn(RecordingConn):
+        async def fetch(self, sql, *args):
+            self.sql.append((" ".join(sql.split()), args))
+            return [{"relname": "businesses_title_idx"}] if "indisvalid" in sql else []
+
+    conn = Conn(fetchval=1)
+    asyncio.run(linkage.load(conn, Path("/raw")))
+    sql = [s[0] for s in conn.sql]
+    assert any(s.startswith('drop index if exists "businesses_title_idx"') for s in sql)
+    assert sql.index(next(s for s in sql if s.startswith("drop index"))) < sql.index(next(s for s in sql if "create index if not exists businesses_title_idx" in s))

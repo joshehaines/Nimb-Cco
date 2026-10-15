@@ -40,7 +40,13 @@ py() { python3 -I -c "$@"; }
 # INSPIRE index polygons: one zip per local authority (no account; the site sets a cookie then redirects to S3).
 # Names exactly as on https://use-land-property-data.service.gov.uk/datasets/inspire/download (spaces become underscores,
 # e.g. Bristol_City_Council); an unknown name loops on a redirect and is reported as failed.
-for LA in ${INSPIRE_AREAS:-Warwick_District_Council Bristol_City_Council Birmingham_City_Council Coventry_City_Council Stratford-on-Avon_District_Council Solihull_Metropolitan_Borough_Council Rugby_Borough_Council North_Warwickshire_Borough_Council Nuneaton_and_Bedworth_Borough_Council South_Gloucestershire_Council Bath_and_North_East_Somerset_Council North_Somerset_Council}; do
+# By default every authority listed on the download page (318 in England and Wales, about 15 GB); INSPIRE_AREAS limits it.
+INSPIRE_ALL=$(curl -sSL --max-redirs 10 -c "$JAR" -b "$JAR" -A "Mozilla/5.0 (compatible; ChristiePropertyIntelligence/0.1)" "https://use-land-property-data.service.gov.uk/datasets/inspire/download" 2>/dev/null \
+  | grep -o "/datasets/inspire/download/[^\"'[:space:]<>]*\.zip" | sed -e "s|.*/||" -e "s|\.zip$||" | sort -u | tr "\n" " ")
+[ -z "$INSPIRE_ALL" ] && log "INSPIRE: authority list unavailable, using the default twelve"
+for LA in ${INSPIRE_AREAS:-${INSPIRE_ALL:-Warwick_District_Council Bristol_City_Council Birmingham_City_Council Coventry_City_Council Stratford-on-Avon_District_Council Solihull_Metropolitan_Borough_Council Rugby_Borough_Council North_Warwickshire_Borough_Council Nuneaton_and_Bedworth_Borough_Council South_Gloucestershire_Council Bath_and_North_East_Somerset_Council North_Somerset_Council}}; do
+  [ -s "inspire_${LA}.zip" ] && { log "have inspire_${LA}.zip"; continue; }
+  sleep 1
   get "https://use-land-property-data.service.gov.uk/datasets/inspire/download/${LA}.zip" "inspire_${LA}.zip"
 done
 # CCOD (UK companies) and OCOD (overseas companies), full monthly files. API key from the data portal.

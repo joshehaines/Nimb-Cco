@@ -204,7 +204,15 @@ def fetch(workdir: Path) -> Path:
     return workdir
 
 
+INVALID_INDEXES = """select i.relname from pg_index x join pg_class i on i.oid = x.indexrelid join pg_class t on t.oid = x.indrelid
+    where not x.indisvalid and t.relname in ('businesses', 'titles', 'companies', 'proprietors', 'hereditaments', 'epcs', 'register_records')"""
+
+
 async def load(conn, path: Path) -> int:
+    # A CREATE INDEX CONCURRENTLY that failed (deadlock, cancel) leaves an invalid index that the planner ignores and
+    # that "create index if not exists" treats as present; drop those first so the index step rebuilds them.
+    for r in await conn.fetch(INVALID_INDEXES):
+        await conn.execute(f'drop index if exists "{r["relname"]}"')
     for name, sql in STEPS:
         for stmt in (s for s in sql.split(";") if s.strip()):
             await conn.execute(stmt)
