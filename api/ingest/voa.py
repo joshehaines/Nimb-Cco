@@ -42,7 +42,7 @@ async def load(conn, path: Path) -> int:
             await b.flush()
             seen.clear()
         seen.add(rec["uarn"])
-        await b.add(rec["uarn"], rec["address"], rec["postcode"], rec["description"], rec["scat_code"], rec["rateable_value"], rec["effective_date"], year, rec.get("current_to") is not None, rec["source"], rec["licence"])
+        await b.add(rec["uarn"], rec["address"], rec["postcode"], rec["description"], rec["scat_code"], rec["rateable_value"], rec["effective_date"], year, bool(rec.get("deleted")), rec["source"], rec["licence"])
     await b.flush()
     return b.count
 

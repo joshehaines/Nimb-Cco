@@ -1,6 +1,15 @@
 """VOA non-domestic rating list: compiled list entries and summary valuations ('*'-delimited text).
 
-Compiled list entries (one line per hereditament), field order:
+Compiled list entries (one line per hereditament). The 2026 list has 29 '*'-separated fields:
+ 1 entry number, 2 billing authority code, 3 NDR community code, 4 BA reference, 5 description code,
+ 6 description text, 7 UARN, 8 full property identifier, 9 firm's name, 10 number or name, 11 street,
+ 12 town, 13 postal district, 14 county, 15 postcode, 16 scheme reference, 17 composite indicator,
+ 18 rateable value, 19 appeal settlement code, 20 assessment reference, 21 list alteration date,
+ 22 SCAT code and suffix, 23-25 sub street levels, 26 case number, 27 current from date, 28 current to date.
+Weekly change-update files have 34 fields: 1 BA code, 3 BA reference, 4 UARN, 5 full address, 6 postcode,
+ 7 description code, 8 description, 9 rateable value or DELETED, 10 effective date, 15/16 change reason
+ code and text, 18 SCAT, 21 list alteration date, 26 number or name, 27 street, 28 postal district, 29 town.
+Older lists (pre-2026 layout) had the field order:
  1 entry number, 2 billing authority code, 3 NDR community code, 4 BA reference, 5 primary/secondary
  description code, 6 primary description text, 7 UARN, 8 full property identifier, 9 firm's name,
  10 number or name, 11-13 sub street levels 3-1, 14 street, 15 town, 16 postal district, 17 county,
@@ -14,41 +23,74 @@ The downloads at voaratinglists.blob.core.windows.net are zips holding one '*'-d
 """
 from __future__ import annotations
 
+import re
 from typing import Iterator
 
 from ._util import iter_lines, norm_postcode, open_text, parse_date, to_float, to_int
 
 
-def parse_list_entries(path) -> Iterator[dict]:
-    """Accepts the VOA zip (one '*'-delimited .csv inside), a bare file or a directory of change files."""
-    for line in iter_lines(path, (".csv", ".txt")):
-        f = line.rstrip("\r\n").split("*")
-        if len(f) < 22 or not f[6].strip():
-            continue
-        yield {
-            "uarn": f[6].strip(),
-            "ba_code": f[1].strip(),
-            "ba_reference": f[3].strip(),
-            "description_code": f[4].strip(),
-            "description": f[5].strip(),
-            "address": f[7].strip(),
-            "firm_name": f[8].strip() or None,
-            "number_or_name": f[9].strip() or None,
-            "street": f[13].strip() or None,
-            "town": f[14].strip() or None,
-            "postal_district": f[15].strip() or None,
-            "county": f[16].strip() or None,
-            "postcode": norm_postcode(f[17].strip()),
-            "scheme_reference": f[18].strip() or None,
-            "effective_date": parse_date(f[19].strip()),
-            "composite": f[20].strip().upper() == "C",
-            "rateable_value": to_int(f[21]),
-            "scat_code": f[25].strip() if len(f) > 25 else None,
-            "current_from": parse_date(f[28].strip()) if len(f) > 28 else None,
-            "current_to": parse_date(f[29].strip()) if len(f) > 29 else None,
-            "source": "VOA rating list",
-            "licence": "VOA-Restricted",
+_POSTCODE = re.compile(r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$")
+
+
+def _layout(f: list[str]) -> str:
+    """Which column layout a line uses: 'change' (weekly change-update files, 34 fields, postcode in field 6),
+    'compiled' (2026 compiled list, 29 fields, postcode in field 15) or 'legacy' (older lists, postcode in field 18)."""
+    def pc(i: int) -> bool:
+        return len(f) > i and bool(_POSTCODE.match(f[i].strip().upper()))
+
+    if len(f) >= 30 and f[3].strip().isdigit() and (pc(5) or not f[5].strip()) and not f[6].strip().isdigit():
+        return "change"
+    if pc(14) or (len(f) < 30 and not pc(17)):
+        return "compiled"
+    return "legacy"
+
+
+def _entry(f: list[str], layout: str) -> dict | None:
+    g = lambda i: f[i].strip() if len(f) > i else ""  # noqa: E731
+    if layout == "change":
+        rv = g(8)
+        deleted = rv.upper() == "DELETED"
+        return {
+            "uarn": g(3), "ba_code": g(0), "ba_reference": g(2), "description_code": g(6), "description": g(7) or None,
+            "address": g(4) or None, "firm_name": None, "number_or_name": g(25) or None, "street": g(26) or None, "town": g(28) or None,
+            "postal_district": g(27) or None, "county": None, "postcode": norm_postcode(g(5)), "scheme_reference": None,
+            "effective_date": parse_date(g(9)), "composite": False, "rateable_value": None if deleted else to_int(rv),
+            "scat_code": g(17) or None, "current_from": parse_date(g(20)), "current_to": parse_date(g(31)) if deleted else None,
+            "change_reason": g(15) or None, "deleted": deleted,
         }
+    if layout == "compiled":
+        return {
+            "uarn": g(6), "ba_code": g(1), "ba_reference": g(3), "description_code": g(4), "description": g(5) or None,
+            "address": g(7) or None, "firm_name": g(8) or None, "number_or_name": g(9) or None, "street": g(10) or None, "town": g(11) or None,
+            "postal_district": g(12) or None, "county": g(13) or None, "postcode": norm_postcode(g(14)), "scheme_reference": g(15) or None,
+            "effective_date": parse_date(g(26)) or parse_date(g(20)), "composite": g(16).upper() == "C", "rateable_value": to_int(g(17)),
+            "scat_code": g(21) or None, "current_from": parse_date(g(26)), "current_to": parse_date(g(27)), "change_reason": None, "deleted": bool(parse_date(g(27))),
+        }
+    return {
+        "uarn": g(6), "ba_code": g(1), "ba_reference": g(3), "description_code": g(4), "description": g(5) or None,
+        "address": g(7) or None, "firm_name": g(8) or None, "number_or_name": g(9) or None, "street": g(13) or None, "town": g(14) or None,
+        "postal_district": g(15) or None, "county": g(16) or None, "postcode": norm_postcode(g(17)), "scheme_reference": g(18) or None,
+        "effective_date": parse_date(g(19)), "composite": g(20).upper() == "C", "rateable_value": to_int(g(21)),
+        "scat_code": g(25) or None, "current_from": parse_date(g(28)), "current_to": parse_date(g(29)), "change_reason": None, "deleted": bool(parse_date(g(29))),
+    }
+
+
+def parse_list_entries(path) -> Iterator[dict]:
+    """Accepts the VOA zip, a bare file or a directory of change files.
+
+    The baseline zip holds the compiled list plus a '-historic-' file of superseded entries; the historic
+    file is skipped so an old assessment never overwrites the live one for the same UARN. Column layouts
+    (see _layout) are detected per line, so baseline and change-update files load through the same path.
+    """
+    for line in iter_lines(path, (".csv", ".txt"), exclude=("historic",)):
+        f = line.rstrip("\r\n").split("*")
+        if len(f) < 22:
+            continue
+        rec = _entry(f, _layout(f))
+        if not rec or not rec["uarn"] or not rec["uarn"].isdigit():
+            continue
+        rec.update({"source": "VOA rating list", "licence": "VOA-Restricted"})
+        yield rec
 
 
 def parse_summary_valuations(path) -> Iterator[dict]:

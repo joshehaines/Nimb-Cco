@@ -3,7 +3,7 @@
 Source: https://ratings.food.gov.uk/open-data
 Cadence: daily
 Notes: XML per local authority (or JSON API, no key). Business type, rating, address, lat/lon. OGL. Covers pubs, restaurants, hotels, care homes, nurseries, shops.
-Step 1 download: fhrs_<authority id>.xml per local authority.
+Step 1 download: fhrs_<authority id>.xml per local authority, or fhrs_<id>.json from the API when the XML file is empty.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ SOURCE_URL = 'https://ratings.food.gov.uk/open-data'
 CADENCE = 'daily'
 
 def fetch(workdir: Path) -> list[Path]:
-    return local_inputs(workdir, "fhrs_*.xml", "FHRS*.xml", job="fsa")
+    return local_inputs(workdir, "fhrs_*.xml", "fhrs_*.json", "FHRS*.xml", job="fsa")
 
 async def load(conn, path: Path) -> int:
     from .parsers import fsa

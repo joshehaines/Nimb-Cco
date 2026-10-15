@@ -70,7 +70,25 @@ OFSTED_URL=$(curl -sSL --fail -A "$UA" "https://www.gov.uk/api/content/governmen
 if [ -n "$OFSTED_URL" ]; then get "$OFSTED_URL" "ofsted_childcare_providers.csv"; else log "FAILED ofsted: no provider data CSV found on gov.uk"; FAILED+=("ofsted"); fi
 # FSA FHRS: one XML per local authority. Ids from https://api.ratings.food.gov.uk/Authorities/basic
 # 373 Warwick, 324 Bristol, 374 Birmingham, 375 Coventry, 372 Stratford-on-Avon, 369 North Warwickshire.
-for LA in ${FSA_AREAS:-373 324 374 375 372 369}; do get "https://ratings.food.gov.uk/api/open-data-files/FHRS${LA}en-GB.xml" "fhrs_${LA}.xml"; done
+# The XML file for some authorities is served empty; then page the JSON API into fhrs_<id>.json instead.
+for LA in ${FSA_AREAS:-373 324 374 375 372 369}; do
+  [ -s "fhrs_${LA}.json" ] && { log "have fhrs_${LA}.json"; continue; }
+  get "https://ratings.food.gov.uk/api/open-data-files/FHRS${LA}en-GB.xml" "fhrs_${LA}.xml" || true
+  if [ ! -s "fhrs_${LA}.xml" ]; then
+    rm -f "fhrs_${LA}.xml"; log "-> fhrs_${LA}.json (XML file empty; using the API)"
+    py "
+import json, sys, urllib.request
+la = sys.argv[1]; pages = []; n = 1
+while True:
+    req = urllib.request.Request(f'https://api.ratings.food.gov.uk/Establishments?localAuthorityId={la}&pageSize=5000&pageNumber={n}', headers={'x-api-version': '2', 'Accept': 'application/json'})
+    page = json.load(urllib.request.urlopen(req, timeout=120)); pages.append(page)
+    if n >= int((page.get('meta') or {}).get('totalPages') or 1): break
+    n += 1
+json.dump(pages, open(f'fhrs_{la}.json.part', 'w'))
+print(sum(len(p.get('establishments', [])) for p in pages), 'establishments')
+" "$LA" && mv "fhrs_${LA}.json.part" "fhrs_${LA}.json" || { log "FAILED fhrs_${LA}"; FAILED+=("fhrs_${LA}"); }
+  fi
+done
 # NHSBSA consolidated pharmaceutical list: the newest CSV resource in the CKAN package.
 NHS_URL=$(curl -sSL --fail "https://opendata.nhsbsa.net/api/3/action/package_show?id=consolidated-pharmaceutical-list" \
   | py "import sys,json; r=[x for x in json.load(sys.stdin)['result']['resources'] if x.get('url','').lower().endswith('.csv')]; print(r[-1]['url'] if r else '')" 2>/dev/null || true)

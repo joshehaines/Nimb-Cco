@@ -80,8 +80,8 @@ def test_loaders_accept_zipped_downloads(tmp_path):
 
     z = tmp_path / "epc_non_domestic.zip"
     with zipfile.ZipFile(z, "w") as zf:
-        zf.write(FX / "epc_nondomestic_sample.csv", "non-domestic-E08000025-Birmingham/certificates.csv")
-        zf.writestr("non-domestic-E08000025-Birmingham/recommendations.csv", "LMK_KEY,RECOMMENDATION\nabc,Insulate\n")
+        zf.write(FX / "epc_nondomestic_sample.csv", "certificates-2024.csv")
+        zf.writestr("recommendations-2024.csv", "LMK_KEY,RECOMMENDATION\nabc,Insulate\n")
     conn = RecordingConn()
     assert asyncio.run(epc.load(conn, z)) == 2
     assert conn.sql[0][1][5] == "C" and conn.sql[0][1][9] is not None  # rating, expires_at
@@ -109,3 +109,16 @@ def test_run_maps_job_to_data_sources_id():
     meta = run._module_meta("hmlr_ppd", hmlr_ppd)
     assert meta["name"].startswith("Price Paid") and meta["cadence"] == "monthly" and meta["licence"] == "OGL"
     assert run._module_meta("voa", voa)["licence"] == "VOA-Restricted"
+
+
+def test_voa_zip_skips_historic_member(tmp_path):
+    import zipfile
+
+    z = tmp_path / "voa_2026_listentries_baseline.zip"
+    live = (FX / "voa_list_entries_sample.txt").read_text()
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("uk-englandwales-ndr-2026-listentries-compiled-epoch-0004-baseline-csv.csv", live)
+        zf.writestr("uk-englandwales-ndr-2026-listentries-compiled-epoch-0004-baseline-historic-csv.csv", live.replace("42500", "1"))
+    conn = RecordingConn()
+    assert asyncio.run(voa.load(conn, z)) == 2
+    assert conn.sql[0][1][5] == 42500 and conn.sql[0][1][7] == 2026  # rateable value from the live file, list_year from the name

@@ -20,11 +20,13 @@ def _is_zip(path: Path) -> bool:
     return path.is_file() and zipfile.is_zipfile(path)
 
 
-def iter_inputs(path: str | Path | IO, suffixes: Iterable[str] = (".csv",), binary: bool = False) -> Iterator[tuple[str, IO]]:
+def iter_inputs(path: str | Path | IO, suffixes: Iterable[str] = (".csv",), binary: bool = False, exclude: Iterable[str] = ()) -> Iterator[tuple[str, IO]]:
     """Yield (name, handle) for every input file behind `path`.
 
     `path` may be an open handle, a plain file, a zip archive (members whose lower-cased name ends with one
     of `suffixes`, nested folders included) or a directory (recursed; zips inside it are opened too).
+    Members or files whose lower-cased name contains any of `exclude` are skipped (a plain file given
+    directly is always read).
     Text handles decode with utf-8-sig and replace undecodable bytes, which keeps cp1252 stragglers in
     VOA and Companies House files from aborting a multi-hour load.
     """
@@ -33,15 +35,17 @@ def iter_inputs(path: str | Path | IO, suffixes: Iterable[str] = (".csv",), bina
         return
     p = Path(path)
     sfx = tuple(s.lower() for s in suffixes)
+    skip = tuple(e.lower() for e in exclude)
     if p.is_dir():
         for child in sorted(p.rglob("*")):
-            if child.is_file() and (child.name.lower().endswith(sfx) or _is_zip(child)):
-                yield from iter_inputs(child, sfx, binary)
+            if child.is_file() and (child.name.lower().endswith(sfx) or _is_zip(child)) and not any(e in child.name.lower() for e in skip):
+                yield from iter_inputs(child, sfx, binary, skip)
         return
     if _is_zip(p):
         with zipfile.ZipFile(p) as z:
             for info in sorted(z.infolist(), key=lambda i: i.filename):
-                if info.is_dir() or not info.filename.lower().endswith(sfx) or "__macosx" in info.filename.lower():
+                low = info.filename.lower()
+                if info.is_dir() or not low.endswith(sfx) or "__macosx" in low or any(e in low for e in skip):
                     continue
                 with z.open(info) as raw:
                     if binary:
@@ -64,13 +68,13 @@ def open_text(path: str | Path | IO[str]) -> IO[str]:
     return open(path, "r", encoding=TEXT_ENCODING, errors="replace", newline="")
 
 
-def iter_lines(path, suffixes: Iterable[str] = (".csv", ".txt")) -> Iterator[str]:
+def iter_lines(path, suffixes: Iterable[str] = (".csv", ".txt"), exclude: Iterable[str] = ()) -> Iterator[str]:
     """Lines from every text input behind `path` (plain file, zip or directory)."""
-    for _, f in iter_inputs(path, suffixes):
+    for _, f in iter_inputs(path, suffixes, exclude=exclude):
         yield from f
 
 
-def read_csv(path, suffixes: Iterable[str] = (".csv",), ods_sheet: int | str = 0, **kw) -> Iterator[dict[str, str]]:
+def read_csv(path, suffixes: Iterable[str] = (".csv",), ods_sheet: int | str = 0, exclude: Iterable[str] = (), **kw) -> Iterator[dict[str, str]]:
     """Rows from every CSV behind `path` as dicts keyed by normalised header.
 
     Accepts a plain CSV, an .ods spreadsheet (`ods_sheet`: index or case-insensitive part of the sheet
@@ -80,21 +84,23 @@ def read_csv(path, suffixes: Iterable[str] = (".csv",), ods_sheet: int | str = 0
     if p is not None and p.is_file() and p.suffix.lower() == ".ods":
         yield from _rows_to_dicts(read_ods(p, ods_sheet))
         return
-    for name, f in iter_inputs(path, tuple(suffixes) + (".ods",)):
+    for name, f in iter_inputs(path, tuple(suffixes) + (".ods",), exclude=exclude):
         if name.lower().endswith(".ods"):
             yield from _rows_to_dicts(read_ods(f, ods_sheet))
             continue
-        reader = csv.DictReader(f, **kw)
-        reader.fieldnames = [norm_header(h) for h in (reader.fieldnames or [])]
-        for row in reader:
-            yield {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items() if k is not None}
+        yield from _rows_to_dicts(csv.reader(f, **kw))
 
 
-def _rows_to_dicts(rows: Iterator[list[str]]) -> Iterator[dict[str, str]]:
+def _rows_to_dicts(rows: Iterator[list[str]], min_header_cells: int = 3) -> Iterator[dict[str, str]]:
+    """Zip rows against the first row that looks like a header.
+
+    Publishers put title and note lines above the header (Ofsted's CSV has two, CQC's sheet one), so the
+    header is the first row with at least `min_header_cells` non-empty cells; blank rows are skipped.
+    """
     header: list[str] | None = None
     for cells in rows:
         if header is None:
-            if not any(c.strip() for c in cells):
+            if sum(1 for c in cells if c.strip()) < min_header_cells:
                 continue
             header = [norm_header(c) for c in cells]
             continue
