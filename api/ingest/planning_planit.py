@@ -82,6 +82,9 @@ def fetch(workdir: Path) -> list[Path]:
             except httpx.HTTPError as e:
                 complete = False
                 print(f"planning_planit: {area} incomplete after {len(records)} records: {e}", flush=True)
+                if not records:   # refused at the first page after the full backoff: the daily quota is gone, stop asking
+                    print("planning_planit: quota exhausted, remaining authorities left for the next run", flush=True)
+                    break
             if records:
                 target = out / f"{area.replace(' ', '_').lower()}_{today.isoformat()}.json"
                 target.write_text(json.dumps({"area": area, "since": since.isoformat(), "records": records}))
