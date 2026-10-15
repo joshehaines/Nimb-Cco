@@ -41,7 +41,7 @@ SUB_SECTOR_SQL = """case r.register
 
 # VOA descriptions read "CARE HOME AND PREMISES", "DAY NURSERY AND PREMISES", "PUBLIC HOUSE AND PREMISES"...
 HEREDITAMENT_MATCH = """case b.sector
-    when 'Care Home' then h.description ilike '%CARE HOME%' or h.description ilike '%NURSING%' or h.description ilike '%RESIDENTIAL HOME%' or h.description ilike '%REST HOME%'
+    when 'Care Home' then h.description ilike '%CARE HOME%' or h.description ilike '%NURSING%' or h.description ilike '%RESIDENTIAL HOME%' or h.description ilike '%REST HOME%' or h.description ilike '%HOME AND PREMISES%' or h.description ilike '%HOSPICE%' or h.description ilike '%RESPITE%'
     when 'Childcare' then h.description ilike '%NURSERY%' or h.description ilike '%CHILDREN%' or h.description ilike '%CRECHE%' or h.description ilike '%PLAYGROUP%'
     when 'Pharmacy' then h.description ilike '%PHARMAC%' or h.description ilike '%CHEMIST%' or h.description ilike '%SHOP%'
     when 'Dental' then h.description ilike '%DENTAL%' or h.description ilike '%SURGERY%'
@@ -64,6 +64,7 @@ STEPS: list[tuple[str, str]] = [
         create index if not exists proprietors_title_idx on proprietors (title_number, seq);
         create index if not exists companies_norm_name_idx on companies (({NORM_INDEX}));
         create index if not exists businesses_postcode_idx on businesses (postcode);
+        create index if not exists titles_postcode_idx on titles (postcode) where postcode is not null;
     """),
     ("businesses", f"""
         insert into businesses (business_id, name, sector, sub_sector, address, postcode, uprn, geom, operator_name, source, licence)
@@ -94,15 +95,11 @@ STEPS: list[tuple[str, str]] = [
         update businesses b set title_number = h.title_number, tenure = h.tenure from hit h where h.business_id = b.business_id
           and (b.title_number is distinct from h.title_number or b.tenure is distinct from h.tenure)
     """),
-    ("freeholders", """
-        with p as (
-          select distinct on (title_number) title_number, name, company_number
-          from proprietors where title_number in (select title_number from businesses where title_number is not null)
-          order by title_number, seq
-        )
-        update businesses b set freeholder_name = p.name, freeholder_company_number = p.company_number from p where p.title_number = b.title_number
-          and (b.freeholder_name is distinct from p.name or b.freeholder_company_number is distinct from p.company_number)
-    """),
+    # INSPIRE polygons carry geometry but no title number, postcode or address; CCOD/OCOD rows carry the title
+    # number, address, postcode and proprietors but no geometry, and HMLR's open data gives no key between the
+    # two. So the freeholder comes from the best-matching CCOD/OCOD title at the business postcode: the
+    # freehold title whose address resembles the business address or name. A leasehold match names the
+    # occupier's company, which fills operator_company_number when Companies House gave no name match.
     ("operators", f"""
         with cand as (
           select b.business_id, c.company_number, c.status, c.incorporated
@@ -114,6 +111,34 @@ STEPS: list[tuple[str, str]] = [
         )
         update businesses b set operator_company_number = p.company_number from pick p where p.business_id = b.business_id
           and b.operator_company_number is distinct from p.company_number
+    """),
+    ("ccod_titles", """
+        with cand as (
+          select b.business_id, t.title_number, t.tenure,
+                 greatest(similarity(upper(coalesce(t.address, '')), upper(coalesce(b.address, ''))), similarity(upper(coalesce(t.address, '')), upper(b.name))) sim
+          from businesses b join titles t on t.postcode = b.postcode and t.geom is null
+          where b.postcode is not null
+        ), best as (
+          select distinct on (business_id, tenure) business_id, title_number, tenure from cand where sim >= 0.35 order by business_id, tenure, sim desc
+        ), fh as (
+          select x.business_id, p.name, p.company_number from best x join proprietors p on p.title_number = x.title_number and p.seq = 1 where x.tenure = 'Freehold'
+        )
+        update businesses b set freeholder_name = fh.name, freeholder_company_number = fh.company_number from fh
+        where fh.business_id = b.business_id and (b.freeholder_name is distinct from fh.name or b.freeholder_company_number is distinct from fh.company_number)
+    """),
+    ("leasehold_operators", """
+        with cand as (
+          select b.business_id, t.title_number,
+                 greatest(similarity(upper(coalesce(t.address, '')), upper(coalesce(b.address, ''))), similarity(upper(coalesce(t.address, '')), upper(b.name))) sim
+          from businesses b join titles t on t.postcode = b.postcode and t.geom is null and t.tenure = 'Leasehold'
+          where b.postcode is not null and b.operator_company_number is null
+        ), best as (
+          select distinct on (business_id) business_id, title_number from cand where sim >= 0.45 order by business_id, sim desc
+        ), lh as (
+          select x.business_id, p.name, p.company_number from best x join proprietors p on p.title_number = x.title_number and p.seq = 1
+          where p.company_number is not null and exists (select 1 from companies c where c.company_number = p.company_number)
+        )
+        update businesses b set operator_company_number = lh.company_number, operator_name = coalesce(b.operator_name, lh.name) from lh where lh.business_id = b.business_id
     """),
     ("hereditaments", f"""
         with cand as (

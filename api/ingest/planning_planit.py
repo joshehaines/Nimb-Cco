@@ -26,15 +26,34 @@ LICENCE = "OGL"
 AREAS = ["Warwick", "Bristol", "Birmingham", "Solihull", "Rugby", "North Warwickshire", "South Gloucestershire", "Bath"]
 PAGE_SIZE = 200
 MAX_PAGES = 50
-PAUSE_S = 1.5
-FIRST_RUN_DAYS = 365
+PAUSE_S = 4.0
+FIRST_RUN_DAYS = 180
+BACKOFF_S = (30, 60, 120)
 
 
 def _state_path(workdir: Path) -> Path:
     return workdir / "planning_planit" / "last_run.txt"
 
 
+def _get(client: httpx.Client, params: dict) -> dict:
+    """One API page; backs off on 429 and 5xx and gives up after the last BACKOFF_S step."""
+    for attempt, wait in enumerate(BACKOFF_S + (None,)):
+        r = client.get(SOURCE_URL, params=params)
+        if r.status_code == 429 or r.status_code >= 500:
+            if wait is None:
+                r.raise_for_status()
+            print(f"planning_planit: HTTP {r.status_code} for {params.get('auth')} index {params.get('index')}, waiting {wait}s", flush=True)
+            time.sleep(wait)
+            continue
+        r.raise_for_status()
+        return r.json()
+    return {}
+
+
 def fetch(workdir: Path) -> list[Path]:
+    """One JSON file per authority. An authority that keeps returning 429 is skipped for this run (its
+    partial pages are still written and loaded) and the last-run marker is not advanced, so the next run
+    retries the same window."""
     workdir = writable_dir(workdir, "planning_planit")
     out = workdir / "planning_planit"
     out.mkdir(parents=True, exist_ok=True)
@@ -47,24 +66,29 @@ def fetch(workdir: Path) -> list[Path]:
             pass
     today = date.today()
     paths: list[Path] = []
+    complete = True
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=90, follow_redirects=True) as client:
         for area in AREAS:
             records: list[dict] = []
-            for page in range(MAX_PAGES):
-                r = client.get(SOURCE_URL, params={"auth": area, "start_date": since.isoformat(), "end_date": today.isoformat(), "pg_sz": PAGE_SIZE, "index": page * PAGE_SIZE})
-                r.raise_for_status()
-                body = r.json()
-                batch = body.get("records") or []
-                records.extend(batch)
-                total = body.get("total") or 0
-                if len(batch) < PAGE_SIZE or (page + 1) * PAGE_SIZE >= total:
-                    break
-                time.sleep(PAUSE_S)
-            target = out / f"{area.replace(' ', '_').lower()}_{today.isoformat()}.json"
-            target.write_text(json.dumps({"area": area, "since": since.isoformat(), "records": records}))
-            paths.append(target)
+            try:
+                for page in range(MAX_PAGES):
+                    body = _get(client, {"auth": area, "start_date": since.isoformat(), "end_date": today.isoformat(), "pg_sz": PAGE_SIZE, "index": page * PAGE_SIZE})
+                    batch = body.get("records") or []
+                    records.extend(batch)
+                    total = body.get("total") or 0
+                    if len(batch) < PAGE_SIZE or (page + 1) * PAGE_SIZE >= total:
+                        break
+                    time.sleep(PAUSE_S)
+            except httpx.HTTPError as e:
+                complete = False
+                print(f"planning_planit: {area} incomplete after {len(records)} records: {e}", flush=True)
+            if records:
+                target = out / f"{area.replace(' ', '_').lower()}_{today.isoformat()}.json"
+                target.write_text(json.dumps({"area": area, "since": since.isoformat(), "records": records}))
+                paths.append(target)
             time.sleep(PAUSE_S)
-    state.write_text(today.isoformat())
+    if complete:
+        state.write_text(today.isoformat())
     return paths
 
 

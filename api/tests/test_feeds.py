@@ -139,10 +139,37 @@ def test_linkage_runs_every_step_and_counts():
                      "hereditament_uarn = p.uarn", "epc_certificate_id = p.certificate_id", "fhrs_rating = x.rating", "set distress_flags"):
         assert fragment in sql, fragment
     assert "'Pub', 'Restaurant', 'Hotel', 'Convenience Retail'" in sql
-    assert sql.count("create index if not exists") == 6
+    assert sql.count("create index if not exists") == 7
 
 
 def test_norm_company_sql_matches_index_expression():
     # The query-side expression on an aliased column and the index-side expression on the bare column differ only by the alias.
     assert norm_company_sql("c.name").replace("c.name", "name") == norm_company_sql("name")
     assert "'\\mLIMITED\\M', 'LTD'" in norm_company_sql("name")
+
+
+def test_planit_get_backs_off_on_429(monkeypatch):
+    import httpx
+    from ingest import planning_planit as pp
+
+    calls = []
+
+    class R:
+        def __init__(self, status):
+            self.status_code = status
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise httpx.HTTPStatusError("x", request=None, response=None)
+
+        def json(self):
+            return {"records": [], "total": 0}
+
+    class C:
+        def get(self, url, params):
+            calls.append(params["index"])
+            return R(429 if len(calls) < 3 else 200)
+
+    monkeypatch.setattr(pp.time, "sleep", lambda s: None)
+    assert pp._get(C(), {"auth": "Warwick", "index": 0}) == {"records": [], "total": 0}
+    assert len(calls) == 3
