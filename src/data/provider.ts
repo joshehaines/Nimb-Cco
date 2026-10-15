@@ -27,7 +27,10 @@ import type {
   FootfallCell,
   Sector,
   WatchItem,
-  AuditEvent,, DashboardStats, StaffRow } from './types'
+  AuditEvent,
+  DashboardStats,
+  StaffRow,
+} from './types'
 
 /**
  * The single interface the UI talks to.
