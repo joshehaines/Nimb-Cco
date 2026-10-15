@@ -360,6 +360,19 @@ export interface WatchItem {
   log?: { at: ISODate; by: string; text: string }[]
 }
 
+export interface StaffRow { id: string; name: string; email: string; mobile?: string; office?: string; team?: string; role?: string }
+
+export interface DashboardStats {
+  businesses: number
+  distressed: number
+  bySector: { sector: Sector; count: number }[]
+  titles: number
+  corporateTitles: number
+  leaseEvents36m: number
+  unreadAlerts: number
+  asOf: ISODate
+}
+
 export interface SearchResult {
   kind: 'address' | 'title' | 'company' | 'business' | 'postcode' | 'planning' | 'area'
   id: string

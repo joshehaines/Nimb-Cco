@@ -7,7 +7,7 @@ import { useUi } from '@/store/ui'
 import { useAlerts } from '@/store/alerts'
 import { useAuth } from '@/auth'
 import { Badge, Button, Input, Select, cx } from '@/components/ui'
-import { STAFF } from '@/data/mock/staff'
+import { useStaff } from '@/data/staff'
 import { dealScore } from '@/lib/dealScore'
 import { blankRule } from '@/lib/alerts'
 import { ago, dateShort, gbp } from '@/lib/format'
@@ -20,6 +20,7 @@ import { SECTOR_COLOURS } from '@/lib/sectors'
  * where a dirty deal is worked from first signal to instruction.
  */
 export function DealDrawer({ item, onClose }: { item: WatchItem; onClose: () => void }) {
+  const STAFF = useStaff((st) => st.staff)
   const { updateWatch, setStage, removeWatch, select, requestFlyTo } = useUi()
   const { rules, state, setState } = useAlerts()
   const user = useAuth((s) => s.user)

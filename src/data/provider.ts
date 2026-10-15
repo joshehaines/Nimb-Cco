@@ -28,6 +28,8 @@ import type {
   Sector,
   WatchItem,
   AuditEvent,
+  DashboardStats,
+  StaffRow,
 } from './types'
 
 /**
@@ -104,4 +106,9 @@ export interface DataProvider {
 
   // Admin
   getDataSources(): Promise<DataSourceStatus[]>
+
+  // Directory and summaries
+  getStaff(): Promise<StaffRow[]>
+  getPlanningForAuthority(authority: string, limit?: number): Promise<PlanningApplication[]>
+  getDashboard(): Promise<DashboardStats>
 }

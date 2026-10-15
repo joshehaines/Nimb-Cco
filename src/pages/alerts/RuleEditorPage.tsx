@@ -7,7 +7,7 @@ import { useAlerts } from '@/store/alerts'
 import { Badge, Button, Card, Checkbox, Chip, Input, Select, Spinner, Toggle, cx } from '@/components/ui'
 import { SECTORS, type Alert, type Sector, type DistressFlag, type Proprietor } from '@/data/types'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
-import { OFFICES, STAFF } from '@/data/mock/staff'
+import { OFFICES, useStaff } from '@/data/staff'
 import { blankRule, describeRule, deliverableChannels, renderEmail, renderSms, renderTeams, CHANNEL_LABEL, FREQUENCY_LABEL, SCOPE_LABEL, RULE_PRESETS, type AlertChannel, type AlertFrequency, type AlertRule, type RuleScope } from '@/lib/alerts'
 import { logAudit } from '@/lib/audit'
 import { ago } from '@/lib/format'
@@ -27,6 +27,7 @@ const CH_ICON: Record<AlertChannel, React.ReactNode> = { inapp: <Bell size={13} 
 
 /** Full-page editor for one alert rule, with a live preview of what it would have sent. */
 export function RuleEditorPage() {
+  const STAFF = useStaff((st) => st.staff)
   const { id = 'new' } = useParams()
   const nav = useNavigate()
   const user = useAuth((s) => s.user)

@@ -17,7 +17,7 @@ export function AlertsPage() {
   const select = useUi((s) => s.select)
   const { alertRules, setAlertRules, watchlist } = useUi()
   const [showRules, setShowRules] = useState(false)
-  const load = () => provider.getAlerts().then((a) => setAlerts([...a]))
+  const load = () => provider.getAlerts().then((a) => setAlerts([...a])).catch(() => setAlerts([]))
   useEffect(() => {
     load()
   }, [])

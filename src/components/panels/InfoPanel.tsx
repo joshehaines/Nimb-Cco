@@ -15,7 +15,6 @@ import { gbp, num, sqm, sqft, dateShort, ago, monthsUntil, pct } from '@/lib/for
 import { haversineM } from '@/lib/geo'
 import { SiteSummary } from './SiteSummary'
 import { logAudit } from '@/lib/audit'
-import { mock } from '@/data'
 
 type Tab = 'overview' | 'ownership' | 'leases' | 'operator' | 'planning' | 'rates' | 'mobility' | 'constraints'
 
@@ -351,9 +350,14 @@ function PlanningList({ apps }: { apps: PlanningApplication[] }) {
 
 function Planning({ bundle }: { bundle: SiteBundle }) {
   const authority = bundle.planning[0]?.authority ?? bundle.nearbyPlanning[0]?.authority
+  const [apps, setApps] = useState<PlanningApplication[] | null>(null)
+  useEffect(() => {
+    setApps(null)
+    if (!authority) return
+    provider.getPlanningForAuthority(authority).then((a) => setApps(a ?? [])).catch(() => setApps([]))
+  }, [authority])
   const stats = useMemo(() => {
-    if (!authority || !mock) return undefined
-    const apps = mock.allPlanning().filter((p) => p.authority === authority)
+    if (!authority || !apps || !apps.length) return undefined
     const decided = apps.filter((p) => p.decisionDate)
     const approved = decided.filter((p) => p.status === 'Approved').length
     const refused = decided.filter((p) => p.status === 'Refused').length
@@ -368,7 +372,7 @@ function Planning({ bundle }: { bundle: SiteBundle }) {
       byType.set(p.type, cur)
     }
     return { total: apps.length, decided: decided.length, approvalRate: decided.length ? approved / decided.length : 0, refused, appeals: appeals.length, allowed, medianWeeks: weeks.length ? weeks[Math.floor(weeks.length / 2)] : undefined, byType: Array.from(byType.entries()).sort((a, b) => b[1].n - a[1].n) }
-  }, [authority])
+  }, [authority, apps])
   return (
     <>
       <Section title="Applications on this title"><PlanningList apps={bundle.planning} /></Section>

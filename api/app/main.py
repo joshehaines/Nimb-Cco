@@ -67,6 +67,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Christie Property Intelligence API", version="0.2.0", lifespan=lifespan)
+# Registered first so fixed paths such as /api/businesses/near win over /api/businesses/{business_id} below.
+from .routes_data import router as data_router  # noqa: E402
+
+app.include_router(data_router)
 
 
 @app.middleware("http")
@@ -821,21 +825,16 @@ async def put_alert_state(req: Request, alert_id: str, s: dict[str, Any], user: 
 async def list_staff(req: Request, user: User = Depends(current_user)):
     """Colleagues who can be added to an alert. Synced from the identity provider."""
     async with req.app.state.pool.acquire() as c:
-        rows = await c.fetch("select * from staff order by name")
+        rows = await c.fetch(
+            "select id, name, email, mobile, office, team, role from staff "
+            "union all select user_id, name, email, null, office, null, case when 'admin' = any(roles) then 'admin' when 'compliance' = any(roles) then 'compliance' else 'agent' end "
+            "from accounts where not disabled and user_id not in (select id from staff) order by name"
+        )
     return [{"id": r["id"], "name": r["name"], "email": r["email"], "mobile": r["mobile"], "office": r["office"], "team": r["team"], "role": r["role"]} for r in rows]
 
 
 # ------------------------------------------------------------ remaining endpoints
 # These follow the same pattern; wire them as the ingestion jobs land.
-for path in [
-    "/api/titles/{title_number}/voa", "/api/titles/{title_number}/epc", "/api/titles/{title_number}/planning", "/api/titles/{title_number}/constraints",
-    "/api/companies/{company_number}", "/api/companies/{company_number}/group", "/api/companies/{company_number}/titles", "/api/companies/{company_number}/businesses",
-    "/api/voa/{uarn}", "/api/epc/{certificate_id}", "/api/planning/{reference:path}", "/api/footfall", "/api/alerts", "/api/documents/orders",
-]:
-    app.add_api_route(path, (lambda p: (lambda: not_implemented(p)))(path), methods=["GET"])
-
-for path in ["/api/sourcing/businesses", "/api/sourcing/titles", "/api/alerts/{alert_id}/read", "/api/documents/orders", "/api/crm/match", "/api/crm/duplicates"]:
-    app.add_api_route(path, (lambda p: (lambda: not_implemented(p)))(path), methods=["POST"])
 
 
 @app.get("/api/crm/sample.csv", response_class=PlainTextResponse)

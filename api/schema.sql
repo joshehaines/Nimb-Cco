@@ -500,6 +500,7 @@ CREATE TABLE postcode_centroids (
   method     text NOT NULL DEFAULT 'overture-places',   -- replace with ONSPD / AddressBase once licensed
   samples    integer
 );
+CREATE INDEX postcode_centroids_geom_gix ON postcode_centroids USING gist (geom);
 CREATE INDEX postcode_centroids_sector_idx ON postcode_centroids (left(postcode, length(postcode) - 2));
 
 INSERT INTO data_sources (id, name, provider, licence, cadence, status, docs_url) VALUES

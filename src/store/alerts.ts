@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Alert } from '@/data/types'
 import { blankRule, deliverableChannels, DEFAULT_PREFS, renderEmail, renderSms, renderTeams, RULE_PRESETS, type AlertChannel, type AlertRule, type AlertState, type Delivery, type NotificationPrefs } from '@/lib/alerts'
-import { staffById } from '@/data/mock/staff'
+import { staffById } from '@/data/staff'
 
 /**
  * Alert rules, notification preferences, the delivery log and per-alert state (read, snoozed,
