@@ -89,7 +89,7 @@ export function LocationAnalysis() {
     ] },
     { title: 'Other', rows: [
       { kind: 'layer', label: 'Building footprints', layer: 'buildings' },
-      { kind: 'layer', label: 'Demo businesses', layer: 'businesses' },
+      { kind: 'layer', label: 'Businesses', layer: 'businesses' },
     ] },
   ]
   const onCount = (g: Group) => g.rows.filter((r) => (r.kind === 'layer' && layers[r.layer]) || (r.kind === 'constraint' && layers.constraints && constraintKinds.includes(r.constraint)) || (r.kind === 'pricePaid' && layers.pricePaid && (pricePaidFilter === 'all' || pricePaidFilter === r.value))).length
