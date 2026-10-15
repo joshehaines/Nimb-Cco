@@ -72,6 +72,7 @@ async def load(conn, path: Path) -> int:
         seen.add(pc)
         await b.add(pc, e, n, pqi)
     await b.flush()
+    await conn.execute("create index if not exists postcode_centroids_geom_gix on postcode_centroids using gist (geom)")
     for sql in GEOCODE:
         await conn.execute(sql)
     return b.count

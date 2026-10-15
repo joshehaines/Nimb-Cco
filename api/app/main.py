@@ -67,6 +67,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Christie Property Intelligence API", version="0.2.0", lifespan=lifespan)
+# Registered first so fixed paths such as /api/businesses/near win over /api/businesses/{business_id} below.
+from .routes_data import router as data_router  # noqa: E402
+
+app.include_router(data_router)
 
 
 @app.middleware("http")
@@ -831,12 +835,6 @@ async def list_staff(req: Request, user: User = Depends(current_user)):
 
 # ------------------------------------------------------------ remaining endpoints
 # These follow the same pattern; wire them as the ingestion jobs land.
-# Everything the web app calls is now served by routes_data (title sections, records, companies, alerts, sourcing,
-# nearby businesses, catchment, derived comparables, document orders, CRM matching). Keep not_implemented() for any
-# future path that lands before its data does.
-from .routes_data import router as data_router  # noqa: E402
-
-app.include_router(data_router)
 
 
 @app.get("/api/crm/sample.csv", response_class=PlainTextResponse)

@@ -245,8 +245,8 @@ async def dashboard(req: Request, user: User = Depends(current_user)):
     async with req.app.state.pool.acquire() as c:
         b = await c.fetchrow("select count(*) n, count(*) filter (where cardinality(distress_flags) > 0) distressed from businesses")
         by_sector = await c.fetch("select sector, count(*) n from businesses group by sector order by n desc")
-        titles = await c.fetchval("select count(*) from titles where geom is not null")
-        corporate = await c.fetchval("select count(*) from proprietors where seq = 1 and category <> 'Private Individual' and title_number in (select title_number from titles where geom is not null)")
+        t = await c.fetchrow("select count(*) filter (where geom is not null) mapped, count(*) filter (where geom is null) corporate from titles")
+        titles, corporate = t["mapped"], t["corporate"]   # polygons mapped; CCOD/OCOD rows are corporate owners by definition
         leases = await c.fetchval("select count(*) from leases where expiry_date between current_date and current_date + interval '36 months'")
     body = {"businesses": b["n"], "distressed": b["distressed"], "bySector": [{"sector": r["sector"], "count": r["n"]} for r in by_sector], "titles": titles, "corporateTitles": corporate, "leaseEvents36m": leases, "asOf": now.isoformat()}
     _DASH.update({"at": now, "body": body})
@@ -332,14 +332,13 @@ async def catchment(req: Request, lon: float, lat: float, radius: float = 1500, 
     """Competitor supply from the registers; population estimated from postcode density until ONS Census is loaded."""
     async with req.app.state.pool.acquire() as c:
         biz = await c.fetch(
-            f"select {BUSINESS_COLS}, ST_DistanceSphere(b.geom, ST_SetSRID(ST_MakePoint($1,$2),4326)) distance_m, "
-            "(select max(r.capacity) from business_registers br join register_records r using (register, register_id) where br.business_id = b.business_id) capacity, "
-            "(select max(r.capacity_label) from business_registers br join register_records r using (register, register_id) where br.business_id = b.business_id) capacity_label, "
-            "(select max(r.rating) from business_registers br join register_records r using (register, register_id) where br.business_id = b.business_id) rating "
-            "from businesses b where ST_DWithin(b.geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3) order by distance_m limit 3000",
+            f"select {BUSINESS_COLS}, ST_DistanceSphere(b.geom, ST_SetSRID(ST_MakePoint($1,$2),4326)) distance_m, reg.capacity, reg.capacity_label, reg.rating "
+            "from businesses b left join lateral (select max(r.capacity) capacity, max(r.capacity_label) capacity_label, max(r.rating) rating "
+            "  from business_registers br join register_records r using (register, register_id) where br.business_id = b.business_id) reg on true "
+            "where b.geom && ST_Expand(ST_SetSRID(ST_MakePoint($1,$2),4326), $3 / 70000.0) and ST_DWithin(b.geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3) order by distance_m limit 3000",
             lon, lat, radius,
         )
-        pcs = await c.fetchval("select count(*) from postcode_centroids where ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, radius) or 0
+        pcs = await c.fetchval("select count(*) from postcode_centroids where geom && ST_Expand(ST_SetSRID(ST_MakePoint($1,$2),4326), $3 / 70000.0) and ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, radius) or 0
         traffic = await c.fetchval("select max(aadf) from traffic_counts where ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, max(radius, 800.0))
         places = await c.fetch(
             "select place_id, name, category, sector, address, postcode, ST_DistanceSphere(geom, ST_SetSRID(ST_MakePoint($1,$2),4326)) distance_m from places "
