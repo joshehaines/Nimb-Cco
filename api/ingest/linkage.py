@@ -65,6 +65,7 @@ STEPS: list[tuple[str, str]] = [
         create index if not exists companies_norm_name_idx on companies (({NORM_INDEX}));
         create index if not exists businesses_postcode_idx on businesses (postcode);
         create index if not exists titles_postcode_idx on titles (postcode) where postcode is not null;
+        create index if not exists businesses_title_idx on businesses (title_number) where title_number is not null;
     """),
     ("businesses", f"""
         insert into businesses (business_id, name, sector, sub_sector, address, postcode, uprn, geom, operator_name, source, licence)
@@ -168,7 +169,7 @@ STEPS: list[tuple[str, str]] = [
         ), nearby as (
           select distinct on (b.business_id) b.business_id, nullif(regexp_replace(r.rating, '[^0-9]', '', 'g'), '')::smallint rating
           from businesses b join register_records r on r.register = 'FSA' and r.postcode = b.postcode
-          where b.business_id not in (select business_id from own) and similarity(upper(r.name), upper(b.name)) > 0.5
+          where b.business_id not like 'FSA:%' and similarity(upper(r.name), upper(b.name)) > 0.5
           order by b.business_id, similarity(upper(r.name), upper(b.name)) desc
         )
         update businesses b set fhrs_rating = x.rating from (select * from own union all select * from nearby) x
