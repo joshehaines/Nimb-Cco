@@ -230,3 +230,9 @@ def test_fhrs_json_api_page(tmp_path):
     assert rows[0]["rating_date"] == date(2024, 3, 2) and rows[0]["lon"] == -1.5801 and rows[0]["extra"]["hygiene"] == 5 and rows[0]["address"] == "11 Cherry Street, Coten End"
     (tmp_path / "fhrs_empty.xml").write_text("")
     assert list(fsa.parse(tmp_path / "fhrs_empty.xml")) == []
+
+
+def test_norm_postcode_placeholders():
+    from ingest.parsers._util import norm_postcode
+
+    assert norm_postcode("cv324ab") == "CV32 4AB" and norm_postcode("REDACTED") is None and norm_postcode("") is None and norm_postcode("N/A") is None

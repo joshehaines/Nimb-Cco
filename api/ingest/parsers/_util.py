@@ -232,11 +232,14 @@ def to_float(v) -> float | None:
 
 
 def norm_postcode(v: str | None) -> str | None:
+    """Upper-case with the single standard space; None for blanks and placeholders such as Ofsted's REDACTED."""
     if not v:
         return None
     s = re.sub(r"\s+", "", v.upper())
+    if not s or not any(ch.isdigit() for ch in s):
+        return None
     if len(s) < 5:
-        return s or None
+        return s
     return f"{s[:-3]} {s[-3:]}"
 
 
