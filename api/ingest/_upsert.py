@@ -6,6 +6,13 @@ from typing import AsyncIterable, Iterable
 
 BATCH = 1000
 
+# SQL expression normalising a company name for exact matching across sources: upper-case, LIMITED -> LTD,
+# PUBLIC LIMITED COMPANY -> PLC, then everything but letters and digits removed. The same expression backs
+# the companies_norm_name_idx index created by the linkage job, so keep the two identical.
+def norm_company_sql(expr: str) -> str:
+    return ("regexp_replace(regexp_replace(regexp_replace(upper(coalesce(" + expr + ", '')), "
+            "'PUBLIC LIMITED COMPANY', 'PLC', 'g'), '\\mLIMITED\\M', 'LTD', 'g'), '[^A-Z0-9]', '', 'g')")
+
 
 async def run(conn, sql: str, *args):
     return await conn.execute(sql, *args)

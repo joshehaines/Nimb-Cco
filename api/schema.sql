@@ -92,6 +92,22 @@ CREATE INDEX companies_name_trgm ON companies USING gin (name gin_trgm_ops);
 CREATE INDEX companies_parent_idx ON companies (parent_company_number);
 
 -- -------------------------------------------------------------------------- VOA
+-- The Gazette corporate insolvency notices (ingest/gazette.py), matched to companies by normalised name.
+CREATE TABLE gazette_notices (
+  notice_id      text PRIMARY KEY,
+  notice_code    text,
+  category       text,
+  company_name   text,
+  company_number text REFERENCES companies,
+  published      timestamptz,
+  lat            double precision,
+  lon            double precision,
+  link           text,
+  snippet        text,
+  fetched_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX gazette_notices_company_idx ON gazette_notices (company_number);
+
 CREATE TABLE hereditaments (
   uarn                text PRIMARY KEY,
   uprn                bigint,

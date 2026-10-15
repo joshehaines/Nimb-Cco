@@ -43,3 +43,22 @@ def local_inputs(workdir: Path, *patterns: str, job: str = "") -> list[Path]:
     if not found:
         raise NotImplementedError(f"{job or 'loader'}: no files matching {', '.join(patterns)} in {workdir}; run scripts/data/fetch_sources.sh first")
     return found
+
+
+def writable_dir(workdir: Path, job: str) -> Path:
+    """`workdir` when it accepts writes, else a per-job directory under INGEST_STATE_DIR (default /var/tmp/cpi-ingest).
+
+    The loader container mounts the step 1 downloads read-only; jobs that fetch for themselves (Gazette,
+    PlanIt, Code-Point) keep their pages and last-run marker in the writable location instead.
+    """
+    import os
+    try:
+        workdir.mkdir(parents=True, exist_ok=True)
+        probe = workdir / f".write-test-{job}"
+        probe.write_text("")
+        probe.unlink()
+        return workdir
+    except OSError:
+        alt = Path(os.environ.get("INGEST_STATE_DIR", "/var/tmp/cpi-ingest"))
+        alt.mkdir(parents=True, exist_ok=True)
+        return alt

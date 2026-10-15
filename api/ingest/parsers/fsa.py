@@ -38,7 +38,8 @@ def _record(fhrsid, name, btype, addr, postcode, rating, rating_date, la, lon, l
         "local_authority": la,
         "lon": to_float(lon),
         "lat": to_float(lat),
-        "extra": {"hygiene": to_int(hygiene), "structural": to_int(structural), "confidence": to_int(confidence), "newRatingPending": str(pending or "False").lower() == "true", "extractDate": extract},
+        "extra": {"hygiene": to_int(hygiene), "structural": to_int(structural), "confidence": to_int(confidence), "newRatingPending": str(pending or "False").lower() == "true", "extractDate": extract,
+                  "businessType": btype, "sectorHint": SECTOR_BY_TYPE.get(btype or ""), "localAuthority": la},
         "source": "FSA FHRS",
         "licence": "OGL",
     }
