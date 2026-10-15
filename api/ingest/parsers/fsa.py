@@ -92,6 +92,7 @@ def parse(path) -> Iterator[dict]:
                 "confidence": to_int(scores.findtext("ConfidenceInManagement")) if scores is not None else None,
                 "newRatingPending": (t("NewRatingPending") or "False").lower() == "true",
                 "extractDate": la,
+                "businessType": t("BusinessType"), "sectorHint": SECTOR_BY_TYPE.get(t("BusinessType") or ""), "localAuthority": t("LocalAuthorityName"),
             },
             "source": "FSA FHRS",
             "licence": "OGL",

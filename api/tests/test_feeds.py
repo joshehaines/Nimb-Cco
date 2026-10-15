@@ -175,3 +175,11 @@ def test_planit_get_backs_off_on_429(monkeypatch):
     monkeypatch.setattr(pp.time, "sleep", lambda s: None)
     assert pp._get(C(), {"auth": "Warwick", "index": 0}) == {"records": [], "total": 0}
     assert len(calls) == 3
+
+
+def test_fsa_xml_rows_carry_sector_hint_for_linkage():
+    from ingest.parsers import fsa
+
+    rows = list(fsa.parse(Path(__file__).parent / "fixtures" / "fhrs_sample.xml"))
+    assert rows and all("sectorHint" in r["extra"] and "businessType" in r["extra"] for r in rows)
+    assert any(r["extra"]["sectorHint"] for r in rows), "fixture should contain at least one mapped business type"
