@@ -146,7 +146,7 @@ async def search(req: Request, q: str, limit: int = 12):
         return []
     limit = max(1, min(limit, 30))
     prefix, anywhere = q + "%", "%" + q + "%"
-    fuzzy = len(q) >= 4
+    fuzzy = len(q) >= 3   # substring legs; the trigram index makes them selective, unlike the % operator which rechecked millions of rows
     results: list[dict[str, Any]] = []
     async with req.app.state.pool.acquire() as c:
         pc = postcode_parts(q)
@@ -166,8 +166,8 @@ async def search(req: Request, q: str, limit: int = 12):
         if re.fullmatch(r"[A-Za-z][A-Za-z .'&-]{2,}", q):
             a = await c.fetchrow(
                 "select count(*) n, percentile_cont(0.5) within group (order by ST_X(geom)) lon, percentile_cont(0.5) within group (order by ST_Y(geom)) lat "
-                "from (select geom from businesses where geom is not null and (address ilike $1 or postcode ilike $2) limit 4000) x",
-                anywhere, prefix,
+                "from (select geom from businesses where geom is not null and address ilike $1 and address ~* $2 limit 4000) x",
+                anywhere, r"(^|,\s*)" + re.escape(q) + r"(\s+[A-Za-z]+)?(\s*,|$)",
             )
             if a and a["n"] and a["n"] >= 15:
                 results.append({"kind": "area", "id": q.lower(), "label": q.title(), "sublabel": f"Area · {a['n']}{'+' if a['n'] >= 4000 else ''} businesses · go there", "location": _pt(a["lon"], a["lat"]), "score": 1.2})
@@ -179,7 +179,7 @@ async def search(req: Request, q: str, limit: int = 12):
                             case when postcode = upper($1) then 0.85 else 0 end,
                             case when address ilike $3 then 0.45 else 0 end) score
             from businesses
-            where name ilike $2 or postcode = upper($1) {"or name % $1 or address ilike $3" if fuzzy else ""}
+            where name ilike $2 or postcode = upper($1) {"or name ilike $3 or address ilike $3" if fuzzy else ""}
             order by score desc, name limit $4
             """,
             q, prefix, anywhere, limit,
@@ -193,10 +193,10 @@ async def search(req: Request, q: str, limit: int = 12):
                             {"similarity(name, $1) * 0.9" if fuzzy else "0"},
                             case when company_number = $3 then 1.1 else 0 end) score
             from companies
-            where name ilike $2 or company_number = $3 {"or name % $1" if fuzzy else ""}
+            where name ilike $2 or company_number = $3 {"or name ilike $5" if fuzzy else ""}
             order by score desc, (status ilike 'active%') desc, name limit $4
             """,
-            q, prefix, number, limit,
+            q, prefix, number, limit, anywhere,
         )
         results += [{"kind": "company", "id": r["company_number"], "label": r["name"], "sublabel": f"Company {r['company_number']} · {r['status']}", "score": float(r["score"])} for r in rows]
         rows = await c.fetch(
@@ -206,10 +206,10 @@ async def search(req: Request, q: str, limit: int = 12):
                             {"similarity(address, $1) * 0.8" if fuzzy else "0"},
                             case when postcode = upper($1) then 0.6 else 0 end) score
             from titles
-            where title_number = upper($1) or postcode = upper($1) {"or address % $1" if fuzzy else ""}
+            where title_number = upper($1) or postcode = upper($1) {"or address ilike $3" if fuzzy else ""}
             order by score desc limit $2
             """,
-            q, limit,
+            q, limit, anywhere,
         )
         results += [{"kind": "address", "id": r["title_number"], "label": r["address"] or r["title_number"], "sublabel": f"Title {r['title_number']}{' · ' + r['postcode'] if r['postcode'] else ''}", "location": _pt(r["lon"], r["lat"]), "score": float(r["score"])} for r in rows]
         rows = await c.fetch(
