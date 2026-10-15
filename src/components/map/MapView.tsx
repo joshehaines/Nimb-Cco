@@ -74,6 +74,9 @@ const CONSTRAINT_COLOURS: Record<string, string> = {
   AONB: '#4d7c0f',
   TPO: '#65a30d',
   'Brownfield Register': '#78350f',
+  'Scheduled Monument': '#9f1239',
+  'National Park': '#166534',
+  'Ancient Woodland': '#3f6212',
 }
 const constraintMatch = ['match', ['get', 'kind'], ...Object.entries(CONSTRAINT_COLOURS).flatMap(([k, v]) => [k, v]), '#64748b'] as unknown as maplibregl.ExpressionSpecification
 const FOOTFALL_RAMP = ['interpolate', ['linear'], ['get', 'band'], 1, '#fef3c7', 3, '#fcd34d', 5, '#f59e0b', 7, '#dc2626', 9, '#7f1d1d'] as unknown as maplibregl.ExpressionSpecification

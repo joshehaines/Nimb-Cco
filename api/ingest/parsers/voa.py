@@ -10,16 +10,18 @@ Compiled list entries (one line per hereditament), field order:
 Summary valuations: record type in field 1; 01 = hereditament (UARN in field 3, address, scheme,
 total value), 02 = floor line (floor, description, area m2, price per m2, value), 03 = additional item.
 Licence: VOA restricted terms (not OGL): internal analysis only, no onward supply.
+The downloads at voaratinglists.blob.core.windows.net are zips holding one '*'-delimited .csv each.
 """
 from __future__ import annotations
 
 from typing import Iterator
 
-from ._util import norm_postcode, open_text, parse_date, to_float, to_int
+from ._util import iter_lines, norm_postcode, open_text, parse_date, to_float, to_int
 
 
 def parse_list_entries(path) -> Iterator[dict]:
-    for line in open_text(path):
+    """Accepts the VOA zip (one '*'-delimited .csv inside), a bare file or a directory of change files."""
+    for line in iter_lines(path, (".csv", ".txt")):
         f = line.rstrip("\r\n").split("*")
         if len(f) < 22 or not f[6].strip():
             continue

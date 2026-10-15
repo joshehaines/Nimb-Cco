@@ -55,7 +55,13 @@ A virtual server avoids the laptop entirely: fast datacentre downloads, always o
    export HMLR_API_KEY=... EPC_AUTH=you@email:key CH_MONTH=2026-10-01
    nohup bash scripts/data/fetch_sources.sh scripts/data/raw > fetch.log 2>&1 &
    ```
-   Come back in a few hours; `tail fetch.log` shows progress. Then load with the job loop in step 2 below.
+   Come back in a few hours; `tail fetch.log` shows progress. The script skips files it already has, so re-run it to resume after a failure. Then load with the job loop in step 2 below, passing both compose files on the server:
+   ```
+   cd /opt/Nimb-Cco && for job in hmlr_inspire hmlr_ccod cqc ofsted fsa nhsbsa voa epc companies_house planning_pdg hmlr_ppd dft_aadf; do
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile load run --rm loader python -m ingest.run $job --workdir /raw
+   done
+   ```
+   Each job reads the step 1 files straight from `scripts/data/raw` (zips included), writes in batches and records its result on the Data sources page. Companies House, CCOD and the flood zones are the slow ones; expect a few hours in total.
 5. Nightly backups: `crontab -e` and add `0 2 * * * /opt/Nimb-Cco/scripts/backup-db.sh`. Hostinger's own VPS backups cover the disk as well.
 6. Firewall: in hPanel allow only ports 22, 80 and 443. The database and API are not exposed; everything goes through the HTTPS proxy.
 
@@ -87,7 +93,7 @@ You need: a machine with Docker Desktop (the same laptop is fine for a trial; a 
      docker compose --profile load run --rm loader python -m ingest.run $job --workdir /raw
    done
    ```
-4. Expect errors on the first run. Copy the terminal output into a message to me and I will fix the loaders; each source is independent, so one failing does not stop the others.
+4. Each source is independent, so one failing does not stop the others; a job that cannot find its download reports `not-configured` and names the file it expected. If a job reports `error`, copy the terminal output into a message to me.
 
 What this unlocks: everything server-side, including alerts actually sending, audit on the server, staff directory from the identity provider, and the Claude assistant.
 

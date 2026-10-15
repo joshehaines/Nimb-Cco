@@ -28,3 +28,18 @@ def file_hash(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def local_inputs(workdir: Path, *patterns: str, job: str = "") -> list[Path]:
+    """The step 1 downloads for one job: files in `workdir` matching any of the glob `patterns`, sorted.
+
+    Raises NotImplementedError (which ingest.run records as 'not-configured' rather than 'error') when
+    nothing matches, naming the files scripts/data/fetch_sources.sh would have produced.
+    """
+    found: list[Path] = []
+    for pat in patterns:
+        found.extend(p for p in workdir.glob(pat) if p.is_file() and p.stat().st_size > 0)
+    found = sorted(set(found))
+    if not found:
+        raise NotImplementedError(f"{job or 'loader'}: no files matching {', '.join(patterns)} in {workdir}; run scripts/data/fetch_sources.sh first")
+    return found

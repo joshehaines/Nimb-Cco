@@ -13,7 +13,8 @@ from ._util import norm_postcode, parse_date, pick, read_csv, to_float, to_int
 
 
 def parse(path, kind: str = "auto") -> Iterator[dict]:
-    for row in read_csv(path):
+    """A certificates CSV, or the bulk zip (one <region>/certificates.csv per local authority; recommendations.csv is skipped)."""
+    for row in read_csv(path, suffixes=("certificates.csv",)):
         key = pick(row, "LMK_KEY")
         if not key:
             continue

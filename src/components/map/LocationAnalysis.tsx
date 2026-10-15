@@ -18,6 +18,8 @@ interface Group { title: string; rows: Row[] }
  * Location Analysis: the Nimbus-style right-hand drawer that groups every layer by what a
  * surveyor is asking (boundaries, planning, constraints, markets, infrastructure, mobility).
  * Rows marked "not collected" name the open source that fills them when the office load runs.
+ * Constraint rows come from planning.data.gov.uk via the planning_pdg loader; a kind with no rows in
+ * view simply draws nothing.
  */
 export function LocationAnalysis() {
   const { locationOpen, setLocationOpen, layers, setLayer, constraintKinds, setConstraintKinds, tenureFilter, setTenureFilter, pricePaidFilter, setPricePaidFilter, viewCounts } = useUi()
@@ -45,20 +47,24 @@ export function LocationAnalysis() {
       { kind: 'constraint', label: 'Article 4 direction', constraint: 'Article 4' },
       { kind: 'constraint', label: 'Green Belt', constraint: 'Green Belt' },
       { kind: 'constraint', label: 'Conservation area', constraint: 'Conservation Area' },
-      { kind: 'missing', label: 'Areas of Outstanding Natural Beauty / National Parks', source: 'Natural England Open Data' },
+      { kind: 'constraint', label: 'Areas of Outstanding Natural Beauty', constraint: 'AONB' },
+      { kind: 'constraint', label: 'National Parks', constraint: 'National Park' },
     ] },
     { title: 'Environmental constraints', rows: [
       { kind: 'constraint', label: 'Flood Zone 2', constraint: 'Flood Zone 2' },
       { kind: 'constraint', label: 'Flood Zone 3', constraint: 'Flood Zone 3' },
       { kind: 'constraint', label: 'Tree preservation orders', constraint: 'TPO' },
-      { kind: 'missing', label: 'SSSI, ancient woodland, nitrate zones', source: 'Natural England, Environment Agency' },
+      { kind: 'constraint', label: 'Sites of Special Scientific Interest', constraint: 'SSSI' },
+      { kind: 'constraint', label: 'Ancient woodland', constraint: 'Ancient Woodland' },
+      { kind: 'missing', label: 'Nitrate vulnerable zones', source: 'Environment Agency' },
     ] },
     { title: 'Heritage constraints', rows: [
       { kind: 'constraint', label: 'Listed buildings', constraint: 'Listed Building' },
-      { kind: 'missing', label: 'Scheduled monuments, registered parks', source: 'Historic England NHLE' },
+      { kind: 'constraint', label: 'Scheduled monuments', constraint: 'Scheduled Monument' },
+      { kind: 'missing', label: 'Registered parks and gardens', source: 'Historic England NHLE' },
     ] },
     { title: 'Strategic land', rows: [
-      { kind: 'missing', label: 'Brownfield register', source: 'planning.data.gov.uk (brownfield-land)' },
+      { kind: 'constraint', label: 'Brownfield register', constraint: 'Brownfield Register' },
       { kind: 'missing', label: 'Strategic housing land (SHLAA)', source: 'Each local planning authority' },
     ] },
     { title: 'Residential market', rows: [
