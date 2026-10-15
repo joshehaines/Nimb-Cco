@@ -34,6 +34,10 @@ class RecordingConn:
         self.sql.append((" ".join(sql.split()), args))
         return self._fetchval
 
+    async def fetch(self, sql, *args):
+        self.sql.append((" ".join(sql.split()), args))
+        return []
+
 
 def _codepoint_zip(tmp_path: Path) -> Path:
     z = tmp_path / "codepo_gb.zip"
