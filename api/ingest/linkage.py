@@ -190,7 +190,7 @@ STEPS: list[tuple[str, str]] = [
           ]::text[], null) as f
           from businesses b left join companies c on c.company_number = b.operator_company_number
         )
-        update businesses b set distress_flags = (select array_agg(distinct x) from unnest(f.f) x) from flags f
+        update businesses b set distress_flags = coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}') from flags f
         where f.business_id = b.business_id and b.distress_flags is distinct from coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}')
     """),
     ("distress_empty", "update businesses set distress_flags = '{}' where distress_flags is null"),
