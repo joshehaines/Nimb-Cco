@@ -251,3 +251,18 @@ def test_overture_buildings_bbox_filter_and_row_shape():
     })
     rows = list(ob.rows_in_bbox(table, ob.BBOX))
     assert rows == [("in", "The Kings Head", "commercial", None, 7.5, 2, b"\x01\x03")]
+
+
+def test_linkage_drops_invalid_indexes_before_creating():
+    from ingest import linkage
+
+    class Conn(RecordingConn):
+        async def fetch(self, sql, *args):
+            self.sql.append((" ".join(sql.split()), args))
+            return [{"relname": "businesses_title_idx"}] if "indisvalid" in sql else []
+
+    conn = Conn(fetchval=1)
+    asyncio.run(linkage.load(conn, Path("/raw")))
+    sql = [s[0] for s in conn.sql]
+    assert any(s.startswith('drop index if exists "businesses_title_idx"') for s in sql)
+    assert sql.index(next(s for s in sql if s.startswith("drop index"))) < sql.index(next(s for s in sql if "create index if not exists businesses_title_idx" in s))
