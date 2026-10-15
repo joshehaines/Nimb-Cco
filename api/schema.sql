@@ -617,7 +617,7 @@ BEGIN
   WITH hit AS (
     SELECT DISTINCT ON (p.place_id) p.place_id, st_pointonsurface(b.geom) AS centre
     FROM places p
-    JOIN buildings b ON st_dwithin(b.geom::geography, p.listed_geom::geography, snap_m)
+    JOIN buildings b ON b.geom && st_expand(p.listed_geom, snap_m / 70000.0) AND st_dwithin(b.geom::geography, p.listed_geom::geography, snap_m)   -- bbox first so the gist index applies to 30M footprints
     ORDER BY p.place_id, st_contains(b.geom, p.listed_geom) DESC, st_distance(b.geom::geography, p.listed_geom::geography)
   )
   UPDATE places p SET geom = h.centre, placed = 'building' FROM hit h WHERE h.place_id = p.place_id;
