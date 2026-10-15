@@ -3,6 +3,8 @@ import asyncio
 import io
 import json
 import zipfile
+
+import pytest
 from datetime import date
 from pathlib import Path
 
@@ -231,3 +233,21 @@ def test_sector_and_place():
     assert sector_and_place(["care", "home", "Bath"]) == ("Care Home", "Bath")
     assert sector_and_place(["Greene", "King"]) is None
     assert sector_and_place(["pub"]) is None
+
+
+def test_overture_buildings_bbox_filter_and_row_shape():
+    pa = pytest.importorskip("pyarrow")
+    from ingest import overture_buildings as ob
+
+    table = pa.table({
+        "id": ["in", "out"],
+        "class": ["commercial", None],
+        "subtype": [None, None],
+        "height": [7.5, None],
+        "num_floors": [2, None],
+        "names": [{"primary": "The Kings Head"}, None],
+        "bbox": [{"xmin": -1.54, "xmax": -1.539, "ymin": 52.29, "ymax": 52.291}, {"xmin": 30.0, "xmax": 30.1, "ymin": 10.0, "ymax": 10.1}],
+        "geometry": [b"\x01\x03", b"\x01\x03"],
+    })
+    rows = list(ob.rows_in_bbox(table, ob.BBOX))
+    assert rows == [("in", "The Kings Head", "commercial", None, 7.5, 2, b"\x01\x03")]
