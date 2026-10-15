@@ -5,7 +5,7 @@
 # resume after a failure; delete a file to fetch it again. One failing source does not stop the rest.
 #
 #   export HMLR_API_KEY=...        # use-land-property-data.service.gov.uk  (free; CCOD/OCOD licence accepted online)
-#   export EPC_AUTH=email:apikey   # epc.opendatacommunities.org            (free registration)
+#   export EPC_TOKEN=...           # get-energy-performance-data.communities.gov.uk (free; GOV.UK One Login, token on My account)
 #   export CH_MONTH=2026-10-01     # Companies House basic data file date (first of the month)
 #   export INSPIRE_AREAS="Warwick Bristol_City ..."   # optional: override the local authority list below
 #   export FSA_AREAS="373 324 ..."                    # optional: FSA authority ids (https://api.ratings.food.gov.uk/Authorities/basic)
@@ -17,6 +17,7 @@
 #     docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile load run --rm loader python -m ingest.run $job --workdir /raw
 #   done
 set -uo pipefail
+EPC_AUTH="${EPC_AUTH:-}"
 OUT="${1:-raw}"; mkdir -p "$OUT"; cd "$OUT"
 JAR="$(pwd)/.cookies.txt"; : > "$JAR"
 UA="Mozilla/5.0 (compatible; PropertyIntelligence/0.1; data load)"
@@ -88,10 +89,13 @@ if [ -n "$VOA_BASE" ]; then
     get "$U" "voa_${VOA_YEAR}_listentries_changeupdate_${N}.zip"
   done
 else log "FAILED voa: no ${VOA_YEAR} list entries baseline on rlidata.htm (VOA terms are not OGL: internal analysis only)"; FAILED+=("voa"); fi
-# EPC non-domestic certificates (bulk zip, Basic auth with the registered email:key).
-if [ -n "${EPC_AUTH:-}" ]; then
-  get "https://epc.opendatacommunities.org/api/v1/files/all-non-domestic-certificates.zip" "epc_non_domestic.zip" -u "$EPC_AUTH" -H "Accept: application/zip"
-else log "EPC_AUTH not set: skipping EPC"; fi
+# EPC non-domestic certificates: the bulk CSV zip from the new Get Energy Performance Data API
+# (https://get-energy-performance-data.communities.gov.uk; bearer token from 'My account' after GOV.UK One Login sign-in).
+# EPC_TOKEN=<bearer token>; the old EPC_AUTH=email:key form is accepted and the part after the colon used as the token.
+EPC_TOKEN="${EPC_TOKEN:-${EPC_AUTH##*:}}"
+if [ -n "$EPC_TOKEN" ]; then
+  get "https://api.get-energy-performance-data.communities.gov.uk/api/files/non-domestic/csv" "epc_non_domestic.zip" -H "Authorization: Bearer $EPC_TOKEN" -H "Accept: application/zip"
+else log "EPC_TOKEN not set: skipping EPC"; fi
 # Companies House basic company data (monthly, one zip).
 get "https://download.companieshouse.gov.uk/BasicCompanyDataAsOneFile-${CH_MONTH:-$(date +%Y-%m-01)}.zip" "companies_house_basic.zip"
 # planning.data.gov.uk national bulk CSVs (WKT geometry per row). flood-risk-zone is about 2 GB.

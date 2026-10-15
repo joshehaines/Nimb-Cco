@@ -11,7 +11,7 @@ You need: a Windows or Mac laptop on the company network with Python 3.11+ and a
 1. Register (free) and keep the keys somewhere safe:
    - HM Land Registry: INSPIRE polygons and CCOD/OCOD need a free account at use-land-property-data.service.gov.uk. Accept the CCOD licence (it forbids direct marketing; the platform enforces that).
    - Companies House: a free API key at developer.company-information.service.gov.uk.
-   - EPC: a free account at epc.opendatacommunities.org (gives an email and key for bulk download).
+   - EPC: a free account at get-energy-performance-data.communities.gov.uk (sign in with GOV.UK One Login; the bearer token is on My account).
    - VOA, CQC, Ofsted, FSA, NHSBSA, planning.data.gov.uk: direct downloads, no account.
 2. Clone the repository and install the Python requirements:
    ```
@@ -22,7 +22,7 @@ You need: a Windows or Mac laptop on the company network with Python 3.11+ and a
 3. Set the keys in the terminal you will run the script from (they are read as environment variables):
    ```
    export HMLR_API_KEY=...            # from use-land-property-data.service.gov.uk
-   export EPC_AUTH=you@christie.com:yourEpcKey
+   export EPC_TOKEN=yourEpcBearerToken
    export CH_MONTH=2026-10-01         # first of the current month, for the Companies House basic file
    ```
 4. Run the fetch script and leave it running. It writes everything under `scripts/data/raw/`:
@@ -52,7 +52,7 @@ A virtual server avoids the laptop entirely: fast datacentre downloads, always o
 4. Run the step 1 downloads on the server itself (much faster than at home):
    ```
    pip3 install -r api/requirements.txt
-   export HMLR_API_KEY=... EPC_AUTH=you@email:key CH_MONTH=2026-10-01
+   export HMLR_API_KEY=... EPC_TOKEN=... CH_MONTH=2026-10-01
    nohup bash scripts/data/fetch_sources.sh scripts/data/raw > fetch.log 2>&1 &
    ```
    Come back in a few hours; `tail fetch.log` shows progress. The script skips files it already has, so re-run it to resume after a failure. Then load with the job loop in step 2 below, passing both compose files on the server:
