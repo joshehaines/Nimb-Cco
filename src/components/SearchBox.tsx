@@ -1,28 +1,59 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, Building2, FileText, Hash, Store } from 'lucide-react'
+import { Search, MapPin, Building2, FileText, Hash, Store, Map as MapIcon, Loader2 } from 'lucide-react'
 import { provider, type SearchResult } from '@/data'
 import { useUi } from '@/store/ui'
 import { cx } from '@/components/ui'
 
-const ICON = { address: MapPin, title: Hash, company: Building2, business: Store, postcode: MapPin, planning: FileText }
+const ICON = { address: Hash, title: Hash, company: Building2, business: Store, postcode: MapPin, planning: FileText, area: MapIcon }
+const KIND_LABEL: Record<SearchResult['kind'], string> = { address: 'title', title: 'title', company: 'company', business: 'business', postcode: 'postcode', planning: 'planning', area: 'area' }
 
+/**
+ * One box for everything. Type a place, postcode, business, company, address, title or planning reference and the
+ * API returns a ranked list; Enter takes the top result, a postcode or area moves the map there.
+ */
 export function SearchBox() {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const [searched, setSearched] = useState(false)
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const nav = useNavigate()
   const select = useUi((s) => s.select)
   const fly = useUi((s) => s.requestFlyTo)
   const ref = useRef<HTMLDivElement>(null)
+  const seq = useRef(0)
 
   useEffect(() => {
-    if (!q.trim()) {
+    const term = q.trim()
+    if (term.length < 2) {
       setResults([])
+      setSearched(false)
+      setLoading(false)
       return
     }
-    const h = setTimeout(() => provider.search(q).then((r) => { setResults(r); setActive(0) }), 120)
+    const mine = ++seq.current
+    setLoading(true)
+    const h = setTimeout(() => {
+      provider
+        .search(term)
+        .then((r) => {
+          if (mine !== seq.current) return // a newer keystroke superseded this request
+          setResults(r ?? [])
+          setActive(0)
+          setSearched(true)
+        })
+        .catch(() => {
+          if (mine === seq.current) {
+            setResults([])
+            setSearched(true)
+          }
+        })
+        .finally(() => {
+          if (mine === seq.current) setLoading(false)
+        })
+    }, 150)
     return () => clearTimeout(h)
   }, [q])
 
@@ -51,6 +82,12 @@ export function SearchBox() {
       nav(`/companies/${r.id}`)
       return
     }
+    if (r.kind === 'postcode' || r.kind === 'area') {
+      // A place, not a record: move the map there. A full postcode is a street, a district or area is a town.
+      if (r.location) fly(r.location.coordinates[0], r.location.coordinates[1], r.kind === 'postcode' && /\d[A-Z]{2}$/i.test(r.id) ? 16.5 : r.kind === 'postcode' ? 14 : 13.5)
+      nav('/map')
+      return
+    }
     if (r.location) fly(r.location.coordinates[0], r.location.coordinates[1], 17.5)
     if (r.kind === 'business') {
       select({ type: 'business', id: r.id })
@@ -64,6 +101,7 @@ export function SearchBox() {
     }
   }
 
+  const showList = open && q.trim().length >= 2
   return (
     <div ref={ref} className="relative w-full max-w-xl">
       <div className="relative">
@@ -76,28 +114,36 @@ export function SearchBox() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') setActive((a) => Math.min(a + 1, results.length - 1))
-            if (e.key === 'ArrowUp') setActive((a) => Math.max(a - 1, 0))
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, results.length - 1)) }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
             if (e.key === 'Enter' && results[active]) go(results[active])
             if (e.key === 'Escape') setOpen(false)
           }}
-          placeholder={typeof window !== 'undefined' && window.innerWidth < 768 ? 'Search…' : 'Search address, postcode, title, business, company or planning ref…  (⌘K)'}
-          className="input pl-8"
+          placeholder={typeof window !== 'undefined' && window.innerWidth < 768 ? 'Search anything…' : 'Search a place, postcode, business, company, address, title or planning ref…  (⌘K)'}
+          aria-label="Search"
+          className="input pl-8 pr-8"
         />
+        {loading && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-400" />}
       </div>
-      {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-md border border-ink-200 bg-surface py-1 shadow-xl">
+      {showList && (results.length > 0 || (searched && !loading)) && (
+        <ul className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-md border border-ink-200 bg-surface py-1 shadow-xl" role="listbox">
+          {results.length === 0 && (
+            <li className="px-3 py-3 text-sm text-ink-500">Nothing matched “{q.trim()}”. Try a postcode, a town, part of a name, or a company number.</li>
+          )}
           {results.map((r, i) => {
-            const Icon = ICON[r.kind]
+            const Icon = ICON[r.kind] ?? Hash
             return (
-              <li key={`${r.kind}-${r.id}-${i}`}>
-                <button onMouseEnter={() => setActive(i)} onClick={() => go(r)} className={cx('flex w-full items-start gap-2.5 px-3 py-2 text-left', i === active ? 'bg-brand-50' : 'hover:bg-ink-50')}>
+              <li key={`${r.kind}-${r.id}-${i}`} role="option" aria-selected={i === active}>
+                <button onMouseEnter={() => setActive(i)} onClick={() => go(r)} className={cx('flex w-full items-start gap-2.5 px-3 py-2 text-left', i === active ? 'bg-brand-50 dark:bg-brand-950/40' : 'hover:bg-ink-50')}>
                   <Icon size={15} className="mt-0.5 shrink-0 text-ink-400" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm text-ink-900">{r.label}</span>
                     {r.sublabel && <span className="block truncate text-xs text-ink-500">{r.sublabel}</span>}
                   </span>
-                  <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-ink-400">{r.kind}</span>
+                  <span className="ml-auto flex shrink-0 items-center gap-2 text-[10px] uppercase tracking-wide text-ink-400">
+                    {i === active && <span className="rounded border border-ink-200 px-1 normal-case">↵</span>}
+                    {KIND_LABEL[r.kind] ?? r.kind}
+                  </span>
                 </button>
               </li>
             )

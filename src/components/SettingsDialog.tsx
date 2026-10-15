@@ -5,6 +5,7 @@ import { authConfigured, localAuth, DEMO_PERSONAS, useAuth } from '@/auth'
 import { Button, Input, Select } from '@/components/ui'
 import { logAudit } from '@/lib/audit'
 import { DEMO_AREAS } from '@/data/real'
+import { provider } from '@/data'
 
 /** User settings: persona (demo), Ordnance Survey key, theme, demo areas, tour, sign out. */
 export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; onClose: () => void; onStartTour: () => void }) {
@@ -59,11 +60,13 @@ export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; 
             <p className="mb-2 text-xs text-ink-500">Paste an OS Data Hub API key (free tier covers OS Maps API) to replace the OpenStreetMap basemap with OS Light and Road styles. Stored in this browser only.</p>
             <div className="flex gap-2"><Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="OS Data Hub project API key" aria-label="OS API key" /><Button variant="primary" onClick={saveKey}>Apply</Button></div>
           </section>
+          {provider.name === 'mock' && (
           <section>
             <div className="mb-1 flex items-center gap-2 font-medium"><MapPinned size={14} /> Demo areas</div>
             <p className="mb-2 text-xs text-ink-500">Synthetic ownership and operators are seated on the real street network in these areas. Everywhere else shows the real national layers only.</p>
             <div className="flex flex-wrap gap-1.5">{DEMO_AREAS.map((a) => <Button key={a.id} size="sm" onClick={() => { requestFlyTo(a.centre[0], a.centre[1], 15); onClose() }}>{a.name}</Button>)}</div>
           </section>
+          )}
           <section>
             <div className="mb-1 font-medium">Appearance</div>
             <Select value={theme} onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')} aria-label="Theme" className="w-auto"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></Select>

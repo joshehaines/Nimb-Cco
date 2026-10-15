@@ -66,6 +66,7 @@ STEPS: list[tuple[str, str]] = [
         create index if not exists businesses_postcode_idx on businesses (postcode);
         create index if not exists titles_postcode_idx on titles (postcode) where postcode is not null;
         create index if not exists businesses_title_idx on businesses (title_number) where title_number is not null;
+        create index if not exists businesses_address_trgm on businesses using gin (address gin_trgm_ops);
     """),
     ("businesses", f"""
         insert into businesses (business_id, name, sector, sub_sector, address, postcode, uprn, geom, operator_name, source, licence)

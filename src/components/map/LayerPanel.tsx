@@ -15,7 +15,7 @@ const Multi = ({ colours }: { colours: string[] }) => (
   <span aria-hidden className="mt-1 inline-flex shrink-0 -space-x-1">{colours.map((c, i) => <span key={i} className="h-3 w-3 rounded-full border border-white" style={{ background: c }} />)}</span>
 )
 
-interface Row { key: LayerKey; label: string; hint: string; swatch: React.ReactNode; demo?: boolean }
+interface Row { key: LayerKey; label: string; hint: string; swatch: React.ReactNode; demo?: boolean; hidden?: boolean }
 interface Group { title: string; rows: Row[] }
 
 const GROUPS: Group[] = [
@@ -28,30 +28,30 @@ const GROUPS: Group[] = [
   {
     title: 'Businesses',
     rows: [
-      { key: 'poi', label: 'Real businesses', hint: 'Pubs, hotels, care, childcare, dental, medical, pharmacy, retail and leisure from Overture Maps places. Small dots, coloured by sector.', swatch: <Multi colours={[SECTOR_COLOURS.Pub, SECTOR_COLOURS.Hotel, SECTOR_COLOURS['Care Home']]} /> },
-      { key: 'businesses', label: 'Demo businesses', hint: 'Fictional operators with ownership, leases, registers and distress signals, for trying sourcing, pipeline and campaigns. Larger white-ringed dots.', swatch: <Dot fill={SECTOR_COLOURS.Pub} />, demo: true },
+      { key: 'poi', label: 'Places (Overture Maps)', hint: 'Pubs, hotels, care, childcare, dental, medical, pharmacy, retail and leisure from Overture Maps places, nationwide. Small dots, coloured by sector.', swatch: <Multi colours={[SECTOR_COLOURS.Pub, SECTOR_COLOURS.Hotel, SECTOR_COLOURS['Care Home']]} /> },
+      { key: 'businesses', label: 'Businesses', hint: 'Registered businesses from CQC, Ofsted, NHSBSA and the Food Standards Agency, linked to their title, owner, operator, rates and EPC. Larger white-ringed dots; red halo = distress signal.', swatch: <Dot fill={SECTOR_COLOURS.Pub} /> },
     ],
   },
   {
     title: 'Market evidence',
     rows: [
       { key: 'pricePaid', label: 'Price paid', hint: 'HM Land Registry sales 2019 to 2025. Purple non-residential, grey residential, sized by price.', swatch: <Multi colours={['#7c3aed', '#94a3b8']} /> },
-      { key: 'comparables', label: 'Sold comparables', hint: 'Trading-business sales sized by price, with a dark ring.', swatch: <Dot fill={SECTOR_COLOURS.Hotel} stroke="#111827" />, demo: true },
+      { key: 'comparables', label: 'Sold comparables', hint: 'Trading-business sales sized by price, with a dark ring.', swatch: <Dot fill={SECTOR_COLOURS.Hotel} stroke="#111827" />, hidden: true },
     ],
   },
   {
     title: 'Planning',
     rows: [
-      { key: 'planning', label: 'Applications', hint: 'Blue pending, green approved, red refused, grey withdrawn.', swatch: <Multi colours={['#2563eb', '#15803d', '#be123c']} />, demo: true },
-      { key: 'constraints', label: 'Constraints', hint: 'Flood zones, conservation areas, listed buildings, Green Belt, Article 4.', swatch: <Square fill="rgba(14,116,144,0.25)" stroke="#0e7490" />, demo: true },
+      { key: 'planning', label: 'Applications', hint: 'Blue pending, green approved, red refused, grey withdrawn.', swatch: <Multi colours={['#2563eb', '#15803d', '#be123c']} /> },
+      { key: 'constraints', label: 'Constraints', hint: 'Flood zones, conservation areas, listed buildings, Green Belt, Article 4.', swatch: <Square fill="rgba(14,116,144,0.25)" stroke="#0e7490" /> },
     ],
   },
   {
     title: 'Context',
     rows: [
-      { key: 'buildings', label: 'Buildings', hint: 'Overture building footprints in the demo areas.', swatch: <Square fill="rgba(100,116,139,0.25)" stroke="#64748b" /> },
+      { key: 'buildings', label: 'Buildings', hint: 'Overture Maps building footprints where loaded.', swatch: <Square fill="rgba(100,116,139,0.25)" stroke="#64748b" /> },
       { key: 'traffic', label: 'Traffic counts', hint: 'Department for Transport count points sized by vehicles per day. Darker blue is a more recent count.', swatch: <Dot fill="#1e3a8a" size={14} /> },
-      { key: 'footfall', label: 'Footfall heatmap', hint: 'Mobile-location footfall bands (demo cells until a vendor feed is connected).', swatch: <Square fill="#f59e0b" stroke="#dc2626" />, demo: true },
+      { key: 'footfall', label: 'Footfall heatmap', hint: 'Mobile-location footfall bands, available once a vendor feed is connected.', swatch: <Square fill="#f59e0b" stroke="#dc2626" />, hidden: true },
     ],
   },
 ]
@@ -113,7 +113,7 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
           const on = g.rows.filter((r) => layers[r.key]).length
           return (
             <Collapsible key={g.title} title={g.title} right={on > 0 ? <span className="rounded-full bg-brand-50 px-1.5 text-[10px] font-semibold text-brand-700">{on}</span> : undefined}>
-              {g.rows.map((r) => (
+              {g.rows.filter((r) => !r.hidden).map((r) => (
                 <Checkbox key={r.key} checked={layers[r.key]} onChange={(v) => setLayer(r.key, v)} swatch={r.swatch} hint={r.hint} label={<span className="flex items-center gap-1.5">{r.label}{r.demo && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">Demo</span>}</span>} />
               ))}
             </Collapsible>
@@ -130,7 +130,7 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
               </li>
             ))}
           </ul>
-          <ul className="mt-1 space-y-1 text-xs"><li className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border-2 border-dashed border-rose-700" /> Dashed red: distress signal on occupier or owner (zoom 16+)</li><li className="text-ink-500">Titles draw from zoom 14.5; outlines follow the real building footprints in the demo areas.</li></ul>
+          <ul className="mt-1 space-y-1 text-xs"><li className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border-2 border-dashed border-rose-700" /> Dashed red: distress signal on occupier or owner (zoom 16+)</li><li className="text-ink-500">Titles draw from zoom 14.5.</li></ul>
         </Collapsible>
         {anyBusinessLayer && (
           <Collapsible title="Sectors" right={sectorFilter.length ? <button className="text-[11px] text-brand-700" onClick={(e) => { e.stopPropagation(); setSectorFilter([]) }}>clear</button> : undefined}>
@@ -139,7 +139,7 @@ export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
                 <Chip key={s} label={s} colour={SECTOR_COLOURS[s]} selected={sectorFilter.includes(s)} onClick={() => setSectorFilter(sectorFilter.includes(s) ? sectorFilter.filter((x) => x !== s) : [...sectorFilter, s])} />
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-ink-500">Pick sectors to show only those businesses. Red halo on a demo business = distress signal.</p>
+            <p className="mt-2 text-[11px] text-ink-500">Pick sectors to show only those businesses. Red halo = distress signal on the operator or owner.</p>
           </Collapsible>
         )}
         {layers.constraints && (
