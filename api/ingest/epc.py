@@ -26,6 +26,8 @@ async def load(conn, path: Path) -> int:
     from ._upsert import Batcher
     from .parsers._util import to_int
 
+    # Databases created before schema.sql widened epcs.score still have smallint; some non-domestic asset ratings exceed it.
+    await conn.execute("alter table epcs alter column score type integer")
     b = Batcher(conn, """insert into epcs (certificate_id, kind, address, postcode, uprn, rating, score, floor_area_sqm, lodged_at, expires_at, source, licence)
                  values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (certificate_id) do update set rating=excluded.rating, score=excluded.score,
                  floor_area_sqm=excluded.floor_area_sqm, lodged_at=excluded.lodged_at, expires_at=excluded.expires_at, fetched_at=now()""")

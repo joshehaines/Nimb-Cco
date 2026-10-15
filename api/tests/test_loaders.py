@@ -84,7 +84,9 @@ def test_loaders_accept_zipped_downloads(tmp_path):
         zf.writestr("recommendations-2024.csv", "LMK_KEY,RECOMMENDATION\nabc,Insulate\n")
     conn = RecordingConn()
     assert asyncio.run(epc.load(conn, z)) == 2
-    assert conn.sql[0][1][5] == "C" and conn.sql[0][1][9] is not None  # rating, expires_at
+    inserts = [args for sql, args in conn.sql if sql.startswith("insert into epcs")]
+    assert inserts[0][5] == "C" and inserts[0][9] is not None  # rating, expires_at
+    assert conn.sql[0][0].startswith("alter table epcs alter column score type integer")
 
     z = tmp_path / "ccod_full.zip"
     with zipfile.ZipFile(z, "w") as zf:

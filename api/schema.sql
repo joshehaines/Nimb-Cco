@@ -121,7 +121,7 @@ CREATE TABLE epcs (
   postcode            text,
   kind                text NOT NULL,                     -- non-domestic | domestic | DEC
   rating              text,
-  score               smallint,
+  score               integer,                          -- non-domestic asset ratings run past int16 (negative for net exporters)
   floor_area_sqm      numeric,
   lodged_at           date,
   expires_at          date,

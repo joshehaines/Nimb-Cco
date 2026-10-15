@@ -28,7 +28,7 @@ async def _maybe(fn, *args):
     return await fn(*args) if inspect.iscoroutinefunction(fn) else fn(*args)
 
 
-async def main() -> None:
+async def main() -> str:
     ap = argparse.ArgumentParser()
     ap.add_argument("job")
     ap.add_argument("--workdir", default=os.environ.get("INGEST_WORKDIR", "/tmp/cpi-ingest"))
@@ -61,9 +61,8 @@ async def main() -> None:
     )
     await conn.close()
     print(args.job, status, note, flush=True)
-    if status == "error":
-        raise SystemExit(1)
+    return status
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(1 if asyncio.run(main()) == "error" else 0)
