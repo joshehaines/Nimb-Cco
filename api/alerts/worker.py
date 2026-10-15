@@ -138,7 +138,11 @@ async def run_once(pool, *, dry_run: bool = False, now: datetime | None = None) 
     now = now or datetime.now(timezone.utc)
     written = 0
     async with pool.acquire() as c:
-        rules = await c.fetch("select r.*, u.email as owner_email, coalesce(u.name, u.email, r.user_id) as owner_name from alert_rules r left join users u on u.user_id = r.user_id where r.enabled")
+        # users has no name column; local sign-in accounts carry the display name.
+        rules = await c.fetch(
+            "select r.*, coalesce(u.email, a.email) as owner_email, coalesce(a.name, u.email, a.email, r.user_id) as owner_name "
+            "from alert_rules r left join users u on u.user_id = r.user_id left join accounts a on a.user_id = r.user_id where r.enabled"
+        )
         staff_rows = await c.fetch("select * from staff")
         staff = {s["id"]: dict(s) for s in staff_rows}
         for r in rules:
