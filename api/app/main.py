@@ -17,6 +17,7 @@ import asyncio
 import json
 from datetime import datetime, timezone
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -112,26 +113,119 @@ async def health(req: Request):
 
 
 # ------------------------------------------------------------------ search
+POSTCODE_RE = re.compile(r"^([A-Z]{1,2}\d[A-Z\d]?)(\d?)([A-Z]{0,2})$")
+
+
+def postcode_parts(q: str) -> tuple[str, str] | None:
+    """('CV32 4AB', 'full'), ('CV32 4', 'sector') or ('CV32', 'outward') when q looks like a UK postcode, else None."""
+    s = re.sub(r"\s+", "", q.upper())
+    m = POSTCODE_RE.match(s)
+    if not m:
+        return None
+    outward, digit, letters = m.groups()
+    if digit and len(letters) == 2:
+        return f"{outward} {digit}{letters}", "full"
+    if digit and not letters:
+        return f"{outward} {digit}", "sector"
+    if not digit and not letters and len(outward) >= 2:
+        return outward, "outward"
+    return None
+
+
+def _pt(lon, lat) -> dict[str, Any] | None:
+    return {"type": "Point", "coordinates": [lon, lat]} if lon is not None and lat is not None else None
+
+
 @app.get("/api/search")
 async def search(req: Request, q: str, limit: int = 12):
-    out: list[dict[str, Any]] = []
+    """One box for everything, ranked like a search engine: a postcode or area jumps the map there; business,
+    company, title and planning matches are scored by exact, prefix, trigram similarity and postcode/address
+    hits and interleaved. Short queries use prefix matching only (trigram similarity is meaningless under 4 chars)."""
+    q = " ".join(q.split())
+    if len(q) < 2:
+        return []
+    limit = max(1, min(limit, 30))
+    prefix, anywhere = q + "%", "%" + q + "%"
+    fuzzy = len(q) >= 4
+    results: list[dict[str, Any]] = []
     async with req.app.state.pool.acquire() as c:
+        pc = postcode_parts(q)
+        if pc:
+            code, level = pc
+            if level == "full":
+                r = await c.fetchrow("select ST_X(geom) lon, ST_Y(geom) lat, (select count(*) from businesses b where b.postcode = $1) n from postcode_centroids where postcode = $1", code)
+                if r and r["lon"] is not None:
+                    results.append({"kind": "postcode", "id": code, "label": code, "sublabel": f"Postcode · {r['n']} businesses", "location": _pt(r["lon"], r["lat"]), "score": 1.3})
+            else:
+                r = await c.fetchrow(
+                    "select percentile_cont(0.5) within group (order by ST_X(geom)) lon, percentile_cont(0.5) within group (order by ST_Y(geom)) lat, count(*) n from postcode_centroids where postcode like $1",
+                    code + ("%" if level == "outward" else "%"),
+                )
+                if r and r["n"]:
+                    results.append({"kind": "postcode", "id": code, "label": code, "sublabel": f"Postcode {'district' if level == 'outward' else 'sector'} · {r['n']} postcodes", "location": _pt(r["lon"], r["lat"]), "score": 1.25})
+        if re.fullmatch(r"[A-Za-z][A-Za-z .'&-]{2,}", q):
+            a = await c.fetchrow(
+                "select count(*) n, percentile_cont(0.5) within group (order by ST_X(geom)) lon, percentile_cont(0.5) within group (order by ST_Y(geom)) lat "
+                "from (select geom from businesses where geom is not null and (address ilike $1 or postcode ilike $2) limit 4000) x",
+                anywhere, prefix,
+            )
+            if a and a["n"] and a["n"] >= 15:
+                results.append({"kind": "area", "id": q.lower(), "label": q.title(), "sublabel": f"Area · {a['n']}{'+' if a['n'] >= 4000 else ''} businesses · go there", "location": _pt(a["lon"], a["lat"]), "score": 1.2})
         rows = await c.fetch(
-            """
-            select business_id, name, sector, address, ST_X(geom) lon, ST_Y(geom) lat
-            from businesses where name ilike '%' || $1 || '%' or postcode = upper($1)
-            order by similarity(name, $1) desc limit $2
+            f"""
+            select business_id, name, sector, address, postcode, ST_X(geom) lon, ST_Y(geom) lat,
+                   greatest(case when upper(name) = upper($1) then 1.0 when name ilike $2 then 0.9 else 0 end,
+                            {"similarity(name, $1)" if fuzzy else "0"},
+                            case when postcode = upper($1) then 0.85 else 0 end,
+                            case when address ilike $3 then 0.45 else 0 end) score
+            from businesses
+            where name ilike $2 or postcode = upper($1) {"or name % $1 or address ilike $3" if fuzzy else ""}
+            order by score desc, name limit $4
+            """,
+            q, prefix, anywhere, limit,
+        )
+        results += [{"kind": "business", "id": r["business_id"], "label": r["name"], "sublabel": f"{r['sector']} · {r['address'] or ''}{' · ' + r['postcode'] if r['postcode'] else ''}", "location": _pt(r["lon"], r["lat"]), "score": float(r["score"])} for r in rows]
+        number = q.upper().zfill(8) if re.fullmatch(r"\d{4,8}", q) else q.upper()
+        rows = await c.fetch(
+            f"""
+            select company_number, name, status,
+                   greatest(case when upper(name) = upper($1) then 1.0 when name ilike $2 then 0.8 else 0 end,
+                            {"similarity(name, $1) * 0.9" if fuzzy else "0"},
+                            case when company_number = $3 then 1.1 else 0 end) score
+            from companies
+            where name ilike $2 or company_number = $3 {"or name % $1" if fuzzy else ""}
+            order by score desc, (status ilike 'active%') desc, name limit $4
+            """,
+            q, prefix, number, limit,
+        )
+        results += [{"kind": "company", "id": r["company_number"], "label": r["name"], "sublabel": f"Company {r['company_number']} · {r['status']}", "score": float(r["score"])} for r in rows]
+        rows = await c.fetch(
+            f"""
+            select title_number, address, postcode, ST_X(ST_Centroid(geom)) lon, ST_Y(ST_Centroid(geom)) lat,
+                   greatest(case when title_number = upper($1) then 1.2 else 0 end,
+                            {"similarity(address, $1) * 0.8" if fuzzy else "0"},
+                            case when postcode = upper($1) then 0.6 else 0 end) score
+            from titles
+            where title_number = upper($1) or postcode = upper($1) {"or address % $1" if fuzzy else ""}
+            order by score desc limit $2
             """,
             q, limit,
         )
-        out += [{"kind": "business", "id": r["business_id"], "label": r["name"], "sublabel": f"{r['sector']} · {r['address']}", "location": {"type": "Point", "coordinates": [r["lon"], r["lat"]]}} for r in rows]
-        rows = await c.fetch("select company_number, name, status from companies where name ilike '%' || $1 || '%' or company_number = upper($1) limit $2", q, limit)
-        out += [{"kind": "company", "id": r["company_number"], "label": r["name"], "sublabel": f"{r['company_number']} · {r['status']}"} for r in rows]
+        results += [{"kind": "address", "id": r["title_number"], "label": r["address"] or r["title_number"], "sublabel": f"Title {r['title_number']}{' · ' + r['postcode'] if r['postcode'] else ''}", "location": _pt(r["lon"], r["lat"]), "score": float(r["score"])} for r in rows]
         rows = await c.fetch(
-            "select title_number, address, postcode, ST_X(ST_Centroid(geom)) lon, ST_Y(ST_Centroid(geom)) lat from titles where title_number = upper($1) or address ilike '%' || $1 || '%' or postcode = upper($1) limit $2",
-            q, limit,
+            "select reference, authority, address, status, ST_X(geom) lon, ST_Y(geom) lat from planning_applications where reference ilike $1 or (length($2) >= 5 and address ilike $3) order by received_date desc nulls last limit $4",
+            prefix, q, anywhere, min(limit, 5),
         )
-        out += [{"kind": "address", "id": r["title_number"], "label": r["address"], "sublabel": f"{r['postcode']} · {r['title_number']}", "location": {"type": "Point", "coordinates": [r["lon"], r["lat"]]}} for r in rows]
+        results += [{"kind": "planning", "id": r["reference"], "label": f"{r['reference']} · {r['authority']}", "sublabel": f"Planning · {r['status'] or ''} · {r['address'] or ''}", "location": _pt(r["lon"], r["lat"]), "score": 0.7 if r["reference"].upper().startswith(q.upper()) else 0.4} for r in rows]
+    results.sort(key=lambda x: -x["score"])
+    seen: set[tuple[str, str]] = set()
+    out = []
+    for r in results:
+        k = (r["kind"], r["id"])
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({kk: v for kk, v in r.items() if kk != "score"})
     return out[:limit]
 
 

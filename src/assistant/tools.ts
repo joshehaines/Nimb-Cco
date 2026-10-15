@@ -1,6 +1,5 @@
 import { provider } from '@/data'
 import { SECTORS, type Sector, type Alert } from '@/data/types'
-import { DEMO_AREAS } from '@/data/real'
 import { useUi, type BasemapId, type LayerKey, type TitleColour, type MapTool } from '@/store/ui'
 import { useAlerts } from '@/store/alerts'
 import { useAuth } from '@/auth'
@@ -23,7 +22,7 @@ const PAGES: Record<string, { to: string; label: string }> = {
   pipeline: { to: '/pipeline', label: 'Pipeline' }, comparables: { to: '/comparables', label: 'Comparables' }, catchment: { to: '/catchment', label: 'Catchment' }, campaigns: { to: '/campaigns', label: 'Campaigns' }, leases: { to: '/leases', label: 'Lease events' }, 'crm-export': { to: '/crm/export', label: 'Export to CRM' }, 'crm-cleanup': { to: '/crm', label: 'CRM clean-up' },
   documents: { to: '/documents', label: 'Documents' }, 'data-sources': { to: '/admin', label: 'Data sources' }, audit: { to: '/audit', label: 'Audit log' },
 }
-export const LAYER_NAMES: Record<LayerKey, string> = { titles: 'title plans', businesses: 'demo businesses', poi: 'real businesses', buildings: 'buildings', pricePaid: 'price paid', comparables: 'sold comparables', planning: 'planning applications', traffic: 'traffic counts', footfall: 'footfall', constraints: 'planning constraints', satellite: 'satellite' }
+export const LAYER_NAMES: Record<LayerKey, string> = { titles: 'title plans', businesses: 'businesses', poi: 'Overture places', buildings: 'buildings', pricePaid: 'price paid', comparables: 'sold comparables', planning: 'planning applications', traffic: 'traffic counts', footfall: 'footfall', constraints: 'planning constraints', satellite: 'satellite' }
 
 const sectorFrom = (s?: string): Sector | undefined => {
   if (!s) return undefined
@@ -52,22 +51,19 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'go_to_place',
-    description: 'Move the map to a town, postcode, address or one of the demo areas (Leamington Spa & Warwick, Bristol).',
+    description: 'Move the map to a town, postcode or address.',
     input_schema: { type: 'object', properties: { place: { type: 'string' } }, required: ['place'] },
     run: async ({ place }, ctx) => {
-      const q = String(place).toLowerCase()
-      const area = DEMO_AREAS.find((a) => a.name.toLowerCase().includes(q) || a.id.includes(q) || q.includes(a.id))
-      if (area) { useUi.getState().requestFlyTo(area.centre[0], area.centre[1], 15.5); ctx.nav('/map'); return { text: `Flying to ${area.name}.`, links: [{ label: 'Map', to: '/map' }] } }
-      const r = (await provider.search(String(place), 5)).find((x) => x.location)
-      if (!r?.location) return { text: `I could not place "${place}". Try a postcode or a street name; the demo covers Leamington Spa, Warwick and central Bristol in detail.` }
-      useUi.getState().requestFlyTo(r.location.coordinates[0], r.location.coordinates[1], 16.5)
+      const r = (await provider.search(String(place), 8)).find((x) => x.location)
+      if (!r?.location) return { text: `I could not place "${place}". Try a postcode, a town or a street name.` }
+      useUi.getState().requestFlyTo(r.location.coordinates[0], r.location.coordinates[1], r.kind === 'area' ? 13.5 : r.kind === 'postcode' ? 15 : 16.5)
       ctx.nav('/map')
       return { text: `Flying to ${r.label}.`, links: [{ label: 'Map', to: '/map' }] }
     },
   },
   {
     name: 'set_layers',
-    description: 'Turn map layers on or off. Keys: titles, businesses (demo operators), poi (real businesses), buildings, pricePaid, comparables, planning, traffic, footfall, constraints. Pass "all_off" to clear every pin layer.',
+    description: 'Turn map layers on or off. Keys: titles, businesses (registered businesses), poi (Overture places), buildings, pricePaid, comparables, planning, traffic, footfall, constraints. Pass "all_off" to clear every pin layer.',
     input_schema: { type: 'object', properties: { on: { type: 'array', items: { type: 'string' } }, off: { type: 'array', items: { type: 'string' } }, all_off: { type: 'boolean' } } },
     run: async ({ on, off, all_off }, ctx) => {
       const ui = useUi.getState()
@@ -101,7 +97,7 @@ export const TOOLS: ToolDef[] = [
       const ui = useUi.getState()
       ui.setFilters({ sectors: s ? [s] : [], distressOnly: !!distressed_only, tenure: tenure as never })
       ui.setSectorFilter(s ? [s] : [])
-      if (place) { const area = DEMO_AREAS.find((a) => a.name.toLowerCase().includes(String(place).toLowerCase())); if (area) ui.requestFlyTo(area.centre[0], area.centre[1], 14.5) }
+      if (place) { const r = (await provider.search(String(place), 8)).find((x) => x.location); if (r?.location) ui.requestFlyTo(r.location.coordinates[0], r.location.coordinates[1], 14.5) }
       ctx.nav('/sourcing')
       return { text: `Sourcing now shows ${distressed_only ? 'distressed ' : ''}${s ? s.toLowerCase() + 's' : 'all sectors'}${tenure ? ` (${String(tenure).toLowerCase()})` : ''}${place ? ` around ${place}` : ''}. Use Plot on map to see them, or Export to CRM.`, links: [{ label: 'Sourcing', to: '/sourcing' }, { label: 'Map', to: '/map' }] }
     },

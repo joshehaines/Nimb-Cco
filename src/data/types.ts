@@ -361,7 +361,7 @@ export interface WatchItem {
 }
 
 export interface SearchResult {
-  kind: 'address' | 'title' | 'company' | 'business' | 'postcode' | 'planning'
+  kind: 'address' | 'title' | 'company' | 'business' | 'postcode' | 'planning' | 'area'
   id: string
   label: string
   sublabel?: string

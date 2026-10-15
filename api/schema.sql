@@ -171,6 +171,7 @@ CREATE TABLE planning_applications (
   PRIMARY KEY (authority, reference)
 );
 CREATE INDEX planning_geom_gix ON planning_applications USING gist (geom);
+CREATE INDEX planning_address_trgm ON planning_applications USING gin (address gin_trgm_ops);
 CREATE INDEX planning_received_idx ON planning_applications (received_date DESC);
 
 CREATE TABLE planning_titles (
@@ -287,6 +288,7 @@ CREATE INDEX businesses_sector_idx ON businesses (sector);
 CREATE INDEX businesses_operator_idx ON businesses (operator_company_number);
 CREATE INDEX businesses_name_trgm ON businesses USING gin (name gin_trgm_ops);
 CREATE INDEX businesses_title_idx ON businesses (title_number) WHERE title_number IS NOT NULL;   -- the map titles layer looks businesses up by title
+CREATE INDEX businesses_address_trgm ON businesses USING gin (address gin_trgm_ops);   -- /api/search address and area legs
 
 CREATE TABLE business_registers (
   business_id text REFERENCES businesses ON DELETE CASCADE,

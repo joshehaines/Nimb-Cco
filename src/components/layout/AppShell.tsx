@@ -145,7 +145,7 @@ export function AppShell() {
             {!collapsed && (
               <div className="px-1 text-[11px] text-ink-500">
                 <div className="font-medium text-ink-700">Data provider: {provider.name}</div>
-                <div>Demo areas: Leamington Spa &amp; Warwick, Bristol · real roads, places, traffic and price paid everywhere; synthetic ownership and operators in the demo areas</div>
+                <div>{provider.name === 'http' ? 'HM Land Registry, Companies House, VOA, EPC, CQC, Ofsted, NHSBSA, FSA, DfT, planning.data.gov.uk and The Gazette · England & Wales, Scottish food hygiene' : 'Synthetic demo data for development'}</div>
               </div>
             )}
             <ThemeToggle compact={collapsed} />

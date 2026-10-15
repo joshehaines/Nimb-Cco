@@ -100,7 +100,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
         title={b ? b.name : t.address}
         subtitle={b ? `${b.address} · ${t.postcode}` : `${t.postcode} · ${t.titleNumber}`}
         onClose={onClose}
-        badge={<span className="flex items-center gap-1">{b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}<Badge tone="warning" title="Synthetic demo record: ownership, operator, registers and signals are generated, not real">Demo</Badge></span>}
+        badge={<span className="flex items-center gap-1">{b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}{(b ? b.source : t.source) === 'Synthetic' && <Badge tone="warning" title="Synthetic demo record: ownership, operator, registers and signals are generated, not real">Demo</Badge>}</span>}
       />
       <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-100 px-4 py-2">
         <Button size="sm" variant={watched ? 'secondary' : 'primary'} onClick={() => (watched ? removeWatch(watchlist.find((w) => w.entityId === t.titleNumber)!.id) : addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }))}>
@@ -377,7 +377,7 @@ function Planning({ bundle }: { bundle: SiteBundle }) {
         <Section title={`${authority}: decision statistics`}>
           <KV rows={[['Applications tracked', num(stats.total)], ['Approval rate', `${pct(stats.approvalRate)} of ${num(stats.decided)} decided`], ['Refusals', num(stats.refused)], ['Appeals', `${stats.appeals} lodged · ${stats.allowed} allowed${stats.appeals ? ` (${pct(stats.allowed / stats.appeals)})` : ''}`], ['Median time to decision', stats.medianWeeks !== undefined ? `${Math.round(stats.medianWeeks)} weeks` : '—']]} />
           <table className="mt-2 w-full text-xs"><thead className="text-left text-ink-500"><tr><th className="font-medium">Type</th><th className="text-right font-medium">Decided</th><th className="text-right font-medium">Approved</th></tr></thead><tbody>{stats.byType.map(([type, v]) => <tr key={type} className="border-t border-ink-100"><td className="py-1">{type}</td><td className="text-right tabular-nums">{v.n}</td><td className="text-right tabular-nums">{pct(v.approved / v.n)}</td></tr>)}</tbody></table>
-          <p className="mt-2 text-[11px] text-ink-500">Computed from the applications loaded for this authority (demo data until the planning feed is connected). Landstack and Searchland publish the equivalent as appeal trackers; here it sits beside the site.</p>
+          <p className="mt-2 text-[11px] text-ink-500">Computed from the applications loaded for this authority. Landstack and Searchland publish the equivalent as appeal trackers; here it sits beside the site.</p>
         </Section>
       )}
     </>
@@ -419,7 +419,7 @@ function Mobility({ bundle }: { bundle: SiteBundle }) {
   const trend = ff.length ? ff.reduce((s, f) => s + f.trend12m, 0) / ff.length : 0
   return (
     <>
-      <Section title="Footfall (mobile location, demo vendor cells)">
+      <Section title="Footfall (mobile location; vendor feed not yet connected)">
         {ff.length ? <KV rows={[['Monthly visits (cell avg)', num(avg)], ['12-month trend', <span className={trend >= 0 ? 'text-green-700 dark:text-green-300' : 'text-rose-700 dark:text-rose-300'}>{trend >= 0 ? '+' : ''}{pct(trend, 1)}</span>], ['Avg dwell', `${Math.round(ff.reduce((s, f) => s + (f.dwellMinutes ?? 0), 0) / ff.length)} min`], ['Cells within 220 m', String(ff.length)]]} /> : <div className="text-xs text-ink-500">No footfall coverage here. Vendor feed not contracted.</div>}
       </Section>
       <Section title="Traffic counts within 600 m (DfT)">
@@ -646,7 +646,7 @@ function PointDetail({ id, onClose }: { id: string; onClose: () => void }) {
               <div className="text-sm font-medium">{title.address}</div>
               <div className="text-xs text-ink-500">{title.titleNumber} · {title.tenure} · {title.proprietors.map((p) => (p.redacted ? 'Private individual' : p.name)).join(', ')} · {sqm(title.areaSqm)}</div>
             </button>
-          ) : <div className="text-xs text-ink-500">No registered title covers this point in the loaded data. Outside the demo areas, titles appear once HM Land Registry INSPIRE polygons are loaded.</div>}
+          ) : <div className="text-xs text-ink-500">No registered title covers this point in the loaded data. Title polygons are loaded for the West Midlands and West of England so far; other areas appear as HM Land Registry INSPIRE polygons are added.</div>}
         </Section>
         <Section title={`Businesses within 200 m (${near ? near.businesses.length + near.places.length : '…'})`}>
           {near && (near.businesses.length || near.places.length) ? <ul className="divide-y divide-ink-100 text-xs">

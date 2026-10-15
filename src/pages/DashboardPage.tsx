@@ -39,7 +39,7 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink-900">Market dashboard</h1>
-          <p className="text-sm text-ink-500">Demo areas (Leamington Spa, Warwick, Bristol) · all figures from the connected sources, refreshed on their own cadence.</p>
+          <p className="text-sm text-ink-500">England &amp; Wales · all figures from the connected sources, refreshed on their own cadence.</p>
         </div>
         <Link to="/map" className="btn-primary shrink-0">Open map <ArrowRight size={14} /></Link>
       </div>

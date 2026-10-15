@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DATA_BASE, DEMO_AREAS } from '@/data/real'
+import { authHeaders } from '@/auth'
 import maplibregl, { type Map as MLMap, type MapMouseEvent, type StyleSpecification } from 'maplibre-gl'
 import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
@@ -190,12 +191,21 @@ export function MapView() {
     const map = mapRef.current
     if (!layers.buildings || buildingsLoadedRef.current || !map) return
     buildingsLoadedRef.current = true
+    const setBuildings = (features: unknown[]) => {
+      const src = map.getSource('buildings') as maplibregl.GeoJSONSource | undefined
+      if (src && features.length) src.setData({ type: 'FeatureCollection', features } as never)
+    }
+    if (provider.name === 'http') {
+      // Footprints for the current viewport from the database (Overture buildings where loaded).
+      const b = map.getBounds()
+      fetch(`/api/map/open-data?bbox=${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}&buildings=1`, { credentials: 'include', headers: authHeaders() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setBuildings((d as { buildings?: { features: unknown[] } } | null)?.buildings?.features ?? []))
+        .catch(() => undefined)
+      return
+    }
     Promise.all(DEMO_AREAS.filter((a) => a.files.buildings).map((a) => fetch(`${DATA_BASE}${a.files.buildings}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
-      .then((fcs) => {
-        const src = map.getSource('buildings') as maplibregl.GeoJSONSource | undefined
-        const features = fcs.flatMap((fc) => (fc ? (fc as { features: unknown[] }).features : []))
-        if (src && features.length) src.setData({ type: 'FeatureCollection', features } as never)
-      })
+      .then((fcs) => setBuildings(fcs.flatMap((fc) => (fc ? (fc as { features: unknown[] }).features : []))))
       .catch(() => undefined)
   }, [layers.buildings])
   const constraintKinds = useUi((s) => s.constraintKinds)

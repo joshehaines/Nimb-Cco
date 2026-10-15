@@ -39,7 +39,7 @@ export function LocationAnalysis() {
       { kind: 'missing', label: 'Local authority and ward boundaries', source: 'ONS Open Geography' },
     ] },
     { title: 'Planning', rows: [
-      { kind: 'layer', label: 'Planning applications', layer: 'planning', demo: true },
+      { kind: 'layer', label: 'Planning applications', layer: 'planning' },
       { kind: 'missing', label: 'Planning decisions (last 12 months)', source: 'planning.data.gov.uk + PlanIt' },
       { kind: 'missing', label: 'Local plan allocations', source: 'planning.data.gov.uk (local-plan-boundary, allocation)' },
     ] },
@@ -74,7 +74,7 @@ export function LocationAnalysis() {
     ] },
     { title: 'Commercial market', rows: [
       { kind: 'pricePaid', label: 'Price paid: non-residential sales', value: 'nonResidential' },
-      { kind: 'layer', label: 'Sold comparables (trading businesses)', layer: 'comparables', demo: true },
+      { kind: 'layer', label: 'Sold comparables (trading businesses)', layer: 'comparables' },
       { kind: 'layer', label: 'Real businesses (Overture Maps)', layer: 'poi' },
       { kind: 'missing', label: 'Rateable values on the map', source: 'VOA rating list, once licensed' },
     ] },
@@ -84,12 +84,12 @@ export function LocationAnalysis() {
     ] },
     { title: 'Mobility', rows: [
       { kind: 'layer', label: 'Traffic counts (DfT)', layer: 'traffic' },
-      { kind: 'layer', label: 'Footfall', layer: 'footfall', demo: true },
+      { kind: 'layer', label: 'Footfall', layer: 'footfall' },
       { kind: 'missing', label: 'Bus stops and rail stations', source: 'NaPTAN' },
     ] },
     { title: 'Other', rows: [
       { kind: 'layer', label: 'Building footprints', layer: 'buildings' },
-      { kind: 'layer', label: 'Demo businesses', layer: 'businesses', demo: true },
+      { kind: 'layer', label: 'Demo businesses', layer: 'businesses' },
     ] },
   ]
   const onCount = (g: Group) => g.rows.filter((r) => (r.kind === 'layer' && layers[r.layer]) || (r.kind === 'constraint' && layers.constraints && constraintKinds.includes(r.constraint)) || (r.kind === 'pricePaid' && layers.pricePaid && (pricePaidFilter === 'all' || pricePaidFilter === r.value))).length

@@ -14,8 +14,8 @@ const OWNER_SHORT: Record<string, string> = {
   Other: 'Other',
 }
 const PIN_LABEL: Partial<Record<LayerKey, { label: string; swatch: React.ReactNode }>> = {
-  poi: { label: 'Real businesses (by sector)', swatch: <span className="inline-flex -space-x-1">{[SECTOR_COLOURS.Pub, SECTOR_COLOURS.Hotel, SECTOR_COLOURS['Care Home'], SECTOR_COLOURS.Dental].map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-ink-800/60" style={{ background: c }} />)}</span> },
-  businesses: { label: 'Demo businesses (by sector)', swatch: <span className="h-3 w-3 rounded-full border-2 border-white shadow-sm" style={{ background: SECTOR_COLOURS.Pub }} /> },
+  poi: { label: 'Places, Overture Maps (by sector)', swatch: <span className="inline-flex -space-x-1">{[SECTOR_COLOURS.Pub, SECTOR_COLOURS.Hotel, SECTOR_COLOURS['Care Home'], SECTOR_COLOURS.Dental].map((c, i) => <span key={i} className="h-2.5 w-2.5 rounded-full border border-ink-800/60" style={{ background: c }} />)}</span> },
+  businesses: { label: 'Businesses (by sector)', swatch: <span className="h-3 w-3 rounded-full border-2 border-white shadow-sm" style={{ background: SECTOR_COLOURS.Pub }} /> },
   pricePaid: { label: 'Price paid: non-residential / residential', swatch: <span className="inline-flex gap-0.5"><span className="h-2.5 w-2.5 rounded-full bg-[#7c3aed]" /><span className="h-2.5 w-2.5 rounded-full bg-[#94a3b8]" /></span> },
   comparables: { label: 'Sold comparables', swatch: <span className="h-3 w-3 rounded-full border-2 border-[#111827]/80" style={{ background: SECTOR_COLOURS.Hotel }} /> },
   planning: { label: 'Applications: pending / approved / refused', swatch: <span className="inline-flex gap-0.5"><span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" /><span className="h-2.5 w-2.5 rounded-full bg-[#15803d]" /><span className="h-2.5 w-2.5 rounded-full bg-[#be123c]" /></span> },

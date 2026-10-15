@@ -141,7 +141,7 @@ def test_linkage_runs_every_step_and_counts():
     assert "'Pub', 'Restaurant', 'Hotel', 'Convenience Retail'" in sql
     # a business whose flags all clear must get '{}', never NULL (the column is NOT NULL)
     assert "set distress_flags = coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}')" in sql
-    assert sql.count("create index if not exists") == 8
+    assert sql.count("create index if not exists") == 9
 
 
 def test_norm_company_sql_matches_index_expression():
@@ -183,3 +183,34 @@ def test_fsa_xml_rows_carry_sector_hint_for_linkage():
     rows = list(fsa.parse(Path(__file__).parent / "fixtures" / "fhrs_sample.xml"))
     assert rows and all("sectorHint" in r["extra"] and "businessType" in r["extra"] for r in rows)
     assert any(r["extra"]["sectorHint"] for r in rows), "fixture should contain at least one mapped business type"
+
+
+def test_postcode_parts():
+    from app.main import postcode_parts
+
+    assert postcode_parts("cv32 4ab") == ("CV32 4AB", "full")
+    assert postcode_parts("CV324AB") == ("CV32 4AB", "full")
+    assert postcode_parts("cv32 4") == ("CV32 4", "sector")
+    assert postcode_parts("CV32") == ("CV32", "outward")
+    assert postcode_parts("Leamington") is None
+    assert postcode_parts("12") is None
+
+
+def test_search_ranks_place_then_records(make_client):
+    from tests.conftest import Row
+
+    script = [
+        ("from postcode_centroids where postcode = $1", [Row(lon=-1.5365, lat=52.289, n=12)]),
+        ("select geom from businesses", [Row(n=0, lon=None, lat=None)]),
+        ("from businesses", [Row(business_id="FSA:1", name="Aviary Cafe", sector="Restaurant", address="Jephson Gardens", postcode="CV32 4AB", lon=-1.53, lat=52.28, score=0.85)]),
+        ("from companies", []),
+        ("from titles", [Row(title_number="WK1", address="12 Parade", postcode="CV32 4AB", lon=-1.53, lat=52.28, score=0.6)]),
+        ("from planning_applications", []),
+    ]
+    client, _ = make_client(script)
+    r = client.get("/api/search", params={"q": "CV32 4AB"}, headers={"X-Demo-User": "demo-agent"})
+    assert r.status_code == 200
+    kinds = [x["kind"] for x in r.json()]
+    assert kinds == ["postcode", "business", "address"], kinds
+    assert r.json()[0]["location"]["coordinates"] == [-1.5365, 52.289] and "score" not in r.json()[0]
+    assert client.get("/api/search", params={"q": "a"}, headers={"X-Demo-User": "demo-agent"}).json() == []
