@@ -4,6 +4,7 @@ import { useUi } from '@/store/ui'
 import { useTheme } from '@/hooks/useTheme'
 import { SearchBox } from '@/components/SearchBox'
 import { useEffect, useState } from 'react'
+import { useStaff } from '@/data/staff'
 import { useAuth } from '@/auth'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { Tour } from '@/components/Tour'
@@ -75,6 +76,7 @@ export function AppShell() {
     }
   })
   const alertState = useAlerts((s) => s.state)
+  useEffect(() => { void useStaff.getState().load() }, [])
   useEffect(() => {
     provider.getAlerts().then((a) => setUnread(a.filter((x) => !(alertState[x.alertId]?.read ?? x.read) && !alertState[x.alertId]?.dismissed).length))
     setMobileOpen(false)

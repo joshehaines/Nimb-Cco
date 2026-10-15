@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { mock, provider, type Business, type LeaseSummary } from '@/data'
+import { provider, type Business, type LeaseSummary } from '@/data'
 import { Badge, Card, Chip, Stat, Empty } from '@/components/ui'
 import { dateShort, gbp, monthsUntil } from '@/lib/format'
 import { SECTOR_COLOURS } from '@/lib/sectors'
@@ -18,7 +18,7 @@ export function LeaseEventsPage() {
   useEffect(() => {
     ;(async () => {
       const biz = await provider.sourceBusinesses(DEFAULT_FILTERS)
-      const leases = mock ? mock.leasesAll() : (await Promise.all(biz.map((b) => provider.getLeasesForTitle(b.titleNumber!)))).flat()
+      const leases = (await Promise.all(biz.filter((b) => b.titleNumber).map((b) => provider.getLeasesForTitle(b.titleNumber!).catch(() => [])))).flat()
       const evs: Ev[] = []
       for (const l of leases) {
         const b = biz.find((x) => x.titleNumber === l.freeholdTitleNumber)

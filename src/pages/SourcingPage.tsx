@@ -19,16 +19,20 @@ type Row = { b: Business; t?: Title; h?: Hereditament }
 export function SourcingPage() {
   const { filters, setShowFilters, addWatch, select, bounds, resetFilters, setHighlight } = useUi()
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [onlyMapArea, setOnlyMapArea] = useState(false)
   const [sort, setSort] = useState<'name' | 'rv' | 'lease' | 'distress' | 'score'>('score')
   const nav = useNavigate()
   useEffect(() => {
     setRows(null)
+    setError(null)
     provider.sourceBusinesses(filters, onlyMapArea ? bounds : undefined).then(async (bs) => {
+      // Titles and rateable values for the first 200 rows; the rest are listed without them (one request per row otherwise).
       const out: Row[] = []
-      for (const b of bs) out.push({ b, t: b.titleNumber ? await provider.getTitle(b.titleNumber) : undefined, h: b.hereditamentUarn ? await provider.getHereditament(b.hereditamentUarn) : undefined })
+      for (const b of bs.slice(0, 200)) out.push({ b, t: b.titleNumber ? await provider.getTitle(b.titleNumber).catch(() => undefined) : undefined, h: b.hereditamentUarn ? await provider.getHereditament(b.hereditamentUarn).catch(() => undefined) : undefined })
+      for (const b of bs.slice(200)) out.push({ b })
       setRows(out)
-    })
+    }).catch((e: Error) => { setError(e.message); setRows([]) })
   }, [filters, onlyMapArea, bounds])
   const sorted = useMemo(() => {
     if (!rows) return []
@@ -73,7 +77,7 @@ export function SourcingPage() {
         </div>
       </div>
       <div className="flex-1 overflow-auto p-5">
-        {!rows ? <Spinner label="Running filters across sources…" /> : !rows.length ? <Empty title="No businesses match" hint="Loosen the filters or switch off 'current map area only'." action={<Button onClick={() => setShowFilters(true)}>Edit filters</Button>} /> : (
+        {error ? <Empty title="Could not run the search" hint={error} /> : !rows ? <Spinner label="Running filters across sources…" /> : !rows.length ? <Empty title="No businesses match" hint="Loosen the filters or switch off 'current map area only'." action={<Button onClick={() => setShowFilters(true)}>Edit filters</Button>} /> : (
           <>
             <div className="mb-2 text-xs text-ink-500">{rows.length} businesses · {rows.filter((r) => r.b.distressFlags.length).length} with distress signals · combined RV {gbp(rows.reduce((s, r) => s + (r.h?.rateableValue ?? 0), 0), { compact: true })}</div>
             <div className="card overflow-x-auto">

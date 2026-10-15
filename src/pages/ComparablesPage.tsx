@@ -24,6 +24,7 @@ export function ComparablesPage() {
   }))
   const [centreLabel, setCentreLabel] = useState(params.get('label') ?? (params.get('lon') ? 'selected point' : ''))
   const [result, setResult] = useState<{ comps: Comparable[]; stats: ComparableStats } | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [ppd, setPpd] = useState<(PricePaidRow & { distanceM: number })[] | null>(null)
   useEffect(() => {
     if (!filters.centre) return setPpd(null)
@@ -37,7 +38,8 @@ export function ComparablesPage() {
 
   useEffect(() => {
     setResult(null)
-    provider.getComparables(filters).then(setResult)
+    setError(null)
+    provider.getComparables(filters).then(setResult).catch((e: Error) => { setError(e.message); setResult({ comps: [], stats: { count: 0, byYear: [] } }) })
     const p = new URLSearchParams()
     if (filters.sectors[0]) p.set('sector', filters.sectors[0])
     if (filters.centre) { p.set('lon', String(filters.centre[0])); p.set('lat', String(filters.centre[1])) }
@@ -131,7 +133,7 @@ export function ComparablesPage() {
         </div>
       </Card>
 
-      {!result ? <Spinner label="Searching comparables…" /> : !result.comps.length ? <Empty title="No comparables match" hint="Widen the radius or date range, or clear the sector filter." /> : (
+      {error ? <Empty title="Could not search comparables" hint={error} /> : !result ? <Spinner label="Searching comparables…" /> : !result.comps.length ? <Empty title="No comparables match" hint="Widen the radius or date range, or clear the sector filter." /> : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Stat label="Comparables" value={stats!.count} sub={`${result.comps.filter((c) => c.contributed).length} Christie deals`} />

@@ -6,7 +6,7 @@ import { useUi } from '@/store/ui'
 import { useAlerts } from '@/store/alerts'
 import { Badge, Button, Card, Chip, Empty, Input, Select, Spinner, Stat, Tabs, Toggle, cx } from '@/components/ui'
 import { ALERT_KINDS, type Alert } from '@/data/types'
-import { STAFF, staffById } from '@/data/mock/staff'
+import { useStaff, staffById } from '@/data/staff'
 import { describeRule, CHANNEL_LABEL, FREQUENCY_LABEL, type AlertChannel } from '@/lib/alerts'
 import { ago, dateShort } from '@/lib/format'
 import { logAudit } from '@/lib/audit'
@@ -63,6 +63,7 @@ export function AlertsPage() {
 }
 
 function Inbox({ feed, matches }: { feed: ReturnType<typeof useAlertFeed>; matches: ReturnType<typeof useRuleMatches> }) {
+  const STAFF = useStaff((st) => st.staff)
   const nav = useNavigate()
   const user = useAuth((s) => s.user)
   const { select, addWatch, isWatched } = useUi()

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { provider, mock, type Alert, type Business, type LeaseSummary, type Title } from '@/data'
+import { provider, type Alert, type Business, type DashboardStats, type LeaseSummary, type Title } from '@/data'
 import { Stat, Card, BarList, Badge, Button } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { useUi } from '@/store/ui'
@@ -11,25 +11,21 @@ import { DEFAULT_FILTERS } from '@/data/types'
 export function DashboardPage() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [businesses, setBusinesses] = useState<Business[]>([])
-  const [titles, setTitles] = useState<Title[]>([])
+  const [titles] = useState<Title[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const nav = useNavigate()
   const { watchlist, setFilters, resetFilters, select } = useUi()
   useEffect(() => {
-    provider.getAlerts().then(setAlerts)
-    provider.sourceBusinesses(DEFAULT_FILTERS).then(setBusinesses)
-    if (mock) setTitles(mock.allTitles())
+    provider.getAlerts().then(setAlerts).catch(() => setAlerts([]))
+    provider.sourceBusinesses({ ...DEFAULT_FILTERS, distressOnly: true }).then(setBusinesses).catch(() => setBusinesses([]))
+    provider.getDashboard().then(setStats).catch(() => setStats(null))
   }, [])
   const distressed = businesses.filter((b) => b.distressFlags.length)
-  const bySector = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const b of businesses) m.set(b.sector, (m.get(b.sector) ?? 0) + 1)
-    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value, colour: SECTOR_COLOURS[label as keyof typeof SECTOR_COLOURS] }))
-  }, [businesses])
+  const bySector = useMemo(() => (stats?.bySector ?? []).map(({ sector, count }) => ({ label: sector, value: count, colour: SECTOR_COLOURS[sector as keyof typeof SECTOR_COLOURS] })), [stats])
   const leases: (LeaseSummary & { biz?: Business })[] = useMemo(
     () => titles.flatMap((t) => t.leases.map((l) => ({ ...l, biz: businesses.find((b) => b.titleNumber === t.titleNumber) }))).filter((l) => { const m = monthsUntil(l.expiryDate); return m !== undefined && m >= 0 && m <= 36 }).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate)),
     [titles, businesses],
   )
-  const corporateTitles = titles.filter((t) => t.proprietors[0]?.category !== 'Private Individual').length
   const openBiz = (b: Business) => {
     select({ type: 'business', id: b.businessId })
     nav(`/map/business/${b.businessId}`)
@@ -44,10 +40,10 @@ export function DashboardPage() {
         <Link to="/map" className="btn-primary shrink-0">Open map <ArrowRight size={14} /></Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Stat label="Trading businesses tracked" value={businesses.length} sub="across 11 Christie sectors" />
-        <Stat label="With distress signals" value={distressed.length} tone={distressed.length ? 'critical' : 'neutral'} sub="insolvency, late accounts, regulator, FHRS" />
-        <Stat label="Lease events next 36 mo" value={leases.length} tone="warning" sub="registered leases expiring" />
-        <Stat label="Titles mapped" value={titles.length.toLocaleString()} sub={`${corporateTitles} corporately owned`} />
+        <Stat label="Trading businesses tracked" value={(stats?.businesses ?? 0).toLocaleString()} sub="across the registered sectors" />
+        <Stat label="With distress signals" value={(stats?.distressed ?? distressed.length).toLocaleString()} tone={(stats?.distressed ?? distressed.length) ? 'critical' : 'neutral'} sub="insolvency, late accounts, regulator, FHRS" />
+        <Stat label="Lease events next 36 mo" value={(stats?.leaseEvents36m ?? leases.length).toLocaleString()} tone="warning" sub="registered leases expiring" />
+        <Stat label="Titles mapped" value={(stats?.titles ?? 0).toLocaleString()} sub={`${(stats?.corporateTitles ?? 0).toLocaleString()} corporately owned`} />
         <Stat label="Unread alerts" value={alerts.filter((a) => !a.read).length} sub={<Link to="/alerts" className="text-brand-700">view feed</Link>} />
       </div>
       <div className="grid gap-5 lg:grid-cols-3">

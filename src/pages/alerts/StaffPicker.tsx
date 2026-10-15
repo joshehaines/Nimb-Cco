@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { X, UserPlus } from 'lucide-react'
-import { STAFF, staffById } from '@/data/mock/staff'
+import { useStaff, staffById } from '@/data/staff'
 import { Input, cx } from '@/components/ui'
 import { CHANNEL_LABEL, type AlertChannel, type Recipient } from '@/lib/alerts'
 
@@ -8,6 +8,7 @@ const CHANNELS: AlertChannel[] = ['inapp', 'email', 'sms']
 
 /** Add colleagues to an alert and choose how each one hears about it. */
 export function StaffPicker({ value, onChange, excludeId }: { value: Recipient[]; onChange: (v: Recipient[]) => void; excludeId?: string }) {
+  const STAFF = useStaff((st) => st.staff)
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const options = useMemo(() => {

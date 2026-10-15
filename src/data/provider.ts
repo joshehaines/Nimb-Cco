@@ -27,8 +27,7 @@ import type {
   FootfallCell,
   Sector,
   WatchItem,
-  AuditEvent,
-} from './types'
+  AuditEvent,, DashboardStats, StaffRow } from './types'
 
 /**
  * The single interface the UI talks to.
@@ -104,4 +103,9 @@ export interface DataProvider {
 
   // Admin
   getDataSources(): Promise<DataSourceStatus[]>
+
+  // Directory and summaries
+  getStaff(): Promise<StaffRow[]>
+  getPlanningForAuthority(authority: string, limit?: number): Promise<PlanningApplication[]>
+  getDashboard(): Promise<DashboardStats>
 }
