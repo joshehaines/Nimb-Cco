@@ -147,6 +147,43 @@ def _every_word(cols: list[str], words: list[str], first_param: int) -> tuple[st
         params.append("%" + w + "%")
     return " and ".join(parts), params
 
+
+SECTOR_WORDS: dict[str, str] = {
+    "pub": "Pub", "pubs": "Pub", "bar": "Pub", "inn": "Pub", "tavern": "Pub",
+    "restaurant": "Restaurant", "restaurants": "Restaurant", "cafe": "Restaurant", "takeaway": "Restaurant",
+    "hotel": "Hotel", "hotels": "Hotel", "b&b": "Hotel", "guesthouse": "Hotel",
+    "care": "Care Home", "carehome": "Care Home", "nursing": "Care Home",
+    "nursery": "Childcare", "nurseries": "Childcare", "childcare": "Childcare", "preschool": "Childcare",
+    "dentist": "Dental", "dentists": "Dental", "dental": "Dental",
+    "gp": "Medical", "surgery": "Medical", "clinic": "Medical", "medical": "Medical",
+    "pharmacy": "Pharmacy", "pharmacies": "Pharmacy", "chemist": "Pharmacy",
+    "shop": "Convenience Retail", "shops": "Convenience Retail", "store": "Convenience Retail", "supermarket": "Convenience Retail", "retail": "Convenience Retail",
+}
+
+
+def sector_and_place(words: list[str]) -> tuple[str, str] | None:
+    """('Pharmacy', 'cv32') for "pharmacy cv32", ('Care Home', 'bath') for "care home bath"; None when there is no sector word
+    or nothing left over to be the place."""
+    sector, rest = None, []
+    skip = False
+    for i, w in enumerate(words):
+        lw = w.lower()
+        if skip:
+            skip = False
+            continue
+        if lw == "care" and i + 1 < len(words) and words[i + 1].lower() in ("home", "homes"):
+            sector, skip = "Care Home", True
+            continue
+        if lw in ("home", "homes") and sector == "Care Home":
+            continue
+        if lw in SECTOR_WORDS and sector is None:
+            sector = SECTOR_WORDS[lw]
+            continue
+        rest.append(w)
+    if sector and rest:
+        return sector, " ".join(rest)
+    return None
+
 @app.get("/api/search")
 async def search(req: Request, q: str, limit: int = 12):
     """One box for everything, ranked like a search engine: a postcode or area jumps the map there; business,
@@ -184,6 +221,17 @@ async def search(req: Request, q: str, limit: int = 12):
             )
             if a and a["n"] and a["n"] >= 15:
                 results.append({"kind": "area", "id": q.lower(), "label": q.title(), "sublabel": f"Area · {a['n']}{'+' if a['n'] >= 4000 else ''} businesses · go there", "location": _pt(a["lon"], a["lat"]), "score": 1.2})
+        sp = sector_and_place(words) if multi else None
+        if sp:
+            sector, place = sp
+            ppc = postcode_parts(place)
+            if ppc:
+                rows = await c.fetch("select business_id, name, sector, address, postcode, ST_X(geom) lon, ST_Y(geom) lat from businesses where sector = $1 and postcode like $2 order by name limit $3",
+                                     sector, ppc[0] + "%", limit)
+            else:
+                rows = await c.fetch("select business_id, name, sector, address, postcode, ST_X(geom) lon, ST_Y(geom) lat from businesses where sector = $1 and address ilike $2 and address ~* $3 order by name limit $4",
+                                     sector, "%" + place + "%", r",\s*" + re.escape(place) + r"(\s+[A-Za-z]+)?(\s*,|$)", limit)
+            results += [{"kind": "business", "id": r["business_id"], "label": r["name"], "sublabel": f"{r['sector']} · {r['address'] or ''}{' · ' + r['postcode'] if r['postcode'] else ''}", "location": _pt(r["lon"], r["lat"]), "score": 0.95} for r in rows]
         bw_sql, bw_params = _every_word(["name", "address"], words, 5) if multi else ("", [])
         rows = await c.fetch(
             f"""

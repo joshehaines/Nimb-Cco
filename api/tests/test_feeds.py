@@ -222,3 +222,12 @@ def test_every_word_clause():
     sql, params = _every_word(["name", "address"], ["londis", "leamington"], 5)
     assert sql == "(name ilike $5 or address ilike $5) and (name ilike $6 or address ilike $6)"
     assert params == ["%londis%", "%leamington%"]
+
+
+def test_sector_and_place():
+    from app.main import sector_and_place
+
+    assert sector_and_place(["pharmacy", "CV32"]) == ("Pharmacy", "CV32")
+    assert sector_and_place(["care", "home", "Bath"]) == ("Care Home", "Bath")
+    assert sector_and_place(["Greene", "King"]) is None
+    assert sector_and_place(["pub"]) is None
