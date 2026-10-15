@@ -135,7 +135,7 @@ def test_linkage_runs_every_step_and_counts():
     n = asyncio.run(linkage.load(conn, Path("/raw")))
     assert n == 42
     sql = " ".join(s[0] for s in conn.sql)
-    for fragment in ("insert into businesses", "insert into business_registers", "st_contains(t.geom, b.geom)", "from proprietors", "companies_norm_name_idx",
+    for fragment in ("insert into businesses", "insert into business_registers", "st_contains(t.geom, b.geom)", "join proprietors p on p.title_number = x.title_number and p.seq = 1", "t.tenure = 'Leasehold'", "companies_norm_name_idx",
                      "hereditament_uarn = p.uarn", "epc_certificate_id = p.certificate_id", "fhrs_rating = x.rating", "set distress_flags"):
         assert fragment in sql, fragment
     assert "'Pub', 'Restaurant', 'Hotel', 'Convenience Retail'" in sql
