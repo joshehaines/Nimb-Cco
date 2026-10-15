@@ -1,4 +1,7 @@
-"""Care Quality Commission locations: public API JSON and the weekly 'HSCA Active Locations' CSV.
+"""Care Quality Commission locations: public API JSON and the monthly 'HSCA Active Locations' file.
+
+CQC now publishes that file as .ods (https://www.cqc.org.uk/about-us/transparency/using-cqc-data); parse_csv
+reads .ods and .csv alike through read_csv.
 
 API (https://api.service.cqc.org.uk/public/v1/locations/{id}): locationId, providerId, name,
 postalAddressLine1, postalAddressTownCity, postalCode, registrationStatus, registrationDate,
@@ -55,7 +58,7 @@ def parse_api(data) -> Iterator[dict]:
 
 
 def parse_csv(path) -> Iterator[dict]:
-    for row in read_csv(path):
+    for row in read_csv(path, ods_sheet="location"):
         location_id = pick(row, "Location ID", contains=("location", "id"))
         if not location_id:
             continue

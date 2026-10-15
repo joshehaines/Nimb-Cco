@@ -14,8 +14,14 @@ from typing import Iterator
 from ._util import norm_postcode, parse_date, pick, read_csv, to_int
 
 
-def parse(path, dataset: str = "CCOD") -> Iterator[dict]:
-    """Yield one record per title with a nested list of up to four proprietors."""
+def parse(path, dataset: str | None = None) -> Iterator[dict]:
+    """Yield one record per title with a nested list of up to four proprietors.
+
+    Accepts the monthly zip (CCOD_FULL_yyyy_mm.csv inside) or a CSV. `dataset` defaults to OCOD when the
+    file name says so, else CCOD.
+    """
+    if dataset is None:
+        dataset = "OCOD" if "ocod" in str(getattr(path, "name", path)).lower() else "CCOD"
     for row in read_csv(path):
         title = pick(row, "Title Number")
         if not title:

@@ -47,6 +47,7 @@ def sector_for_sic(texts: list[str | None]) -> str | None:
 
 
 def parse(path, today: date | None = None) -> Iterator[dict]:
+    """The monthly BasicCompanyDataAsOneFile zip (one CSV inside) or an extracted CSV."""
     today = today or date.today()
     for row in read_csv(path):
         number = pick(row, "CompanyNumber", contains=("companynumber",))

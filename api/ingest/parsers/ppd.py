@@ -9,22 +9,24 @@ from __future__ import annotations
 import csv
 from typing import Iterator
 
-from ._util import norm_postcode, open_text, parse_date, to_int
+from ._util import iter_lines, norm_postcode, parse_date, to_int
 
 COLS = ["transaction_id", "price", "date", "postcode", "property_type", "new_build", "duration", "paon", "saon", "street", "locality", "town", "district", "county", "ppd_category", "record_status"]
 
 
 def parse(path) -> Iterator[dict]:
-    for row in csv.reader(open_text(path)):
+    for row in csv.reader(iter_lines(path, (".csv", ".txt"))):
         if len(row) < 15:
             continue
         r = dict(zip(COLS, row + [""] * (len(COLS) - len(row))))
+        if not r["transaction_id"] or to_int(r["price"]) is None:
+            continue
         yield {
             "transaction_id": r["transaction_id"].strip("{}"),
             "price": to_int(r["price"]),
             "date": parse_date(r["date"][:10]),
             "postcode": norm_postcode(r["postcode"]),
-            "property_type": r["property_type"],
+            "property_type": r["property_type"] or "O",
             "new_build": r["new_build"] == "Y",
             "tenure": "Freehold" if r["duration"] == "F" else "Leasehold",
             "paon": r["paon"] or None,

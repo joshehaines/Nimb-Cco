@@ -13,13 +13,18 @@ from ._util import pick, read_csv, to_float, to_int
 
 
 def parse(path) -> Iterator[dict]:
-    """Yield the latest year per count point with the full AADF history attached."""
+    """Yield the latest year per count point with the full AADF history attached.
+
+    Accepts dft_traffic_counts_aadf.zip (one CSV inside) or the CSV. Only the columns used are kept per
+    row, so the whole national history (about 1.2 million rows) stays well under a gigabyte.
+    """
+    keep = ("count_point_id", "year", "local_authority_name", "road_name", "road_category", "start_junction_road_name", "end_junction_road_name", "latitude", "longitude", "estimation_method", "pedal_cycles", "cars_and_taxis", "buses_and_coaches", "lgvs", "all_hgvs", "all_motor_vehicles")
     by_cp: dict[str, list[dict]] = defaultdict(list)
     for row in read_csv(path):
         cp = pick(row, "count_point_id")
         if not cp:
             continue
-        by_cp[cp].append(row)
+        by_cp[cp].append({k: row.get(k) for k in keep})
     for cp, rows in by_cp.items():
         rows.sort(key=lambda r: to_int(r.get("year")) or 0)
         last = rows[-1]
