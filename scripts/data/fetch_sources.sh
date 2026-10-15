@@ -68,11 +68,17 @@ if [ -n "$CQC_URL" ]; then get "$CQC_URL" "cqc_active_locations.${CQC_URL##*.}";
 OFSTED_URL=$(curl -sSL --fail -A "$UA" "https://www.gov.uk/api/content/government/statistical-data-sets/childcare-providers-and-inspections-management-information" \
   | py "import sys,json; a=[x for x in json.load(sys.stdin)['details']['attachments'] if x.get('url','').endswith('.csv') and 'provider' in x.get('title','').lower() and 'data as at' in x.get('title','').lower()]; print(a[-1]['url'] if a else '')" 2>/dev/null || true)
 if [ -n "$OFSTED_URL" ]; then get "$OFSTED_URL" "ofsted_childcare_providers.csv"; else log "FAILED ofsted: no provider data CSV found on gov.uk"; FAILED+=("ofsted"); fi
-# FSA FHRS: one XML per local authority. Ids from https://api.ratings.food.gov.uk/Authorities/basic
+# FSA FHRS (England, Wales, NI) and FHIS (Scotland): one XML per local authority. By default every authority in
+# https://api.ratings.food.gov.uk/Authorities/basic (about 360, 1.5 GB); FSA_AREAS="373 324 ..." limits it, e.g.
 # 373 Warwick, 324 Bristol, 374 Birmingham, 375 Coventry, 372 Stratford-on-Avon, 369 North Warwickshire.
 # The XML file for some authorities is served empty; then page the JSON API into fhrs_<id>.json instead.
-for LA in ${FSA_AREAS:-373 324 374 375 372 369}; do
+FSA_ALL=$(curl -sSL --fail -H "x-api-version: 2" -H "Accept: application/json" "https://api.ratings.food.gov.uk/Authorities/basic" \
+  | py "import sys,json; print(' '.join(str(a['LocalAuthorityId']) for a in json.load(sys.stdin)['authorities']))" 2>/dev/null || true)
+[ -z "$FSA_ALL" ] && log "FSA: authority list unavailable, using the default six"
+for LA in ${FSA_AREAS:-${FSA_ALL:-373 324 374 375 372 369}}; do
   [ -s "fhrs_${LA}.json" ] && { log "have fhrs_${LA}.json"; continue; }
+  [ -s "fhrs_${LA}.xml" ] && [ "$(wc -c < "fhrs_${LA}.xml")" -gt 2000 ] && { log "have fhrs_${LA}.xml"; continue; }
+  sleep 0.7
   get "https://ratings.food.gov.uk/api/open-data-files/FHRS${LA}en-GB.xml" "fhrs_${LA}.xml" || true
   if [ ! -s "fhrs_${LA}.xml" ]; then
     rm -f "fhrs_${LA}.xml"; log "-> fhrs_${LA}.json (XML file empty; using the API)"
