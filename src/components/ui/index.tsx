@@ -70,7 +70,7 @@ export function Toggle({ checked, onChange, label, hint, colour }: { checked: bo
         </span>
       </span>
       <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={cx('relative h-5 w-9 shrink-0 rounded-full transition-colors', checked ? 'bg-brand-600' : 'bg-ink-300')}>
-        <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0.5')} />
+        <span className={cx('absolute left-0 top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0.5')} />
       </button>
     </label>
   )

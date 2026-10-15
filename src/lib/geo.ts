@@ -1,4 +1,4 @@
-import type { Point, Polygon, Position } from 'geojson'
+import type { MultiPolygon, Point, Polygon, Position } from 'geojson'
 import type { BoundsQuery } from '../data/types'
 
 const R = 6371000
@@ -59,8 +59,16 @@ export function hexagon(lon: number, lat: number, radiusM: number): Polygon {
   return { type: 'Polygon', coordinates: [ring] }
 }
 
-export function centroid(p: Polygon): Position {
-  const ring = p.coordinates[0]
+/** Outer ring of a Polygon, or of the first polygon of a MultiPolygon (HM Land Registry titles are MultiPolygons). */
+export function outerRing(g: Polygon | MultiPolygon | { type: string; coordinates: unknown }): Position[] {
+  const c = g.coordinates as unknown
+  if (g.type === 'MultiPolygon') return ((c as Position[][][])[0] ?? [])[0] ?? []
+  return (c as Position[][])[0] ?? []
+}
+
+export function centroid(p: Polygon | MultiPolygon): Position {
+  const ring = outerRing(p)
+  if (ring.length < 2) return [NaN, NaN]
   let x = 0
   let y = 0
   const n = ring.length - 1
@@ -71,8 +79,9 @@ export function centroid(p: Polygon): Position {
   return [x / n, y / n]
 }
 
-export function polygonAreaSqm(p: Polygon): number {
-  const ring = p.coordinates[0]
+export function polygonAreaSqm(p: Polygon | MultiPolygon): number {
+  const ring = outerRing(p)
+  if (ring.length < 3) return 0
   const lat0 = ring[0][1]
   const mPerDegLat = 111_320
   const mPerDegLon = 111_320 * Math.cos((lat0 * Math.PI) / 180)

@@ -4,6 +4,7 @@ import type { Polygon } from 'geojson'
 import { MapView } from '@/components/map/MapView'
 import { LayerPanel } from '@/components/map/LayerPanel'
 import { InfoPanel } from '@/components/panels/InfoPanel'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SourcingDrawer } from '@/components/panels/SourcingDrawer'
 import { useUi, type Selected } from '@/store/ui'
 import { provider } from '@/data'
@@ -50,7 +51,11 @@ export function MapPage() {
         <MapView />
         <LayerPanel hidden={!!selected && typeof window !== 'undefined' && window.innerWidth < 1024} />
       </div>
-      {selected && <InfoPanel />}
+      {selected && (
+        <ErrorBoundary label="Site panel">
+          <InfoPanel />
+        </ErrorBoundary>
+      )}
       <SourcingDrawer />
     </div>
   )

@@ -64,8 +64,8 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
     bizClasses.forEach(add)
     // Hereditaments add rows only for uses the trading business does not already cover (e.g. a flat above a shop).
     for (const hd of bundle.hereditaments) {
-      const uc = useClassForDescription(hd.description)
-      if (bizClasses.some((bc) => bc.newClass.split(' ')[0] === uc.newClass.split(' ')[0])) continue
+      const uc = useClassForDescription(hd.description ?? '')
+      if (bizClasses.some((bc) => (bc.newClass ?? '').split(' ')[0] === (uc.newClass ?? '').split(' ')[0])) continue
       add(uc)
     }
     if (!rows.size) add(b ? useClassFor(b.sector, b.subSector) : { description: t.proprietors.some((p) => p.category === 'Private Individual') ? 'Dwellinghouse' : 'Commercial, business and service', oldClass: t.proprietors.some((p) => p.category === 'Private Individual') ? 'C3' : '—', newClass: t.proprietors.some((p) => p.category === 'Private Individual') ? 'C3' : 'E' })
@@ -82,7 +82,7 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
   const share = async () => {
     try { await navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* ignore */ }
   }
-  const addressLines = t.address.split(/,\s*/)
+  const addressLines = (t.address ?? `Title ${t.titleNumber}`).split(/,\s*/)   // INSPIRE-only titles carry no address
 
   return (
     <div className="space-y-2 bg-ink-50 p-3">

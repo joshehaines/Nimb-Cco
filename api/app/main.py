@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 
 import json
+from datetime import datetime, timezone
 import os
 from contextlib import asynccontextmanager
 from typing import Any
@@ -47,10 +48,17 @@ async def _bootstrap_admin_when_ready(pool, attempts: int = 240, pause: float = 
     return False
 
 
+
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    """asyncpg hands `json` columns back as text by default, so every ST_AsGeoJSON(...)::json geometry reached the
+    browser as a string and neither MapLibre nor the site panel could use it. Decode json on the way out; jsonb is
+    left alone because several handlers still pass json.dumps(...) for jsonb parameters and unpack on read."""
+    await conn.set_type_codec("json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if getattr(app.state, "pool", None) is None:
-        app.state.pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
+        app.state.pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10, init=_init_connection)
         app.state.bootstrap_task = asyncio.create_task(_bootstrap_admin_when_ready(app.state.pool))
     yield
     if getattr(app.state, "pool", None) is not None and hasattr(app.state.pool, "close"):
@@ -69,6 +77,20 @@ async def require_auth(request: Request, call_next):
         except HTTPException as e:
             return JSONResponse({"error": e.detail}, status_code=e.status_code)
     return await call_next(request)
+
+
+def client_ts(v: Any) -> datetime | None:
+    """A timestamp sent by the browser (ISO 8601, usually with a trailing Z) as an aware datetime; None when absent.
+    asyncpg needs a datetime for a timestamptz parameter, so a raw string here fails the whole insert."""
+    if v in (None, ""):
+        return None
+    if isinstance(v, datetime):
+        return v
+    try:
+        d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
 def not_implemented(what: str) -> JSONResponse:
@@ -134,7 +156,12 @@ async def map_layers(req: Request, bbox: str = Query(..., description="west,sout
         planning = await c.fetch(f"select reference, status, type, ST_AsGeoJSON(geom)::json geom from planning_applications where geom && {env} limit 5000", w, s, e, n)
         traffic = await c.fetch(f"select count_point_id, aadf, year, method, ST_AsGeoJSON(geom)::json geom from traffic_counts where geom && {env}", w, s, e, n)
         footfall = await c.fetch(f"select h3, band, monthly_visits, ST_AsGeoJSON(geom)::json geom from footfall_cells where month = (select max(month) from footfall_cells) and geom && {env}", w, s, e, n)
-        constraints = await c.fetch(f"select id, kind, name, ST_AsGeoJSON(geom)::json geom from constraints where geom && {env} limit 5000", w, s, e, n)
+        # Constraint polygons (flood zones, green belt) run to megabytes each: clip to the viewport and simplify to
+        # roughly a pixel at the current width so a screen is tens of kB, not tens of MB.
+        tol = max((e - w) / 2000.0, 1e-6)
+        constraints = await c.fetch(
+            f"select id, kind, name, ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_ClipByBox2D(geom, {env}), $5))::json geom from constraints where geom && {env} limit 5000", w, s, e, n, tol
+        )
 
     def fc(rows, props):
         return {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": r["geom"], "properties": {k: r[v] for k, v in props.items()}} for r in rows]}
@@ -362,7 +389,7 @@ async def save_watchlist(req: Request, items: list[dict[str, Any]], user: User =
                 extra = {k: v for k, v in w.items() if k not in ("id", "entityType", "entityId", "label", "notes", "radiusM", "project", "addedAt")}
                 await c.execute(
                     "insert into watch_items (user_id, entity_type, entity_id, label, notes, radius_m, project, added_at, extra) values ($1,$2,$3,$4,$5,$6,$7,coalesce($8::timestamptz, now()),$9::jsonb) on conflict (user_id, entity_type, entity_id) do nothing",
-                    user.id, w.get("entityType"), w.get("entityId"), w.get("label"), w.get("notes"), w.get("radiusM"), w.get("project"), w.get("addedAt"), json.dumps(extra),
+                    user.id, w.get("entityType"), w.get("entityId"), w.get("label"), w.get("notes"), w.get("radiusM"), w.get("project"), client_ts(w.get("addedAt")), json.dumps(extra),
                 )
     return {"ok": True, "count": len(items)}
 
@@ -372,7 +399,7 @@ async def record_audit(req: Request, e: dict[str, Any], user: User = Depends(cur
     async with req.app.state.pool.acquire() as c:
         await c.execute(
             "insert into audit_log (event_id, at, user_id, user_name, kind, summary, entity_type, entity_id, licences, count) values ($1, coalesce($2::timestamptz, now()), $3, $4, $5, $6, $7, $8, $9, $10) on conflict (event_id) do nothing",
-            e.get("id"), e.get("at"), user.id, user.name, e.get("kind"), e.get("summary"), e.get("entityType"), e.get("entityId"), e.get("licences") or [], e.get("count"),
+            e.get("id"), client_ts(e.get("at")), user.id, user.name, e.get("kind"), e.get("summary"), e.get("entityType"), e.get("entityId"), e.get("licences") or [], e.get("count"),
         )
     return {"ok": True}
 

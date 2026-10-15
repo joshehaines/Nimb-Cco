@@ -40,23 +40,26 @@ export function useSite(titleNumber?: string, refreshKey = 0) {
         const title = await provider.getTitle(titleNumber)
         if (!title) throw new Error(`Title ${titleNumber} not found`)
         const c = centroid(title.geometry as Polygon) as [number, number]
+        // A source the backend has not wired yet (501) or a transient failure is "no data for this section",
+        // not a reason to show nothing about the title at all.
+        const soft = <T,>(p: Promise<T[] | undefined>): Promise<T[]> => p.then((x) => x ?? []).catch(() => [])
         const [businesses, hereditaments, epcs, planning, nearbyPlanning, constraints, traffic, footfall, leases, pricePaidNear] = await Promise.all([
-          provider.getBusinessesForTitle(titleNumber),
-          provider.getHereditamentsForTitle(titleNumber),
-          provider.getEpcsForTitle(titleNumber),
-          provider.getPlanningForTitle(titleNumber),
-          provider.getPlanningForTitle(titleNumber, 250),
-          provider.getConstraintsForTitle(titleNumber),
-          provider.getTrafficNear(c[0], c[1], 600),
-          provider.getFootfallNear(c[0], c[1], 220),
-          provider.getLeasesForTitle(titleNumber),
-          provider.getPricePaidNear(c[0], c[1], 150, { limit: 12 }).catch(() => []),
+          soft(provider.getBusinessesForTitle(titleNumber)),
+          soft(provider.getHereditamentsForTitle(titleNumber)),
+          soft(provider.getEpcsForTitle(titleNumber)),
+          soft(provider.getPlanningForTitle(titleNumber)),
+          soft(provider.getPlanningForTitle(titleNumber, 250)),
+          soft(provider.getConstraintsForTitle(titleNumber)),
+          soft(provider.getTrafficNear(c[0], c[1], 600)),
+          soft(provider.getFootfallNear(c[0], c[1], 220)),
+          soft(provider.getLeasesForTitle(titleNumber)),
+          soft(provider.getPricePaidNear(c[0], c[1], 150, { limit: 12 })),
         ])
         const propNums = title.proprietors.map((p) => p.companyNumber).filter((x): x is string => !!x)
         const opNums = businesses.map((b) => b.operatorCompanyNumber).filter((x): x is string => !!x)
         const [proprietorCompanies, operatorCompanies] = await Promise.all([
-          Promise.all(propNums.map((n) => provider.getCompany(n))).then((xs) => xs.filter((x): x is Company => !!x)),
-          Promise.all(opNums.map((n) => provider.getCompany(n))).then((xs) => xs.filter((x): x is Company => !!x)),
+          Promise.all(propNums.map((n) => provider.getCompany(n).catch(() => undefined))).then((xs) => xs.filter((x): x is Company => !!x)),
+          Promise.all(opNums.map((n) => provider.getCompany(n).catch(() => undefined))).then((xs) => xs.filter((x): x is Company => !!x)),
         ])
         if (!cancelled) setBundle({ title, businesses, hereditaments, epcs, planning, nearbyPlanning: nearbyPlanning.filter((p) => !p.titleNumbers.includes(titleNumber)), constraints, traffic, footfall, leases, pricePaidNear, proprietorCompanies, operatorCompanies, centre: c })
       } catch (e) {

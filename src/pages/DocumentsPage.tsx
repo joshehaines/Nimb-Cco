@@ -8,9 +8,10 @@ import { ago, gbp } from '@/lib/format'
 export function DocumentsPage() {
   const [docs, setDocs] = useState<DocumentOrder[]>([])
   useEffect(() => {
-    const load = () => provider.getDocumentOrders().then((d) => setDocs([...d]))
+    // Poll gently: orders change over minutes, and a failing endpoint must not be hit once a second per open tab.
+    const load = () => provider.getDocumentOrders().then((d) => setDocs([...(d ?? [])])).catch(() => undefined)
     load()
-    const h = setInterval(load, 1000)
+    const h = setInterval(load, 15000)
     return () => clearInterval(h)
   }, [])
   const spend = docs.reduce((s, d) => s + d.fee, 0)
