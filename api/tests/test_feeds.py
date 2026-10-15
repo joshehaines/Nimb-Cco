@@ -139,6 +139,8 @@ def test_linkage_runs_every_step_and_counts():
                      "hereditament_uarn = p.uarn", "epc_certificate_id = p.certificate_id", "fhrs_rating = x.rating", "set distress_flags"):
         assert fragment in sql, fragment
     assert "'Pub', 'Restaurant', 'Hotel', 'Convenience Retail'" in sql
+    # a business whose flags all clear must get '{}', never NULL (the column is NOT NULL)
+    assert "set distress_flags = coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}')" in sql
     assert sql.count("create index if not exists") == 7
 
 
