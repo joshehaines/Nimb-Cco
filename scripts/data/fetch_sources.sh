@@ -37,8 +37,9 @@ py() { python3 -I -c "$@"; }
 
 # HM Land Registry -----------------------------------------------------------------------------
 # INSPIRE index polygons: one zip per local authority (no account; the site sets a cookie then redirects to S3).
-# Names as on https://use-land-property-data.service.gov.uk/datasets/inspire/download (spaces become underscores).
-for LA in ${INSPIRE_AREAS:-Warwick Bristol_City Birmingham Coventry Stratford-on-Avon Solihull Rugby North_Warwickshire Nuneaton_and_Bedworth South_Gloucestershire Bath_and_North_East_Somerset North_Somerset}; do
+# Names exactly as on https://use-land-property-data.service.gov.uk/datasets/inspire/download (spaces become underscores,
+# e.g. Bristol_City_Council); an unknown name loops on a redirect and is reported as failed.
+for LA in ${INSPIRE_AREAS:-Warwick_District_Council Bristol_City_Council Birmingham_City_Council Coventry_City_Council Stratford-on-Avon_District_Council Solihull_Metropolitan_Borough_Council Rugby_Borough_Council North_Warwickshire_Borough_Council Nuneaton_and_Bedworth_Borough_Council South_Gloucestershire_Council Bath_and_North_East_Somerset_Council North_Somerset_Council}; do
   get "https://use-land-property-data.service.gov.uk/datasets/inspire/download/${LA}.zip" "inspire_${LA}.zip"
 done
 # CCOD (UK companies) and OCOD (overseas companies), full monthly files. API key from the data portal.
