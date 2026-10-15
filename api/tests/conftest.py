@@ -3,6 +3,7 @@ shaping. Integration against real PostGIS is `docker compose up` plus `pytest -m
 """
 from __future__ import annotations
 
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
@@ -11,6 +12,14 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# app.auth and app.accounts read their sign-in configuration into module constants at import time,
+# and the test modules import them during collection, before any fixture runs. The suite assumes
+# demo mode, so drop whatever auth configuration the process inherited (for example when running
+# inside the deployed api container, where LOCAL_AUTH_SECRET is set) here, before those imports.
+# Tests that need local or OIDC mode set it up explicitly with monkeypatch.
+for _var in ("OIDC_ISSUER", "OIDC_AUDIENCE", "ADMIN_EMAILS", "LOCAL_AUTH_SECRET"):
+    os.environ.pop(_var, None)
 
 
 class Row(dict):
