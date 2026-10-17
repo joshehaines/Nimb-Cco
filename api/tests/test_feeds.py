@@ -300,6 +300,8 @@ def test_catchment_uses_census_when_loaded(make_client):
         ("from traffic_counts", 14000),
         ("from places", []),
     ])
-    j = client.get("/api/catchment", params={"lon": -1.5365, "lat": 52.289, "radius": 1500}, headers={"X-Demo-User": "demo-admin"}).json()
+    r = client.get("/api/catchment", params={"lon": -1.5365, "lat": 52.289, "radius": 1500}, headers={"X-Demo-User": "demo-admin"})
+    assert r.status_code == 200, r.text
+    j = r.json()
     assert j["population"] == 10234 and j["households"] == 4400 and j["age85plus"] == 260 and j["deprivationDecile"] == 6
     assert j["incomeDeprivationRate"] == 0.09 and j["affluenceIndex"] == round(100 * 0.91 / 0.88) and "ONS Census 2021" in j["source"]

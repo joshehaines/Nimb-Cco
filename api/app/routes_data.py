@@ -389,7 +389,8 @@ async def catchment(req: Request, lon: float, lat: float, radius: float = 1500, 
         real_counts[p["sector"]] = real_counts.get(p["sector"], 0) + 1
     return {
         "centre": [lon, lat], "radiusM": radius, "population": population, "households": households, **{k: v for k, v in ages.items() if k != "population"},
-        "medianHouseholdIncome": None, "affluenceIndex": round(100 * (1 - income_rate) / 0.88) if income_rate is not None else None,   # 100 = England's average 12% income deprivation "deprivationDecile": decile,
+        # affluenceIndex: 100 = England's average 12% income deprivation, higher is more affluent.
+        "medianHouseholdIncome": None, "affluenceIndex": round(100 * (1 - income_rate) / 0.88) if income_rate is not None else None, "deprivationDecile": decile,
         "incomeDeprivationRate": income_rate,
         "competitors": sorted(by_sector.values(), key=lambda x: -x["count"]),
         "nearest": [{"businessId": b["business_id"], "name": b["name"], "sector": b["sector"], "distanceM": round(b["distance_m"]), "capacity": b["capacity"], "rating": b["rating"], "operatorName": b["operator_name"]} for b in biz[:12]],
