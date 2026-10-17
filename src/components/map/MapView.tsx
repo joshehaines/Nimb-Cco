@@ -185,6 +185,10 @@ export function MapView() {
   const nav = useNavigate()
   const layers = useUi((s) => s.layers)
   const buildingsLoadedRef = useRef(false)
+  const reloadRef = useRef<(() => void) | null>(null)
+  // Layers are fetched only when switched on, so switching one on fetches it for the current view.
+  const serverLayerKey = (['titles', 'businesses', 'planning', 'traffic', 'footfall', 'constraints'] as const).filter((k) => (layers as Record<string, boolean>)[k]).join(',')
+  useEffect(() => { reloadRef.current?.() }, [serverLayerKey])
   // Building footprints are 8 MB, so they are fetched only when the layer is first switched on.
   useEffect(() => {
     const map = mapRef.current
@@ -236,7 +240,9 @@ export function MapView() {
 
     const load = async () => {
       const b = map.getBounds()
-      const data = await provider.getMapLayers({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() })
+      const on = useUi.getState().layers as Record<string, boolean>
+      const wanted = (['titles', 'businesses', 'planning', 'traffic', 'footfall', 'constraints'] as const).filter((k) => on[k])
+      const data = await provider.getMapLayers({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, wanted)
       dataRef.current = data
       for (const k of Object.keys(data) as (keyof MapLayers)[]) {
         const s = map.getSource(k) as maplibregl.GeoJSONSource | undefined
@@ -248,6 +254,7 @@ export function MapView() {
       window.clearTimeout(t)
       t = window.setTimeout(load, 150)
     }
+    reloadRef.current = scheduleLoad
     let styleOk = false
     const fallback = () => {
       if (styleOk) return

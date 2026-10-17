@@ -47,7 +47,7 @@ export interface DataProvider {
   search(query: string, limit?: number): Promise<SearchResult[]>
 
   // Map layers
-  getMapLayers(bounds: BoundsQuery): Promise<MapLayers>
+  getMapLayers(bounds: BoundsQuery, layers?: string[]): Promise<MapLayers>
 
   // Entities
   getTitle(titleNumber: string): Promise<Title | undefined>
@@ -71,7 +71,7 @@ export interface DataProvider {
   getLeasesForTitle(titleNumber: string): Promise<LeaseSummary[]>
 
   // Sourcing
-  sourceBusinesses(filters: SourcingFilters, bounds?: BoundsQuery): Promise<Business[]>
+  sourceBusinesses(filters: SourcingFilters, bounds?: BoundsQuery, limit?: number): Promise<Business[]>
   sourceTitles(filters: SourcingFilters, bounds?: BoundsQuery): Promise<Title[]>
 
   // Comparables and catchment

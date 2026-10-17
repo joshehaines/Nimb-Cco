@@ -196,6 +196,17 @@ STEPS: list[tuple[str, str]] = [
         where f.business_id = b.business_id and b.distress_flags is distinct from coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}')
     """),
     ("distress_empty", "update businesses set distress_flags = '{}' where distress_flags is null"),
+    # Headline figures for the dashboard, which would otherwise count 29M title rows on every cold request.
+    ("dashboard_stats", """
+        create table if not exists dashboard_stats (computed_at timestamptz primary key default now(), businesses integer, distressed integer, by_sector jsonb,
+          titles bigint, corporate_titles bigint, lease_events_36m integer);
+        insert into dashboard_stats (businesses, distressed, by_sector, titles, corporate_titles, lease_events_36m)
+        select (select count(*) from businesses), (select count(*) from businesses where cardinality(distress_flags) > 0),
+               (select jsonb_object_agg(sector, n) from (select sector, count(*) n from businesses group by sector) x),
+               (select count(*) from titles where geom is not null), (select count(*) from titles where geom is null),
+               (select count(*) from leases where expiry_date between current_date and current_date + interval '36 months');
+        delete from dashboard_stats where computed_at < now() - interval '30 days'
+    """),
 ]
 
 

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { Drawer, Chip, Input, Select, Toggle, Button } from '@/components/ui'
 import { SECTORS, type DistressFlag, type ConstraintKind, type Proprietor } from '@/data/types'
 import { SECTOR_COLOURS } from '@/lib/sectors'
@@ -20,7 +21,7 @@ const PRESETS: { label: string; hint: string; patch: Parameters<ReturnType<typeo
 ]
 
 export function SourcingDrawer() {
-  const { showFilters, setShowFilters, filters, setFilters, resetFilters } = useUi()
+  const { showFilters, setShowFilters, filters, setFilters, resetFilters } = useUi(useShallow((s) => ({ showFilters: s.showFilters, setShowFilters: s.setShowFilters, filters: s.filters, setFilters: s.setFilters, resetFilters: s.resetFilters })))
   const nav = useNavigate()
   const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
   return (

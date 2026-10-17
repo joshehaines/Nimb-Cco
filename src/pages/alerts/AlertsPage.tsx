@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Bell, BellRing, Plus, Play, Pause, Copy, Pencil, Trash2, Send, UserRound, Clock, KanbanSquare, Check, EyeOff, StickyNote, Mail, Smartphone, MessageSquare, Filter } from 'lucide-react'
 import { useAuth } from '@/auth'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { useAlerts } from '@/store/alerts'
 import { Badge, Button, Card, Chip, Empty, Input, Select, Spinner, Stat, Tabs, Toggle, cx } from '@/components/ui'
 import { ALERT_KINDS, type Alert } from '@/data/types'
@@ -66,7 +67,7 @@ function Inbox({ feed, matches }: { feed: ReturnType<typeof useAlertFeed>; match
   const STAFF = useStaff((st) => st.staff)
   const nav = useNavigate()
   const user = useAuth((s) => s.user)
-  const { select, addWatch, isWatched } = useUi()
+  const { select, addWatch, isWatched } = useUi(useShallow((s) => ({ select: s.select, addWatch: s.addWatch, isWatched: s.isWatched })))
   const { state, setState, setMany, rules, deliver } = useAlerts()
   const [kinds, setKinds] = useState<Alert['kind'][]>([])
   const [severity, setSeverity] = useState<'' | Alert['severity']>('')

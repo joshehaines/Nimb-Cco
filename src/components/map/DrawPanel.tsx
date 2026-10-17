@@ -1,5 +1,6 @@
 import { Trash2, Pentagon, Ruler, Copy } from 'lucide-react'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { haversineM, polygonAreaSqm } from '@/lib/geo'
 import { num } from '@/lib/format'
 
@@ -14,7 +15,7 @@ export const lengthReadout = (coords: [number, number][]) => {
 
 /** Measurements for every polygon or line the user has drawn, in the units surveyors quote. */
 export function DrawPanel() {
-  const { drawings, removeDrawing, clearDrawings, requestFlyTo } = useUi()
+  const { drawings, removeDrawing, clearDrawings, requestFlyTo } = useUi(useShallow((s) => ({ drawings: s.drawings, removeDrawing: s.removeDrawing, clearDrawings: s.clearDrawings, requestFlyTo: s.requestFlyTo })))
   if (!drawings.length) return null
   return (
     <div className="no-print card absolute bottom-16 right-3 z-20 w-[240px] overflow-hidden text-xs shadow">

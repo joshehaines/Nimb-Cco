@@ -8,6 +8,7 @@ import { useAuth } from '@/auth'
 import { blankRule } from '@/lib/alerts'
 import { provider, type Business, type Hereditament, type Title } from '@/data'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { Badge, Button, Empty, Spinner } from '@/components/ui'
 import { SourcingDrawer } from '@/components/panels/SourcingDrawer'
 import { SECTOR_COLOURS } from '@/lib/sectors'
@@ -17,22 +18,36 @@ import { canDownload } from '@/lib/env'
 type Row = { b: Business; t?: Title; h?: Hereditament }
 
 export function SourcingPage() {
-  const { filters, setShowFilters, addWatch, select, bounds, resetFilters, setHighlight } = useUi()
+  const { filters, setShowFilters, addWatch, select, bounds, resetFilters, setHighlight } = useUi(useShallow((s) => ({ filters: s.filters, setShowFilters: s.setShowFilters, addWatch: s.addWatch, select: s.select, bounds: s.bounds, resetFilters: s.resetFilters, setHighlight: s.setHighlight })))
   const [rows, setRows] = useState<Row[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [shown, setShown] = useState(100)
   const [onlyMapArea, setOnlyMapArea] = useState(false)
   const [sort, setSort] = useState<'name' | 'rv' | 'lease' | 'distress' | 'score'>('score')
   const nav = useNavigate()
   useEffect(() => {
     setRows(null)
     setError(null)
+    setShown(100)
+    let cancelled = false
     provider.sourceBusinesses(filters, onlyMapArea ? bounds : undefined).then(async (bs) => {
-      // Titles and rateable values for the first 200 rows; the rest are listed without them (one request per row otherwise).
-      const out: Row[] = []
-      for (const b of bs.slice(0, 200)) out.push({ b, t: b.titleNumber ? await provider.getTitle(b.titleNumber).catch(() => undefined) : undefined, h: b.hereditamentUarn ? await provider.getHereditament(b.hereditamentUarn).catch(() => undefined) : undefined })
-      for (const b of bs.slice(200)) out.push({ b })
-      setRows(out)
-    }).catch((e: Error) => { setError(e.message); setRows([]) })
+      // Show the list at once, then fill in titles and rateable values for the first rows in parallel batches.
+      const out: Row[] = bs.map((b) => ({ b }))
+      if (!cancelled) setRows(out)
+      const enrich = out.slice(0, 100)
+      for (let i = 0; i < enrich.length && !cancelled; i += 12) {
+        await Promise.all(enrich.slice(i, i + 12).map(async (r) => {
+          const [t, h] = await Promise.all([
+            r.b.titleNumber ? provider.getTitle(r.b.titleNumber).catch(() => undefined) : undefined,
+            r.b.hereditamentUarn ? provider.getHereditament(r.b.hereditamentUarn).catch(() => undefined) : undefined,
+          ])
+          r.t = t
+          r.h = h
+        }))
+        if (!cancelled) setRows([...out])
+      }
+    }).catch((e: Error) => { if (!cancelled) { setError(e.message); setRows([]) } })
+    return () => { cancelled = true }
   }, [filters, onlyMapArea, bounds])
   const sorted = useMemo(() => {
     if (!rows) return []
@@ -86,7 +101,7 @@ export function SourcingPage() {
                   <tr><th className="px-3 py-2 font-medium">Business</th><th className="font-medium">Operator</th><th className="font-medium">Freeholder</th><th className="font-medium">Tenure</th><th className="font-medium text-right">RV</th><th className="font-medium text-right">Area m²</th><th className="font-medium">Lease expiry</th><th className="font-medium">Register</th><th className="font-medium">Signals</th><th className="font-medium text-right" title="Likely-to-transact score from the signals held: insolvency, lease events, EPC, tenure length, charges, regulator ratings">Score</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {sorted.map(({ b, t, h }) => {
+                  {sorted.slice(0, shown).map(({ b, t, h }) => {
                     const lease = t?.leases[0]
                     const m = monthsUntil(lease?.expiryDate)
                     const reg = b.registers.find((r) => r.rating || r.capacity)
@@ -108,6 +123,12 @@ export function SourcingPage() {
                   })}
                 </tbody>
               </table>
+                {sorted.length > shown && (
+                  <div className="flex items-center justify-center gap-3 py-3 text-xs text-ink-500">
+                    Showing {shown.toLocaleString()} of {sorted.length.toLocaleString()}
+                    <Button size="sm" onClick={() => setShown((n) => n + 200)}>Show more</Button>
+                  </div>
+                )}
             </div>
           </>
         )}

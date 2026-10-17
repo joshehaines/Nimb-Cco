@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Layers, ChevronLeft, SlidersHorizontal, EyeOff } from 'lucide-react'
 import { useUi, PIN_LAYERS, type LayerKey } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { Checkbox, Chip, Collapsible, cx } from '@/components/ui'
 import { SECTORS } from '@/data/types'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
@@ -58,7 +59,7 @@ const GROUPS: Group[] = [
 
 export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
-  const { layers, setLayer, clearPins, analysis, clearAnalysis, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi()
+  const { layers, setLayer, clearPins, analysis, clearAnalysis, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, clearPins: s.clearPins, analysis: s.analysis, clearAnalysis: s.clearAnalysis, constraintKinds: s.constraintKinds, setConstraintKinds: s.setConstraintKinds, sectorFilter: s.sectorFilter, setSectorFilter: s.setSectorFilter, setShowFilters: s.setShowFilters, filters: s.filters, highlightIds: s.highlightIds, highlightLabel: s.highlightLabel, setHighlight: s.setHighlight, titleColour: s.titleColour, setTitleColour: s.setTitleColour })))
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length, filters.distressedOwners ? 1 : 0, filters.distressedTenants ? 1 : 0, filters.minFootprintSqm || filters.maxFootprintSqm ? 1 : 0, filters.minSiteCoverage !== undefined || filters.maxSiteCoverage !== undefined ? 1 : 0, filters.leaseStartAfter || filters.leaseStartBefore || filters.leaseEndAfter || filters.leaseEndBefore ? 1 : 0].reduce((a, b) => a + b, 0)
   const pinCount = PIN_LAYERS.filter((k) => layers[k]).length
   const anyBusinessLayer = layers.businesses || layers.poi || layers.comparables

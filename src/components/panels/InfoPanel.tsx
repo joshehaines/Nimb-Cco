@@ -8,6 +8,7 @@ import { provider, type Business, type DocumentOrder, type PlanningApplication, 
 import { PRICE_PAID_TYPE, type PlaceProps, type PricePaidRow } from '@/data/real'
 import type { Point } from 'geojson'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { useSite, type SiteBundle } from '@/hooks/useSite'
 import { Badge, Button, KV, Spinner, Tabs, Sparkline, cx, Empty } from '@/components/ui'
 import { SECTOR_COLOURS, SECTOR_ICON } from '@/lib/sectors'
@@ -75,7 +76,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
   }, [sel, refresh])
   const { bundle, loading, error } = useSite(titleNumber, refresh)
   const [tab, setTab] = useState<Tab>('overview')
-  const { addWatch, removeWatch, isWatched, watchlist, requestFlyTo } = useUi()
+  const { addWatch, removeWatch, isWatched, watchlist, requestFlyTo } = useUi(useShallow((s) => ({ addWatch: s.addWatch, removeWatch: s.removeWatch, isWatched: s.isWatched, watchlist: s.watchlist, requestFlyTo: s.requestFlyTo })))
   const watched = isWatched('title', titleNumber ?? '')
 
   if (error) return <><Header title="Not found" onClose={onClose} /><div className="p-4 text-sm text-rose-700 dark:text-rose-300">{error}</div></>
@@ -155,7 +156,7 @@ export function OrderButton({ titleNumber, kind, label, onOrdered, disabled }: {
         setOrder({ ...o })
         if (o.status === 'Parsed' || o.status === 'Failed') onOrdered()
       }
-    }, 500)
+    }, 5000)
     return () => clearInterval(h)
   }, [order, onOrdered])
   if (order) return <Badge tone={order.status === 'Parsed' ? 'good' : 'info'}>{order.status === 'Parsed' ? 'Stored & parsed' : `${order.status}…`}</Badge>
@@ -276,9 +277,9 @@ function Leases({ bundle, onOrdered }: { bundle: SiteBundle; onOrdered: () => vo
 function DocList({ titleNumber }: { titleNumber: string }) {
   const [docs, setDocs] = useState<DocumentOrder[]>([])
   useEffect(() => {
-    const load = () => provider.getDocumentOrders().then((d) => setDocs(d.filter((x) => x.titleNumber === titleNumber)))
+    const load = () => provider.getDocumentOrders().then((d) => setDocs((d ?? []).filter((x) => x.titleNumber === titleNumber))).catch(() => undefined)
     load()
-    const h = setInterval(load, 1000)
+    const h = setInterval(load, 30000)   // orders move over minutes, not seconds
     return () => clearInterval(h)
   }, [titleNumber])
   if (!docs.length) return <div className="text-xs text-ink-500">No documents purchased for this title yet. <Link to="/documents" className="text-brand-700">View firm-wide store</Link>.</div>
@@ -627,7 +628,7 @@ function PointDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const [title, setTitle] = useState<Title | null | undefined>(undefined)
   const [near, setNear] = useState<{ businesses: (Business & { distanceM: number })[]; places: (PlaceProps & { distanceM: number })[]; sales: (PricePaidRow & { distanceM: number })[]; traffic: TrafficCount[] } | null>(null)
   const nav = useNavigate()
-  const { addWatch, setPin } = useUi()
+  const { addWatch, setPin } = useUi(useShallow((s) => ({ addWatch: s.addWatch, setPin: s.setPin })))
   useEffect(() => {
     setPin([lon, lat])
     provider.getTitleAt(lon, lat).then((t) => setTitle(t ?? null))

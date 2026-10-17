@@ -1,28 +1,35 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { MapPage } from '@/pages/MapPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { SourcingPage } from '@/pages/SourcingPage'
-import { WatchlistPage } from '@/pages/WatchlistPage'
-import { AlertsPage } from '@/pages/alerts/AlertsPage'
-import { RuleEditorPage } from '@/pages/alerts/RuleEditorPage'
-import { CrmPage } from '@/pages/CrmPage'
-import { CrmExportPage } from '@/pages/CrmExportPage'
-import { AuditPage } from '@/pages/AuditPage'
-import { CompanyPage } from '@/pages/CompanyPage'
-import { ReportPage } from '@/pages/ReportPage'
-import { DocumentsPage } from '@/pages/DocumentsPage'
-import { AdminPage } from '@/pages/AdminPage'
-import { LeaseEventsPage } from '@/pages/LeaseEventsPage'
-import { PipelinePage } from '@/pages/PipelinePage'
-import { ComparablesPage } from '@/pages/ComparablesPage'
-import { CatchmentPage } from '@/pages/CatchmentPage'
-import { CampaignsPage } from '@/pages/CampaignsPage'
-import { AppraisalPage } from '@/pages/AppraisalPage'
-import { StageReportPage, CampaignLettersPage } from '@/pages/PrintPages'
+
+// Every page except the dashboard and the map loads on first visit, so the first screen downloads only what it needs.
+const SourcingPage = lazy(() => import('@/pages/SourcingPage').then((m) => ({ default: m.SourcingPage })))
+const WatchlistPage = lazy(() => import('@/pages/WatchlistPage').then((m) => ({ default: m.WatchlistPage })))
+const AlertsPage = lazy(() => import('@/pages/alerts/AlertsPage').then((m) => ({ default: m.AlertsPage })))
+const RuleEditorPage = lazy(() => import('@/pages/alerts/RuleEditorPage').then((m) => ({ default: m.RuleEditorPage })))
+const CrmPage = lazy(() => import('@/pages/CrmPage').then((m) => ({ default: m.CrmPage })))
+const CrmExportPage = lazy(() => import('@/pages/CrmExportPage').then((m) => ({ default: m.CrmExportPage })))
+const AuditPage = lazy(() => import('@/pages/AuditPage').then((m) => ({ default: m.AuditPage })))
+const CompanyPage = lazy(() => import('@/pages/CompanyPage').then((m) => ({ default: m.CompanyPage })))
+const ReportPage = lazy(() => import('@/pages/ReportPage').then((m) => ({ default: m.ReportPage })))
+const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
+const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const LeaseEventsPage = lazy(() => import('@/pages/LeaseEventsPage').then((m) => ({ default: m.LeaseEventsPage })))
+const PipelinePage = lazy(() => import('@/pages/PipelinePage').then((m) => ({ default: m.PipelinePage })))
+const ComparablesPage = lazy(() => import('@/pages/ComparablesPage').then((m) => ({ default: m.ComparablesPage })))
+const CatchmentPage = lazy(() => import('@/pages/CatchmentPage').then((m) => ({ default: m.CatchmentPage })))
+const CampaignsPage = lazy(() => import('@/pages/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
+const AppraisalPage = lazy(() => import('@/pages/AppraisalPage').then((m) => ({ default: m.AppraisalPage })))
+const StageReportPage = lazy(() => import('@/pages/PrintPages').then((m) => ({ default: m.StageReportPage })))
+const CampaignLettersPage = lazy(() => import('@/pages/PrintPages').then((m) => ({ default: m.CampaignLettersPage })))
+
+const PageLoading = () => <div className="p-8 text-sm text-ink-500">Loading…</div>
 
 export default function App() {
   return (
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       <Route path="/report/:titleNumber" element={<ReportPage />} />
       <Route path="/print/stage/:stage" element={<StageReportPage />} />
@@ -51,5 +58,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   )
 }

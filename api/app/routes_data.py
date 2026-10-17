@@ -243,11 +243,18 @@ async def dashboard(req: Request, user: User = Depends(current_user)):
     if _DASH.get("at") and (now - _DASH["at"]).total_seconds() < 600:
         return {**_DASH["body"], "unreadAlerts": await _unread(req, user)}
     async with req.app.state.pool.acquire() as c:
-        b = await c.fetchrow("select count(*) n, count(*) filter (where cardinality(distress_flags) > 0) distressed from businesses")
-        by_sector = await c.fetch("select sector, count(*) n from businesses group by sector order by n desc")
-        t = await c.fetchrow("select count(*) filter (where geom is not null) mapped, count(*) filter (where geom is null) corporate from titles")
-        titles, corporate = t["mapped"], t["corporate"]   # polygons mapped; CCOD/OCOD rows are corporate owners by definition
-        leases = await c.fetchval("select count(*) from leases where expiry_date between current_date and current_date + interval '36 months'")
+        pre = await c.fetchrow("select * from dashboard_stats order by computed_at desc limit 1") if await c.fetchval("select to_regclass('dashboard_stats') is not null") else None
+        if pre:
+            # Written at the end of each linkage run: the title counts cover 29M rows and take most of a minute live.
+            b = {"n": pre["businesses"], "distressed": pre["distressed"]}
+            by_sector = [{"sector": k, "n": v} for k, v in sorted((json.loads(pre["by_sector"]) if isinstance(pre["by_sector"], str) else pre["by_sector"]).items(), key=lambda kv: -kv[1])]
+            titles, corporate, leases = pre["titles"], pre["corporate_titles"], pre["lease_events_36m"]
+        else:
+            b = await c.fetchrow("select count(*) n, count(*) filter (where cardinality(distress_flags) > 0) distressed from businesses")
+            by_sector = await c.fetch("select sector, count(*) n from businesses group by sector order by n desc")
+            t = await c.fetchrow("select count(*) filter (where geom is not null) mapped, count(*) filter (where geom is null) corporate from titles")
+            titles, corporate = t["mapped"], t["corporate"]
+            leases = await c.fetchval("select count(*) from leases where expiry_date between current_date and current_date + interval '36 months'")
     body = {"businesses": b["n"], "distressed": b["distressed"], "bySector": [{"sector": r["sector"], "count": r["n"]} for r in by_sector], "titles": titles, "corporateTitles": corporate, "leaseEvents36m": leases, "asOf": now.isoformat()}
     _DASH.update({"at": now, "body": body})
     return {**body, "unreadAlerts": await _unread(req, user)}
@@ -489,7 +496,8 @@ async def source_businesses(req: Request, body: dict[str, Any], user: User = Dep
     f, bounds = body.get("filters") or {}, body.get("bounds")
     where, params = _sourcing_sql(f, bounds)
     async with req.app.state.pool.acquire() as c:
-        rows = await c.fetch(f"select {BUSINESS_COLS} from businesses b where {where} order by cardinality(b.distress_flags) desc, b.name limit 2000", *params)
+        limit = max(1, min(int(body.get("limit") or 2000), 2000))
+        rows = await c.fetch(f"select {BUSINESS_COLS} from businesses b where {where} order by cardinality(b.distress_flags) desc, b.name limit {limit}", *params)
         return await businesses_json(c, rows)
 
 

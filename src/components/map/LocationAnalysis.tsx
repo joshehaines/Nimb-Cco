@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, X, Radar } from 'lucide-react'
 import { useUi, type LayerKey } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { Checkbox, cx } from '@/components/ui'
 import { CONSTRAINT_COLOURS } from './MapView'
 
@@ -22,7 +23,7 @@ interface Group { title: string; rows: Row[] }
  * view simply draws nothing.
  */
 export function LocationAnalysis() {
-  const { locationOpen, setLocationOpen, layers, setLayer, constraintKinds, setConstraintKinds, tenureFilter, setTenureFilter, pricePaidFilter, setPricePaidFilter, viewCounts } = useUi()
+  const { locationOpen, setLocationOpen, layers, setLayer, constraintKinds, setConstraintKinds, tenureFilter, setTenureFilter, pricePaidFilter, setPricePaidFilter, viewCounts } = useUi(useShallow((s) => ({ locationOpen: s.locationOpen, setLocationOpen: s.setLocationOpen, layers: s.layers, setLayer: s.setLayer, constraintKinds: s.constraintKinds, setConstraintKinds: s.setConstraintKinds, tenureFilter: s.tenureFilter, setTenureFilter: s.setTenureFilter, pricePaidFilter: s.pricePaidFilter, setPricePaidFilter: s.setPricePaidFilter, viewCounts: s.viewCounts })))
   const [open, setOpen] = useState<Record<string, boolean>>({ Boundaries: true, Planning: true })
   const toggleConstraint = (k: string, on: boolean) => {
     const next = on ? Array.from(new Set([...constraintKinds, k])) : constraintKinds.filter((x) => x !== k)

@@ -13,6 +13,7 @@ import { Badge, Button, Card, KV, Spinner, Stat } from '@/components/ui'
 import { dateShort, gbp, sqm } from '@/lib/format'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 
 export function CompanyPage() {
   const { companyNumber = '' } = useParams()
@@ -21,7 +22,7 @@ export function CompanyPage() {
   const [titles, setTitles] = useState<Title[]>([])
   const [biz, setBiz] = useState<Business[]>([])
   const nav = useNavigate()
-  const { addWatch, removeWatch, isWatched, watchlist, select, requestFlyTo, setHighlight } = useUi()
+  const { addWatch, removeWatch, isWatched, watchlist, select, requestFlyTo, setHighlight } = useUi(useShallow((s) => ({ addWatch: s.addWatch, removeWatch: s.removeWatch, isWatched: s.isWatched, watchlist: s.watchlist, select: s.select, requestFlyTo: s.requestFlyTo, setHighlight: s.setHighlight })))
   const user = useAuth((s) => s.user)
   useEffect(() => {
     provider.getCompany(companyNumber).then((c) => setCompany(c ?? null))

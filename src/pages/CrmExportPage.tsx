@@ -5,6 +5,7 @@ import { Download, Users, ShieldCheck } from 'lucide-react'
 import { provider, type Business, type EPC, type Hereditament, type MatchCandidate, type Title, PIPELINE_STAGES, type PipelineStage } from '@/data'
 import { Badge, Button, Card, Select, Stat, Spinner, Empty, Tabs, Toggle, Input } from '@/components/ui'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { useAuth } from '@/auth'
 import { logAudit } from '@/lib/audit'
 import { canDownload } from '@/lib/env'
@@ -24,7 +25,7 @@ export function CrmExportPage() {
   const [params] = useSearchParams()
   const nav = useNavigate()
   const user = useAuth((s) => s.user)
-  const { watchlist, filters, campaigns, crmRecords, crmRecordsName, crmTemplates, setCrmTemplate } = useUi()
+  const { watchlist, filters, campaigns, crmRecords, crmRecordsName, crmTemplates, setCrmTemplate } = useUi(useShallow((s) => ({ watchlist: s.watchlist, filters: s.filters, campaigns: s.campaigns, crmRecords: s.crmRecords, crmRecordsName: s.crmRecordsName, crmTemplates: s.crmTemplates, setCrmTemplate: s.setCrmTemplate })))
   const [source, setSource] = useState<Source>((params.get('source') as Source) || (watchlist.length ? 'pipeline' : 'sourcing'))
   const [stage, setStage] = useState<PipelineStage | ''>('')
   const [campaignId, setCampaignId] = useState(params.get('id') ?? campaigns[0]?.campaignId ?? '')
