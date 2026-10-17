@@ -1,0 +1,11 @@
+# Keep the build context small: the web and API images need source, not data or backups.
+backups/
+scripts/data/raw/
+logs/
+node_modules/
+dist/
+.git/
+.env
+*.dump
+**/__pycache__/
+**/.pytest_cache/
