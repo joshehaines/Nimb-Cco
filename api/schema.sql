@@ -630,3 +630,24 @@ CREATE VIEW watch_items_with_centre AS
   FROM watch_items w
   LEFT JOIN businesses b ON w.entity_type = 'business' AND b.business_id = w.entity_id
   LEFT JOIN titles t ON w.entity_type = 'title' AND t.title_number = w.entity_id;
+
+-- ONS Census 2021 small areas (ingest/ons_census.py) with English Indices of Deprivation 2025 (ingest/imd.py).
+CREATE TABLE IF NOT EXISTS census_areas (
+  code         text PRIMARY KEY,
+  name         text,
+  geom         geometry(MultiPolygon, 4326),
+  population   integer,
+  households   integer,
+  age_0_4      integer,
+  age_65_plus  integer,
+  age_85_plus  integer,
+  adults       integer,
+  imd_score    real,
+  imd_rank     integer,
+  imd_decile   smallint,
+  income_rate  real,
+  source       text NOT NULL DEFAULT 'ONS Census 2021 (TS007A, TS041), LSOA Dec 2021 BSC boundaries',
+  licence      licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS census_areas_geom_gix ON census_areas USING gist (geom);

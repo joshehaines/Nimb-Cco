@@ -270,3 +270,36 @@ def test_linkage_drops_invalid_indexes_before_creating():
     sql = [s[0] for s in conn.sql]
     assert any(s.startswith('drop index if exists "businesses_title_idx"') for s in sql)
     assert sql.index(next(s for s in sql if s.startswith("drop index"))) < sql.index(next(s for s in sql if "create index if not exists businesses_title_idx" in s))
+
+
+def test_census_age_bands_and_households():
+    from ingest import ons_census
+
+    fx = Path(__file__).parent / "fixtures"
+    ages = ons_census.parse_ages(fx / "census2021-ts007a.zip")["E01000001"]
+    assert ages["population"] == 1473 and ages["age_0_4"] == 52 and ages["age_85_plus"] == 35
+    assert ages["age_65_plus"] == 119 + 102 + 57 + 57 + 35
+    assert ages["adults"] == 1473 - (52 + 34 + 32) - round(23 * 0.6)
+    assert ons_census.parse_households(fx / "census2021-ts041.zip") == {"E01000001": 876}
+
+
+def test_imd_parse():
+    from ingest import imd
+
+    rows = list(imd.parse(Path(__file__).parent / "fixtures" / "iod2025_sample.csv"))
+    assert rows == [("E01000001", 8.742, 26525, 8, 0.013)]
+
+
+def test_catchment_uses_census_when_loaded(make_client):
+    from tests.conftest import Row
+
+    client, _ = make_client([
+        ("from businesses b left join lateral", []),
+        ("to_regclass('census_areas')", True),
+        ("from census_areas ca", [Row(population=10234.4, households=4400.2, age_0_4=560.0, age_65_plus=1900.0, age_85_plus=260.0, adults=8100.0, imd_decile=6.4, income_rate=0.09)]),
+        ("from traffic_counts", 14000),
+        ("from places", []),
+    ])
+    j = client.get("/api/catchment", params={"lon": -1.5365, "lat": 52.289, "radius": 1500}, headers={"X-Demo-User": "demo-admin"}).json()
+    assert j["population"] == 10234 and j["households"] == 4400 and j["age85plus"] == 260 and j["deprivationDecile"] == 6
+    assert j["incomeDeprivationRate"] == 0.09 and j["affluenceIndex"] == round(100 * 0.91 / 0.88) and "ONS Census 2021" in j["source"]
