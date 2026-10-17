@@ -571,6 +571,8 @@ export interface Catchment {
   medianHouseholdIncome: number
   affluenceIndex: number
   deprivationDecile: number
+  /** Share of residents income-deprived (English Indices of Deprivation), population-weighted over the radius. */
+  incomeDeprivationRate?: number
   competitors: { sector: Sector; count: number; capacity: number; capacityLabel?: string }[]
   nearest: { businessId: string; name: string; sector: Sector; distanceM: number; capacity?: number; rating?: string; operatorName?: string }[]
   /** Sector-specific supply ratios, e.g. care beds per 100 people aged 85+. */

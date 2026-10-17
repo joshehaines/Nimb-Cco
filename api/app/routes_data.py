@@ -327,9 +327,23 @@ RATIOS = [
 ]
 
 
+# Sum each LSOA's figures weighted by the share of its area inside the circle; the IMD decile and income rate are
+# population-weighted averages over the English areas that carry them.
+CENSUS_SQL = """
+with c as (select ST_Buffer(ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)::geometry g),
+a as (
+  select ca.*, case when ST_Within(ca.geom, c.g) then 1.0 else ST_Area(ST_Intersection(ca.geom, c.g)) / nullif(ST_Area(ca.geom), 0) end w
+  from census_areas ca, c where ca.geom && c.g and ST_Intersects(ca.geom, c.g)
+)
+select sum(population * w) population, sum(households * w) households, sum(age_0_4 * w) age_0_4, sum(age_65_plus * w) age_65_plus, sum(age_85_plus * w) age_85_plus, sum(adults * w) adults,
+       sum(imd_decile * population * w) filter (where imd_decile is not null) / nullif(sum(population * w) filter (where imd_decile is not null), 0) imd_decile,
+       sum(income_rate * population * w) filter (where income_rate is not null) / nullif(sum(population * w) filter (where income_rate is not null), 0) income_rate
+from a
+"""
+
 @router.get("/catchment")
 async def catchment(req: Request, lon: float, lat: float, radius: float = 1500, user: User = Depends(current_user)):
-    """Competitor supply from the registers; population estimated from postcode density until ONS Census is loaded."""
+    """Competitor supply from the registers; demographics from ONS Census 2021 LSOAs area-weighted to the radius (postcode density if the Census is not loaded)."""
     async with req.app.state.pool.acquire() as c:
         biz = await c.fetch(
             f"select {BUSINESS_COLS}, ST_DistanceSphere(b.geom, ST_SetSRID(ST_MakePoint($1,$2),4326)) distance_m, reg.capacity, reg.capacity_label, reg.rating "
@@ -338,16 +352,27 @@ async def catchment(req: Request, lon: float, lat: float, radius: float = 1500, 
             "where b.geom && ST_Expand(ST_SetSRID(ST_MakePoint($1,$2),4326), $3 / 70000.0) and ST_DWithin(b.geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3) order by distance_m limit 3000",
             lon, lat, radius,
         )
-        pcs = await c.fetchval("select count(*) from postcode_centroids where geom && ST_Expand(ST_SetSRID(ST_MakePoint($1,$2),4326), $3 / 70000.0) and ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, radius) or 0
+        census = await c.fetchrow(CENSUS_SQL, lon, lat, radius) if await c.fetchval("select to_regclass('census_areas') is not null") else None
+        pcs = 0 if census and census["population"] else (await c.fetchval("select count(*) from postcode_centroids where geom && ST_Expand(ST_SetSRID(ST_MakePoint($1,$2),4326), $3 / 70000.0) and ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, radius) or 0)
         traffic = await c.fetchval("select max(aadf) from traffic_counts where ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)", lon, lat, max(radius, 800.0))
         places = await c.fetch(
             "select place_id, name, category, sector, address, postcode, ST_DistanceSphere(geom, ST_SetSRID(ST_MakePoint($1,$2),4326)) distance_m from places "
             "where ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3) order by distance_m limit 500", lon, lat, radius,
         )
-    # ONS small-area figures are not loaded yet: a live postcode unit averages about 15 households of 2.36 people.
-    households = int(pcs * 15)
-    population = int(households * 2.36)
-    ages = {"age0to4": round(population * 0.056), "age65plus": round(population * 0.19), "age85plus": round(population * 0.026), "adults": round(population * 0.80), "population": population}
+    if census and census["population"]:
+        # ONS Census 2021 LSOAs weighted by the share of each area's footprint inside the radius.
+        population, households = round(census["population"]), round(census["households"] or 0)
+        ages = {"age0to4": round(census["age_0_4"] or 0), "age65plus": round(census["age_65_plus"] or 0), "age85plus": round(census["age_85_plus"] or 0), "adults": round(census["adults"] or 0), "population": population}
+        decile = round(census["imd_decile"]) if census["imd_decile"] is not None else None
+        income_rate = census["income_rate"]
+        demo_source = "ONS Census 2021 (TS007A ages, TS041 households) by LSOA, area-weighted to the radius; English Indices of Deprivation 2025"
+    else:
+        # Census not loaded: a live postcode unit averages about 15 households of 2.36 people.
+        households = int(pcs * 15)
+        population = int(households * 2.36)
+        ages = {"age0to4": round(population * 0.056), "age65plus": round(population * 0.19), "age85plus": round(population * 0.026), "adults": round(population * 0.80), "population": population}
+        decile, income_rate = None, None
+        demo_source = "population estimated from Code-Point Open postcode density (ONS Census not loaded)"
     by_sector: dict[str, dict[str, Any]] = {}
     for b in biz:
         cur = by_sector.setdefault(b["sector"], {"sector": b["sector"], "count": 0, "capacity": 0, "capacityLabel": None})
@@ -364,13 +389,15 @@ async def catchment(req: Request, lon: float, lat: float, radius: float = 1500, 
         real_counts[p["sector"]] = real_counts.get(p["sector"], 0) + 1
     return {
         "centre": [lon, lat], "radiusM": radius, "population": population, "households": households, **{k: v for k, v in ages.items() if k != "population"},
-        "medianHouseholdIncome": None, "affluenceIndex": None, "deprivationDecile": None,
+        # affluenceIndex: 100 = England's average 12% income deprivation, higher is more affluent.
+        "medianHouseholdIncome": None, "affluenceIndex": round(100 * (1 - income_rate) / 0.88) if income_rate is not None else None, "deprivationDecile": decile,
+        "incomeDeprivationRate": income_rate,
         "competitors": sorted(by_sector.values(), key=lambda x: -x["count"]),
         "nearest": [{"businessId": b["business_id"], "name": b["name"], "sector": b["sector"], "distanceM": round(b["distance_m"]), "capacity": b["capacity"], "rating": b["rating"], "operatorName": b["operator_name"]} for b in biz[:12]],
         "ratios": ratios, "footfallMonthly": None, "trafficAadf": traffic,
         "realSupply": {"source": "Overture Maps places (CDLA-Permissive-2.0)", "counts": sorted(({"sector": s, "count": n} for s, n in real_counts.items()), key=lambda x: -x["count"]),
                        "nearest": [{"id": p["place_id"], "name": p["name"] or p["category"], "category": p["category"], "sector": p["sector"], "distanceM": round(p["distance_m"]), "address": p["address"], "postcode": p["postcode"]} for p in places[:12]]} if places else None,
-        "source": "CQC, Ofsted, NHSBSA and FSA registers; DfT traffic; population estimated from Code-Point Open postcode density (ONS Census not yet loaded)",
+        "source": f"CQC, Ofsted, NHSBSA and FSA registers; DfT traffic; {demo_source}",
     }
 
 
