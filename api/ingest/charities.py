@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import zipfile
+from datetime import date
 from pathlib import Path
 from typing import Iterator
 
@@ -74,14 +75,14 @@ def parse(lines: Iterator[str]) -> Iterator[tuple]:
         if c.get("charity_registration_status") != "Registered" or c.get("linked_charity_number") not in (0, None):
             continue
         addr = ", ".join(x for x in (c.get(f"charity_contact_address{i}") for i in range(1, 6)) if x)
-        reg = (c.get("date_of_registration") or "")[:10] or None
+        reg = date.fromisoformat(c["date_of_registration"][:10]) if c.get("date_of_registration") else None
         yield (int(c["registered_charity_number"]), c.get("charity_name") or "", c.get("charity_registration_status"), norm_number(c.get("charity_company_registration_number")),
                addr or None, norm_postcode(c.get("charity_contact_postcode")), int(c["latest_income"]) if c.get("latest_income") is not None else None,
                bool(c.get("charity_insolvent")), bool(c.get("charity_in_administration")), reg)
 
 
 UPSERT = """insert into charities (charity_number, name, status, company_number, address, postcode, income, insolvent, in_administration, registered)
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date)
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     on conflict (charity_number) do update set name = excluded.name, status = excluded.status, company_number = excluded.company_number, address = excluded.address,
         postcode = excluded.postcode, income = excluded.income, insolvent = excluded.insolvent, in_administration = excluded.in_administration, fetched_at = now()"""
 

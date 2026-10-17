@@ -333,7 +333,7 @@ def test_charities_stream_keeps_registered_main_charities():
         rows = list(charities.parse(f))
     assert len(rows) == 1
     num, name, status, company, addr, pc, income, insolvent, admin, reg = rows[0]
-    assert (num, name, status, company, pc, income, insolvent, admin, reg) == (1012345, "MILLBROOK CARE TRUST", "Registered", "02345678", "BA1 1AA", 2450000, False, True, "1992-05-17")
+    assert (num, name, status, company, pc, income, insolvent, admin, reg) == (1012345, "MILLBROOK CARE TRUST", "Registered", "02345678", "BA1 1AA", 2450000, False, True, date(1992, 5, 17))
     assert addr == "1 MILL LANE, BATH"
 
 
