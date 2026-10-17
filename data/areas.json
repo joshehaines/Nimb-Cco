@@ -1,0 +1,59 @@
+{
+  "areas": [
+    {
+      "id": "warwick",
+      "name": "Leamington Spa & Warwick",
+      "centre": [
+        -1.5455,
+        52.287
+      ],
+      "windows": [
+        [
+          -1.552,
+          52.277,
+          -1.518,
+          52.3
+        ],
+        [
+          -1.6,
+          52.274,
+          -1.566,
+          52.291
+        ]
+      ],
+      "files": {
+        "roads": "warwick/roads.geojson",
+        "places": "warwick/places.geojson",
+        "buildings": "warwick/buildings.geojson",
+        "traffic": "warwick/traffic.json",
+        "pricePaid": "warwick/price_paid.json",
+        "postcodes": "warwick/postcodes.json",
+        "parcels": "warwick/parcels.geojson"
+      },
+      "authority": "Warwick District Council"
+    },
+    {
+      "id": "bristol",
+      "name": "Bristol",
+      "centre": [
+        -2.5945,
+        51.455
+      ],
+      "windows": [
+        [
+          -2.612,
+          51.443,
+          -2.568,
+          51.468
+        ]
+      ],
+      "files": {
+        "roads": "bristol/roads.geojson",
+        "places": "bristol/places.geojson",
+        "buildings": "bristol/buildings.geojson",
+        "parcels": "bristol/parcels.geojson"
+      },
+      "authority": "Bristol City Council"
+    }
+  ]
+}
