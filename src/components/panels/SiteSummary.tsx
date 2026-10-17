@@ -31,6 +31,15 @@ function Row({ id, label, value, open, onToggle, children }: { id: string; label
   )
 }
 
+function Fact({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-md border border-ink-200 bg-surface px-2.5 py-2" title={title}>
+      <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-500">{label}</div>
+      <div className="mt-0.5 truncate text-sm font-medium text-ink-900">{children}</div>
+    </div>
+  )
+}
+
 function Card({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx('rounded-md border border-ink-200 bg-surface px-3 py-2.5', className)}>{children}</div>
 }
@@ -53,7 +62,7 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
   const [copied, setCopied] = useState(false)
   const [comp, setComp] = useState<CompetitionResult | null>(null)
   const toggle = (id: string) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const ROWS = ['area', 'footprint', 'heights', 'rates', 'price', 'epc', 'planning', 'score', 'competition']
+  const ROWS = ['useclass', 'area', 'footprint', 'heights', 'rates', 'price', 'epc', 'planning', 'score', 'competition']
   const allOpen = ROWS.every((r) => open.has(r))
 
   // Use classes: the trading business plus every rated hereditament, grouped by description.
@@ -86,44 +95,36 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
 
   return (
     <div className="space-y-2 bg-ink-50 p-3">
+      {/* Key facts: the six things a surveyor asks first, each one line. */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <Fact label="Owner" title={owner?.category}>
+          {owner?.redacted ? <span className="italic text-ink-500">Private individual</span> : owner?.companyNumber ? <Link to={`/companies/${owner.companyNumber}`} className="text-brand-700 hover:underline">{owner.name}</Link> : owner?.name ?? '—'}
+          {ownerCompany && ownerCompany.status !== 'active' && <span className="block text-[11px] font-normal text-rose-700 dark:text-rose-300">{ownerCompany.status}</span>}
+          {ownerCompany?.accountsOverdue && <span className="block text-[11px] font-normal text-amber-700 dark:text-amber-300">accounts overdue</span>}
+        </Fact>
+        <Fact label="Operator">
+          {b?.operatorCompanyNumber ? <Link to={`/companies/${b.operatorCompanyNumber}`} className="text-brand-700 hover:underline">{b.operatorName ?? b.operatorCompanyNumber}</Link> : b?.operatorName ?? <span className="text-ink-500">Not linked</span>}
+        </Fact>
+        <Fact label="Tenure · title">{t.tenure} <span className="font-normal text-ink-500">· {t.titleNumber}</span></Fact>
+        <Fact label="Rateable value">{h ? gbp(h.rateableValue) : <span className="text-ink-500">No assessment</span>}</Fact>
+        <Fact label={reg ? reg.register : 'Regulator'}>{reg ? <>{reg.rating ?? '—'}{reg.capacity ? <span className="font-normal text-ink-500"> · {reg.capacity} {reg.capacityLabel}</span> : null}</> : <span className="text-ink-500">None on record</span>}</Fact>
+        <Fact label="Likely to transact">{score ? <Badge tone={score.band === 'High' ? 'critical' : score.band === 'Medium' ? 'warning' : 'neutral'}>{score.band} · {score.score}</Badge> : <span className="text-ink-500">—</span>}</Fact>
+      </div>
       {b && b.distressFlags.length > 0 && (
-        <div className="rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-800 dark:text-rose-200">
-          <div className="font-semibold">Distress signals</div>
-          <div className="mt-1 flex flex-wrap gap-1">{b.distressFlags.map((f) => <Badge key={f} tone="critical">{f}</Badge>)}</div>
+        <div className="flex flex-wrap items-center gap-1 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-800 dark:text-rose-200">
+          <span className="mr-1 font-semibold">Distress</span>{b.distressFlags.map((f) => <Badge key={f} tone="critical">{f}</Badge>)}
         </div>
       )}
+      {t.licence === 'HMLR-CCOD' && <p className="px-1 text-[10px] text-ink-400">Ownership from the CCOD licence: not for direct marketing to this proprietor.</p>}
 
-      {/* Summary card */}
-      <Card className="py-3">
-        <div className="text-sm font-medium leading-snug text-ink-900">{addressLines.map((l, i) => <div key={i}>{l}</div>)}<div>{t.postcode}</div></div>
-        <div className="mt-3">
-          <div className="label mb-1">Use classes</div>
-          <table className="w-full text-[11px]">
-            <thead><tr className="bg-brand-700 text-left text-white"><th className="rounded-l px-1.5 py-1 font-medium">Description</th><th className="px-1.5 py-1 font-medium">Old class</th><th className="px-1.5 py-1 font-medium">New class</th><th className="rounded-r px-1.5 py-1 text-right font-medium"># of properties</th></tr></thead>
-            <tbody>{useClasses.map((u, i) => <tr key={i} className="border-b border-ink-100 last:border-0"><td className="px-1.5 py-1 text-ink-800">{u.description}</td><td className="px-1.5 py-1">{u.oldClass}</td><td className="px-1.5 py-1 font-medium">{u.newClass}</td><td className="px-1.5 py-1 text-right">{u.count}</td></tr>)}</tbody>
-          </table>
-          <p className="mt-1 text-[10px] text-ink-400">Use Classes Order (England), classes before and after 1 September 2020. Derived from the operator's sector and the VOA description; confirm against the planning history before relying on it.</p>
-        </div>
-        <div className="mt-3 flex items-center justify-between">
-          <button className="flex items-center gap-1 text-xs font-medium text-ink-700 hover:underline" onClick={share}>{copied ? <Check size={13} /> : <Share2 size={13} />} {copied ? 'Link copied' : 'Share this title'}</button>
-          <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-primary btn-sm"><Printer size={13} /> Site report</Link>
-        </div>
-      </Card>
-
-      <Card><div className="flex items-center justify-between gap-2 text-sm"><span className="text-ink-700">Title number</span><span className="font-medium text-ink-900">{t.titleNumber} <span className="font-normal text-ink-500">({t.tenure})</span></span></div></Card>
-
-      <Card>
-        <div className="flex items-start justify-between gap-2 text-sm">
-          <span className="shrink-0 text-ink-700">Owner</span>
-          <span className="min-w-0 text-right">
-            <span className="block truncate font-medium text-ink-900">{owner?.redacted ? <span className="italic text-ink-500">Private individual (withheld until the register is bought)</span> : owner?.name}{owner?.companyNumber ? <span className="font-normal text-ink-500"> ({owner.companyNumber})</span> : ''}</span>
-            <span className="mt-0.5 flex items-center justify-end gap-1.5 text-[11px] text-ink-500"><span className="h-2 w-2 rounded-sm" style={{ background: OWNER_CATEGORY_COLOURS[owner?.category ?? 'Other'] }} />{owner?.category}{t.proprietors.length > 1 ? ` · +${t.proprietors.length - 1} more` : ''}</span>
-          </span>
-        </div>
-        {owner?.companyNumber && <Link to={`/companies/${owner.companyNumber}`} className="mt-1.5 flex items-center justify-end gap-0.5 text-xs text-brand-700 hover:underline">Search company properties <ChevronRight size={12} /></Link>}
-        {ownerCompany && <div className="mt-1 text-right text-[11px] text-ink-500">{ownerCompany.status}{ownerCompany.accountsOverdue ? ' · accounts overdue' : ''}</div>}
-        {t.licence === 'HMLR-CCOD' && <p className="mt-1.5 text-[10px] text-ink-400">CCOD licence: not for direct marketing to this proprietor.</p>}
-      </Card>
+      <Row id="useclass" label="Use classes" value={useClasses.map((u) => u.newClass).filter(Boolean).join(', ')} open={open.has('useclass')} onToggle={toggle}>
+        <table className="w-full text-[11px]">
+          <thead><tr className="text-left text-ink-500"><th className="py-1 font-medium">Description</th><th className="py-1 font-medium">Old</th><th className="py-1 font-medium">New</th><th className="py-1 text-right font-medium">Count</th></tr></thead>
+          <tbody>{useClasses.map((u, i) => <tr key={i} className="border-t border-ink-100"><td className="py-1 text-ink-800">{u.description}</td><td className="py-1">{u.oldClass}</td><td className="py-1 font-medium">{u.newClass}</td><td className="py-1 text-right">{u.count}</td></tr>)}</tbody>
+        </table>
+        <p className="mt-1 text-[10px] text-ink-400">Use Classes Order (England), before and after 1 September 2020. Derived from the operator's sector and the VOA description; confirm against the planning history.</p>
+        <button className="mt-2 flex items-center gap-1 text-xs font-medium text-ink-700 hover:underline" onClick={share}>{copied ? <Check size={13} /> : <Share2 size={13} />} {copied ? 'Link copied' : 'Copy link to this site'}</button>
+      </Row>
 
       <Card>
         <div className="label mb-1.5">Downloads</div>
