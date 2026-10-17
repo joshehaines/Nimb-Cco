@@ -147,7 +147,7 @@ def test_linkage_runs_every_step_and_counts():
     assert "'Pub', 'Restaurant', 'Hotel', 'Convenience Retail'" in sql
     # a business whose flags all clear must get '{}', never NULL (the column is NOT NULL)
     assert "set distress_flags = coalesce((select array_agg(distinct x) from unnest(f.f) x), '{}')" in sql
-    assert sql.count("create index if not exists") == 9
+    assert sql.count("create index if not exists") == 10
 
 
 def test_norm_company_sql_matches_index_expression():
@@ -305,3 +305,67 @@ def test_catchment_uses_census_when_loaded(make_client):
     j = r.json()
     assert j["population"] == 10234 and j["households"] == 4400 and j["age85plus"] == 260 and j["deprivationDecile"] == 6
     assert j["incomeDeprivationRate"] == 0.09 and j["affluenceIndex"] == round(100 * 0.91 / 0.88) and "ONS Census 2021" in j["source"]
+
+
+def test_psc_parse_controls_and_parent_candidates():
+    from ingest import companies_house_psc as psc
+
+    lines = [json.dumps(x).encode() for x in [
+        {"company_number": "07434180", "data": {"kind": "corporate-entity-person-with-significant-control", "name": "Robert Hitchins Limited",
+                                                 "identification": {"country_registered": "England & Wales", "registration_number": "686734"},
+                                                 "natures_of_control": ["ownership-of-shares-75-to-100-percent", "voting-rights-75-to-100-percent"]}},
+        {"company_number": "08810260", "data": {"kind": "individual-person-with-significant-control", "name": "Mr A Person", "natures_of_control": ["ownership-of-shares-25-to-50-percent"]}},
+        {"company_number": "08810260", "data": {"kind": "individual-person-with-significant-control", "name": "Ms Gone", "ceased_on": "2024-01-01"}},
+        {"company_number": "01", "data": {"kind": "persons-with-significant-control-statement"}},
+        {"company_number": "09", "data": {"kind": "corporate-entity-person-with-significant-control", "name": "Foreign Holdco", "identification": {"country_registered": "Luxembourg", "registration_number": "B12345"}}},
+        b"not json",
+    ]]
+    rows = list(psc.parse(lines))
+    assert rows[0] == ("07434180", "Robert Hitchins Limited", "corporate", "00686734", ["ownership-of-shares-75-to-100-percent", "voting-rights-75-to-100-percent"], True)
+    assert rows[1][:5] == ("08810260", "Mr A Person", "individual", None, ["ownership-of-shares-25-to-50-percent"]) and rows[1][5] is False
+    assert len(rows) == 3 and rows[2][3] is None   # ceased and statements dropped; a foreign registration number is not a UK company
+    assert psc.norm_number("sc12345") == "SC012345" and psc.norm_number("12345") == "00012345" and psc.norm_number("B12345") is None
+
+
+def test_charities_stream_keeps_registered_main_charities():
+    from ingest import charities
+
+    with open(Path(__file__).parent / "fixtures" / "charity_extract_sample.json") as f:
+        rows = list(charities.parse(f))
+    assert len(rows) == 1
+    num, name, status, company, addr, pc, income, insolvent, admin, reg = rows[0]
+    assert (num, name, status, company, pc, income, insolvent, admin, reg) == (1012345, "MILLBROOK CARE TRUST", "Registered", "02345678", "BA1 1AA", 2450000, False, True, "1992-05-17")
+    assert addr == "1 MILL LANE, BATH"
+
+
+def test_nhs_ods_keeps_active_gp_and_dental_practices():
+    from ingest import nhs_ods
+
+    fx = Path(__file__).parent / "fixtures"
+    gp = list(nhs_ods.parse(fx / "ods_epraccur_sample.csv"))
+    assert [r["register_id"] for r in gp] == ["A81001"]   # walk-in centre (setting 1) and closed practice dropped
+    assert gp[0]["name"] == "The Densham Surgery" and gp[0]["postcode"] == "TS18 1HU" and gp[0]["extra"]["kind"] == "gp" and gp[0]["register"] == "NHS ODS"
+    dental = list(nhs_ods.parse(fx / "ods_egdpprac_sample.csv"))
+    assert dental[0]["extra"]["kind"] == "dental" and dental[0]["postcode"] == "CV32 4AB"
+
+
+def test_ci_scotland_keeps_care_homes_and_nurseries_not_childminders():
+    from ingest import ci_scotland
+
+    rows = list(ci_scotland.parse(Path(__file__).parent / "fixtures" / "ci_scotland_sample.csv"))
+    assert [r["register_id"] for r in rows] == ["CS2003000001", "CS2003000003"]
+    home, nursery = rows
+    assert home["capacity"] == 42 and home["capacity_label"] == "beds" and home["extra"]["careHome"] is True and home["postcode"] == "G40 1DA" and home["rating"] == "Grade 4"
+    assert nursery["capacity"] == 60 and nursery["capacity_label"] == "places" and nursery["extra"]["careHome"] is False and nursery["provider_name"] == "Little Stars Ltd"
+
+
+def test_linkage_maps_new_registers_and_charities():
+    from ingest import linkage
+
+    conn = RecordingConn(fetchval=1)
+    asyncio.run(linkage.load(conn, Path("/raw")))
+    sql = " ".join(s[0] for s in conn.sql)
+    for fragment in ("when 'NHS ODS' then case r.extra->>'kind' when 'dental' then 'Dental' else 'Medical' end", "when 'CI Scotland'", "operator_charity_number = p.charity_number",
+                     "r.register = 'NHS ODS' and exists (select 1 from businesses b2", "insert into business_registers (business_id, register, register_id) select distinct on (r.register_id)",
+                     "(ch.insolvent or ch.in_administration)"):
+        assert fragment in sql, fragment

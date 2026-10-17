@@ -651,3 +651,32 @@ CREATE TABLE IF NOT EXISTS census_areas (
   fetched_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS census_areas_geom_gix ON census_areas USING gist (geom);
+
+-- Charity operators (ingest/charities.py; matched in the linkage job) and persons with significant control (ingest/companies_house_psc.py).
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS operator_charity_number bigint;
+CREATE TABLE IF NOT EXISTS charities (
+  charity_number      bigint PRIMARY KEY,
+  name                text NOT NULL,
+  status              text,
+  company_number      text,
+  address             text,
+  postcode            text,
+  income              bigint,
+  insolvent           boolean NOT NULL DEFAULT false,
+  in_administration   boolean NOT NULL DEFAULT false,
+  registered          date,
+  source              text NOT NULL DEFAULT 'Charity Commission register',
+  licence             licence_class NOT NULL DEFAULT 'OGL',
+  fetched_at          timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS pscs (
+  company_number      text NOT NULL,
+  seq                 integer NOT NULL,
+  name                text,
+  kind                text NOT NULL,
+  corporate_number    text,
+  natures             text[],
+  majority            boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (company_number, seq)
+);
+CREATE INDEX IF NOT EXISTS pscs_corporate_idx ON pscs (corporate_number) WHERE corporate_number IS NOT NULL;

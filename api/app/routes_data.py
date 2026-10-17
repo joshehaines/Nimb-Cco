@@ -22,7 +22,7 @@ from ingest._upsert import norm_company_sql
 
 router = APIRouter(prefix="/api")
 
-BUSINESS_COLS = "b.business_id, b.name, b.sector, b.sub_sector, b.address, b.postcode, b.uprn, b.title_number, b.tenure, b.operator_company_number, b.operator_name, b.freeholder_name, b.freeholder_company_number, b.hereditament_uarn, b.epc_certificate_id, b.fhrs_rating, b.distress_flags, b.source, b.licence, b.fetched_at, ST_X(b.geom) lon, ST_Y(b.geom) lat"
+BUSINESS_COLS = "b.business_id, b.name, b.sector, b.sub_sector, b.address, b.postcode, b.uprn, b.title_number, b.tenure, b.operator_company_number, b.operator_name, b.freeholder_name, b.freeholder_company_number, b.hereditament_uarn, b.epc_certificate_id, b.fhrs_rating, b.distress_flags, b.operator_charity_number, b.source, b.licence, b.fetched_at, ST_X(b.geom) lon, ST_Y(b.geom) lat"
 
 
 def _iso(v) -> str | None:
@@ -55,7 +55,7 @@ def business_json(b, registers: list[dict[str, Any]], extra: dict[str, Any] | No
         **_tag(b), "businessId": b["business_id"], "name": b["name"], "sector": b["sector"], "subSector": b["sub_sector"], "address": b["address"] or "", "postcode": b["postcode"] or "",
         "uprn": str(b["uprn"]) if b["uprn"] else None, "location": _pt(b["lon"], b["lat"]), "titleNumber": b["title_number"], "tenure": b["tenure"],
         "operatorCompanyNumber": b["operator_company_number"], "operatorName": b["operator_name"], "freeholderName": b["freeholder_name"], "freeholderCompanyNumber": b["freeholder_company_number"],
-        "hereditamentUarn": b["hereditament_uarn"], "epcCertificateId": b["epc_certificate_id"], "fhrsRating": b["fhrs_rating"], "distressFlags": list(b["distress_flags"] or []), "registers": registers,
+        "hereditamentUarn": b["hereditament_uarn"], "epcCertificateId": b["epc_certificate_id"], "fhrsRating": b["fhrs_rating"], "distressFlags": list(b["distress_flags"] or []), "operatorCharityNumber": (str(b.get("operator_charity_number")) if b.get("operator_charity_number") else None), "registers": registers,
         **(extra or {}),
     }
 

@@ -1,0 +1,4 @@
+[{"organisation_number":1,"registered_charity_number":200027,"linked_charity_number":1,"charity_name":"POTTERNE MISSION ROOM AND TRUST","charity_registration_status":"Removed"}
+,{"organisation_number":3,"registered_charity_number":1012345,"linked_charity_number":0,"charity_name":"MILLBROOK CARE TRUST","charity_registration_status":"Registered","date_of_registration":"1992-05-17T00:00:00","latest_income":2450000,"charity_contact_address1":"1 MILL LANE","charity_contact_address2":"BATH","charity_contact_postcode":"ba1 1aa","charity_company_registration_number":"2345678","charity_insolvent":false,"charity_in_administration":true}
+,{"organisation_number":4,"registered_charity_number":1012345,"linked_charity_number":2,"charity_name":"MILLBROOK SUBSIDIARY","charity_registration_status":"Registered"}
+]
