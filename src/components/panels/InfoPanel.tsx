@@ -48,7 +48,7 @@ export function InfoPanel() {
   )
 }
 
-function Header({ title, subtitle, onClose, badge }: { title: string; subtitle?: string; onClose: () => void; badge?: React.ReactNode }) {
+function Header({ title, subtitle, onClose, badge, actions }: { title: string; subtitle?: string; onClose: () => void; badge?: React.ReactNode; actions?: React.ReactNode }) {
   return (
     <header className="flex items-start gap-2 border-b border-ink-200 px-4 py-3">
       <div className="min-w-0 flex-1">
@@ -58,6 +58,7 @@ function Header({ title, subtitle, onClose, badge }: { title: string; subtitle?:
         </div>
         {subtitle && <div className="truncate text-xs text-ink-500">{subtitle}</div>}
       </div>
+      {actions}
       <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Close">
         <X size={16} />
       </button>
@@ -97,8 +98,15 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
     <>
       <Header
         title={b ? b.name : t.address}
-        subtitle={b ? `${b.address} · ${t.postcode}` : `${t.postcode} · ${t.titleNumber}`}
+        subtitle={(b ? [b.address, t.postcode] : [t.postcode, t.titleNumber]).filter((x) => x && x !== 'null').join(' · ')}
         onClose={onClose}
+        actions={
+          <span className="-mr-1 flex shrink-0 items-center">
+            <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-ghost btn-sm" title="Site report (opens a printable page)" aria-label="Site report"><Printer size={15} /></Link>
+            <Button size="sm" variant="ghost" title="Zoom to site" aria-label="Zoom to site" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}><LocateFixed size={15} /></Button>
+            <Button size="sm" variant="ghost" title="Copy link" aria-label="Copy link" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={15} /></Button>
+          </span>
+        }
         badge={<span className="flex items-center gap-1">{b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}{(b ? b.source : t.source) === 'Synthetic' && <Badge tone="warning" title="Synthetic demo record: ownership, operator, registers and signals are generated, not real">Demo</Badge>}</span>}
       />
       <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-100 px-4 py-2">
@@ -108,12 +116,7 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
         {b && <Link to={`/appraisal/${b.businessId}`} target="_blank" className="btn-secondary btn-sm">Appraise</Link>}
         <Link to={`/catchment?lon=${bundle.centre[0]}&lat=${bundle.centre[1]}&label=${encodeURIComponent(b ? b.name : t.address)}`} className="btn-secondary btn-sm">Catchment</Link>
         <Button size="sm" title="Create an alert for anything that happens at or near this site" onClick={() => { if (!watched) addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }); const r = blankRule(useAuth.getState().user?.id ?? 'demo-agent', { name: `Watch ${b ? b.name : t.address}`, tag: 'Site watch', scope: { mode: 'sites', radiusM: 250, siteIds: [t.titleNumber, ...(b ? [b.businessId] : [])], postcodes: [], offices: [] }, frequency: 'instant' }); useAlerts.getState().upsertRule(r); navTo(`/alerts/rules/${r.id}`) }}><BellPlus size={14} /> Alert</Button>
-        <span className="ml-auto flex items-center gap-0.5">
-          <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-ghost btn-sm" title="Site report (opens a printable page)" aria-label="Site report"><Printer size={15} /></Link>
-          <Button size="sm" variant="ghost" title="Zoom to site" aria-label="Zoom to site" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}><LocateFixed size={15} /></Button>
-          <Button size="sm" variant="ghost" title="Copy link" aria-label="Copy link" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={15} /></Button>
-        </span>
-              </div>
+      </div>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto" tabIndex={0}>
         {tab === 'overview' && <SiteSummary bundle={bundle} b={b} onOrdered={() => setRefresh((r) => r + 1)} />}

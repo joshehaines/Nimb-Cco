@@ -95,8 +95,8 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
     <div className="space-y-2 bg-ink-50 p-3">
       {/* Key facts: the six things a surveyor asks first, each one line. */}
       <div className="grid grid-cols-2 gap-1.5">
-        <Fact label="Owner" title={owner?.category}>
-          {owner?.redacted ? <span className="italic text-ink-500">Private individual</span> : owner?.companyNumber ? <Link to={`/companies/${owner.companyNumber}`} className="text-brand-700 hover:underline">{owner.name}</Link> : owner?.name ?? '—'}
+        <Fact label="Owner" title={owner?.category ?? "Not in the company ownership datasets"}>
+          {owner?.redacted ? <span className="italic text-ink-500">Private individual</span> : owner?.companyNumber ? <Link to={`/companies/${owner.companyNumber}`} className="text-brand-700 hover:underline">{owner.name}</Link> : owner?.name ?? <span className="font-normal text-ink-500" title="Not in the company and overseas ownership datasets, so most likely a private individual. Buy the register to see the name.">Likely private</span>}
           {ownerCompany && ownerCompany.status !== 'active' && <span className="block text-[11px] font-normal text-rose-700 dark:text-rose-300">{ownerCompany.status}</span>}
           {ownerCompany?.accountsOverdue && <span className="block text-[11px] font-normal text-amber-700 dark:text-amber-300">accounts overdue</span>}
         </Fact>
