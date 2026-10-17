@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Plus, Printer, ShieldCheck, ShieldAlert, Trash2, Download, Upload } from 'lucide-react'
 import { provider, SECTORS, type Business, type Campaign, type CampaignRecipient, type LetterTemplate, type RecipientBasis, type Sector, type Title } from '@/data'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { useAuth } from '@/auth'
 import { logAudit } from '@/lib/audit'
 import { Badge, Button, Card, Input, Select, Stat, Empty, Toggle, cx } from '@/components/ui'
@@ -37,7 +38,7 @@ function basisFor(role: 'Freeholder' | 'Operator', b: Business, t?: Title, suppr
 
 /** Direct-to-owner letter campaigns with a compliance gate on every recipient. */
 export function CampaignsPage() {
-  const { campaigns, upsertCampaign, removeCampaign, watchlist } = useUi()
+  const { campaigns, upsertCampaign, removeCampaign, watchlist } = useUi(useShallow((s) => ({ campaigns: s.campaigns, upsertCampaign: s.upsertCampaign, removeCampaign: s.removeCampaign, watchlist: s.watchlist })))
   const [openId, setOpenId] = useState<string | null>(campaigns[0]?.campaignId ?? null)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')

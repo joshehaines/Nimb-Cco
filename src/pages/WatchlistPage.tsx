@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus } from 'lucide-react'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { provider, type Alert } from '@/data'
 import { Badge, Button, Card, Empty, Input, Select } from '@/components/ui'
 import { ago, dateShort } from '@/lib/format'
 
 export function WatchlistPage() {
-  const { watchlist, removeWatch, updateWatch, projects, addProject } = useUi()
+  const { watchlist, removeWatch, updateWatch, projects, addProject } = useUi(useShallow((s) => ({ watchlist: s.watchlist, removeWatch: s.removeWatch, updateWatch: s.updateWatch, projects: s.projects, addProject: s.addProject })))
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [newProject, setNewProject] = useState('')
   const [filterProject, setFilterProject] = useState('')

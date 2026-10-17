@@ -4,6 +4,7 @@ import { provider, type Alert, type Business, type DashboardStats, type LeaseSum
 import { Stat, Card, BarList, Badge, Button } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { ago, dateShort, monthsUntil, gbp } from '@/lib/format'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { DEFAULT_FILTERS } from '@/data/types'
@@ -14,10 +15,10 @@ export function DashboardPage() {
   const [titles] = useState<Title[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const nav = useNavigate()
-  const { watchlist, setFilters, resetFilters, select } = useUi()
+  const { watchlist, setFilters, resetFilters, select } = useUi(useShallow((s) => ({ watchlist: s.watchlist, setFilters: s.setFilters, resetFilters: s.resetFilters, select: s.select })))
   useEffect(() => {
     provider.getAlerts().then(setAlerts).catch(() => setAlerts([]))
-    provider.sourceBusinesses({ ...DEFAULT_FILTERS, distressOnly: true }).then(setBusinesses).catch(() => setBusinesses([]))
+    provider.sourceBusinesses({ ...DEFAULT_FILTERS, distressOnly: true }, undefined, 50).then(setBusinesses).catch(() => setBusinesses([]))
     provider.getDashboard().then(setStats).catch(() => setStats(null))
   }, [])
   const distressed = businesses.filter((b) => b.distressFlags.length)

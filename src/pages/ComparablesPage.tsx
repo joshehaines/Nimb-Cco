@@ -8,6 +8,7 @@ import { SECTOR_COLOURS } from '@/lib/sectors'
 import { gbp, dateShort, num } from '@/lib/format'
 import { haversineM } from '@/lib/geo'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { canDownload } from '@/lib/env'
 import { logAudit } from '@/lib/audit'
 
@@ -34,7 +35,7 @@ export function ComparablesPage() {
   const [q, setQ] = useState('')
   const [qResults, setQResults] = useState<SearchResult[]>([])
   const nav = useNavigate()
-  const { select, requestFlyTo, setLayer } = useUi()
+  const { select, requestFlyTo, setLayer } = useUi(useShallow((s) => ({ select: s.select, requestFlyTo: s.requestFlyTo, setLayer: s.setLayer })))
 
   useEffect(() => {
     setResult(null)

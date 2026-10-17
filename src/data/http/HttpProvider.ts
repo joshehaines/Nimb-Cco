@@ -30,7 +30,7 @@ export class HttpProvider implements DataProvider {
   }
 
   search = (query: string, limit = 12) => this.get<never>('/search', { q: query, limit })
-  getMapLayers = (bounds: BoundsQuery) => this.get<never>('/map/layers', this.bbox(bounds))
+  getMapLayers = (bounds: BoundsQuery, layers?: string[]) => this.get<never>('/map/layers', { ...this.bbox(bounds), ...(layers ? { layers: layers.join(',') } : {}) })
   getTitle = (titleNumber: string) => this.get<never>(`/titles/${titleNumber}`)
   getTitleAt = (lon: number, lat: number) => this.get<never>('/titles/at', { lon, lat })
   getTitlesForCompany = (companyNumber: string) => this.get<never>(`/companies/${companyNumber}/titles`)
@@ -49,7 +49,7 @@ export class HttpProvider implements DataProvider {
   getTrafficNear = (lon: number, lat: number, radiusM: number) => this.get<never>('/traffic', { lon, lat, radius: radiusM })
   getFootfallNear = (lon: number, lat: number, radiusM: number) => this.get<never>('/footfall', { lon, lat, radius: radiusM })
   getLeasesForTitle = (titleNumber: string) => this.get<never>(`/titles/${titleNumber}/leases`)
-  sourceBusinesses = (filters: SourcingFilters, bounds?: BoundsQuery) => this.post<never>('/sourcing/businesses', { filters, bounds })
+  sourceBusinesses = (filters: SourcingFilters, bounds?: BoundsQuery, limit?: number) => this.post<never>('/sourcing/businesses', { filters, bounds, limit })
   sourceTitles = (filters: SourcingFilters, bounds?: BoundsQuery) => this.post<never>('/sourcing/titles', { filters, bounds })
   getComparables = (filters: ComparableFilters) => this.post<never>('/comparables/search', { filters })
   getComparable = (id: string) => this.get<never>(`/comparables/${id}`)

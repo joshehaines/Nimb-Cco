@@ -6,6 +6,7 @@ import { SECTORS } from '@/data/types'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { ago } from '@/lib/format'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 
 const KINDS: Alert['kind'][] = ['Ownership change', 'Planning submitted', 'Planning decided', 'Rating change', 'Registration change', 'Company status', 'Late accounts', 'Lease event', 'New business', 'EPC lodged', 'VOA change']
 
@@ -15,7 +16,7 @@ export function AlertsPage() {
   const [unreadOnly, setUnreadOnly] = useState(false)
   const nav = useNavigate()
   const select = useUi((s) => s.select)
-  const { alertRules, setAlertRules, watchlist } = useUi()
+  const { alertRules, setAlertRules, watchlist } = useUi(useShallow((s) => ({ alertRules: s.alertRules, setAlertRules: s.setAlertRules, watchlist: s.watchlist })))
   const [showRules, setShowRules] = useState(false)
   const load = () => provider.getAlerts().then((a) => setAlerts([...a])).catch(() => setAlerts([]))
   useEffect(() => {

@@ -4,6 +4,7 @@ import { Crosshair, Eye, EyeOff } from 'lucide-react'
 import { provider } from '@/data'
 import { SECTORS, type Sector } from '@/data/types'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { Badge, Button, Select, Spinner, cx } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
 import { analyseCompetition, DEFAULT_RADIUS_M, type CompetitionResult, type SiteForCompetition } from '@/lib/competition'
@@ -21,7 +22,7 @@ export function CompetitionPanel({ site, onResult }: { site: Omit<SiteForCompeti
   const [result, setResult] = useState<CompetitionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [showAll, setShowAll] = useState(false)
-  const { analysis, setAnalysis, clearAnalysis, requestFlyTo, select } = useUi()
+  const { analysis, setAnalysis, clearAnalysis, requestFlyTo, select } = useUi(useShallow((s) => ({ analysis: s.analysis, setAnalysis: s.setAnalysis, clearAnalysis: s.clearAnalysis, requestFlyTo: s.requestFlyTo, select: s.select })))
   const nav = useNavigate()
   const key = `${site.centre.join(',')}|${sector}|${radius}`
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Printer, CalendarClock, GripVertical, Upload } from 'lucide-react'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { provider, PIPELINE_STAGES, SECTORS, type PipelineStage, type WatchItem, type Business } from '@/data'
 import { Badge, Button, Input, Select, Stat, Empty, cx } from '@/components/ui'
 import { SECTOR_COLOURS } from '@/lib/sectors'
@@ -23,7 +24,7 @@ const OFFICES = ['Birmingham', 'London', 'Manchester', 'Bristol', 'Leeds', 'Edin
 
 /** Deal pipeline over My Sites: every watched site is a card that moves through stages. Stage reports print per column. */
 export function PipelinePage() {
-  const { watchlist, updateWatch, setStage, removeWatch, addWatch, projects } = useUi()
+  const { watchlist, updateWatch, setStage, removeWatch, addWatch, projects } = useUi(useShallow((s) => ({ watchlist: s.watchlist, updateWatch: s.updateWatch, setStage: s.setStage, removeWatch: s.removeWatch, addWatch: s.addWatch, projects: s.projects })))
   const [bizById, setBizById] = useState<Record<string, Business>>({})
   const [filterOffice, setFilterOffice] = useState('')
   const [filterSector, setFilterSector] = useState('')

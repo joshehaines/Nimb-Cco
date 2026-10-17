@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, KeyRound } from 'lucide-react'
 import { useUi, PIN_LAYERS, type LayerKey, type TitleColour } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { cx } from '@/components/ui'
 import { OWNER_CATEGORY_COLOURS, SECTOR_COLOURS } from '@/lib/sectors'
 
@@ -27,7 +28,7 @@ const PIN_LABEL: Partial<Record<LayerKey, { label: string; swatch: React.ReactNo
 
 /** Floating key, top right under the basemap picker: colour titles by owner type or tenure and read every active layer's symbol. */
 export function MapLegend() {
-  const { layers, titleColour, setTitleColour, analysis } = useUi()
+  const { layers, titleColour, setTitleColour, analysis } = useUi(useShallow((s) => ({ layers: s.layers, titleColour: s.titleColour, setTitleColour: s.setTitleColour, analysis: s.analysis })))
   const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
   const pins = PIN_LAYERS.filter((k) => layers[k] && PIN_LABEL[k])
   const active = (layers.titles ? 1 : 0) + pins.length + (analysis ? 1 : 0)

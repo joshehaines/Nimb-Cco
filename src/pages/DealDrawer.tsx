@@ -4,6 +4,7 @@ import { X, CalendarClock, UserRound, BellPlus, Printer, MapPin, Trash2, StickyN
 import type { Polygon } from 'geojson'
 import { provider, PIPELINE_STAGES, type Business, type Title, type Alert, type PipelineStage, type WatchItem } from '@/data'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { useAlerts } from '@/store/alerts'
 import { useAuth } from '@/auth'
 import { Badge, Button, Input, Select, cx } from '@/components/ui'
@@ -21,7 +22,7 @@ import { SECTOR_COLOURS } from '@/lib/sectors'
  */
 export function DealDrawer({ item, onClose }: { item: WatchItem; onClose: () => void }) {
   const STAFF = useStaff((st) => st.staff)
-  const { updateWatch, setStage, removeWatch, select, requestFlyTo } = useUi()
+  const { updateWatch, setStage, removeWatch, select, requestFlyTo } = useUi(useShallow((s) => ({ updateWatch: s.updateWatch, setStage: s.setStage, removeWatch: s.removeWatch, select: s.select, requestFlyTo: s.requestFlyTo })))
   const { rules, state, setState } = useAlerts()
   const user = useAuth((s) => s.user)
   const nav = useNavigate()

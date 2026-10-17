@@ -299,11 +299,15 @@ async def search(req: Request, q: str, limit: int = 12):
 
 # ------------------------------------------------------------------ map layers
 @app.get("/api/map/layers")
-async def map_layers(req: Request, bbox: str = Query(..., description="west,south,east,north")):
+async def map_layers(req: Request, bbox: str = Query(..., description="west,south,east,north"), layers: str | None = Query(None, description="comma separated subset; all when absent")):
     w, s, e, n = (float(x) for x in bbox.split(","))
+    want = set((layers or "titles,businesses,planning,traffic,footfall,constraints").split(","))
+
+    async def q(name: str, sql: str, *args):
+        return await c.fetch(sql, *args) if name in want else []
     env = "ST_MakeEnvelope($1,$2,$3,$4,4326)"
     async with req.app.state.pool.acquire() as c:
-        titles = await c.fetch(
+        titles = await q('titles', 
             f"""
             select t.title_number, t.tenure, coalesce(p.category,'Other') category, b.sector,
                    coalesce(cardinality(b.distress_flags) > 0, false) distress, ST_AsGeoJSON(t.geom)::json geom
@@ -314,14 +318,14 @@ async def map_layers(req: Request, bbox: str = Query(..., description="west,sout
             """,
             w, s, e, n,
         )
-        businesses = await c.fetch(f"select business_id, sector, name, cardinality(distress_flags) > 0 distress, ST_AsGeoJSON(geom)::json geom from businesses where geom && {env} limit 5000", w, s, e, n)
-        planning = await c.fetch(f"select reference, status, type, ST_AsGeoJSON(geom)::json geom from planning_applications where geom && {env} limit 5000", w, s, e, n)
-        traffic = await c.fetch(f"select count_point_id, aadf, year, method, ST_AsGeoJSON(geom)::json geom from traffic_counts where geom && {env}", w, s, e, n)
-        footfall = await c.fetch(f"select h3, band, monthly_visits, ST_AsGeoJSON(geom)::json geom from footfall_cells where month = (select max(month) from footfall_cells) and geom && {env}", w, s, e, n)
+        businesses = await q('businesses', f"select business_id, sector, name, cardinality(distress_flags) > 0 distress, ST_AsGeoJSON(geom)::json geom from businesses where geom && {env} limit 5000", w, s, e, n)
+        planning = await q('planning', f"select reference, status, type, ST_AsGeoJSON(geom)::json geom from planning_applications where geom && {env} limit 5000", w, s, e, n)
+        traffic = await q('traffic', f"select count_point_id, aadf, year, method, ST_AsGeoJSON(geom)::json geom from traffic_counts where geom && {env}", w, s, e, n)
+        footfall = await q('footfall', f"select h3, band, monthly_visits, ST_AsGeoJSON(geom)::json geom from footfall_cells where month = (select max(month) from footfall_cells) and geom && {env}", w, s, e, n)
         # Constraint polygons (flood zones, green belt) run to megabytes each: clip to the viewport and simplify to
         # roughly a pixel at the current width so a screen is tens of kB, not tens of MB.
         tol = max((e - w) / 2000.0, 1e-6)
-        constraints = await c.fetch(
+        constraints = await q('constraints', 
             f"select id, kind, name, ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_ClipByBox2D(geom, {env}), $5))::json geom from constraints where geom && {env} limit 5000", w, s, e, n, tol
         )
 

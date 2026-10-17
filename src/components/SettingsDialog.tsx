@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { X, Settings as SettingsIcon, KeyRound, UserRound, Compass, LogOut } from 'lucide-react'
 import { useUi } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { authConfigured, localAuth, DEMO_PERSONAS, useAuth } from '@/auth'
 import { Button, Input, Select } from '@/components/ui'
 import { logAudit } from '@/lib/audit'
 
 /** User settings: persona (demo), Ordnance Survey key, theme, demo areas, tour, sign out. */
 export function SettingsDialog({ open, onClose, onStartTour }: { open: boolean; onClose: () => void; onStartTour: () => void }) {
-  const { osKey, setOsKey, theme, setTheme } = useUi()
+  const { osKey, setOsKey, theme, setTheme } = useUi(useShallow((s) => ({ osKey: s.osKey, setOsKey: s.setOsKey, theme: s.theme, setTheme: s.setTheme })))
   const { user, signOut, setDemoPersona, changePassword } = useAuth()
   const [key, setKey] = useState(osKey ?? '')
   const [pw, setPw] = useState({ current: '', next: '', again: '' })

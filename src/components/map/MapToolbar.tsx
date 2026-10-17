@@ -2,6 +2,7 @@ import { useEffect, useState, type MutableRefObject, type RefObject } from 'reac
 import { ZoomIn, ZoomOut, RotateCcw, RotateCw, Compass, Mountain, PersonStanding, Ruler, Pentagon, MapPin, LocateFixed, Maximize2, Minimize2, Layers2, X } from 'lucide-react'
 import type { Map as MLMap } from 'maplibre-gl'
 import { useUi, type MapTool } from '@/store/ui'
+import { useShallow } from 'zustand/react/shallow'
 import { cx } from '@/components/ui'
 import { haversineM, polygonAreaSqm } from '@/lib/geo'
 import { num } from '@/lib/format'
@@ -19,7 +20,7 @@ const TOOL_HINT: Record<MapTool, string> = {
 
 /** Bottom toolbar: view controls on the left, tools on the right. */
 export function MapToolbar({ mapRef, containerRef, onBasemap }: { mapRef: MutableRefObject<MLMap | null>; containerRef: RefObject<HTMLDivElement>; onBasemap: () => void }) {
-  const { tool, setTool, draft, finishDraft, cancelDraft, undoDraftPoint } = useUi()
+  const { tool, setTool, draft, finishDraft, cancelDraft, undoDraftPoint } = useUi(useShallow((s) => ({ tool: s.tool, setTool: s.setTool, draft: s.draft, finishDraft: s.finishDraft, cancelDraft: s.cancelDraft, undoDraftPoint: s.undoDraftPoint })))
   const [pitched, setPitched] = useState(false)
   const [full, setFull] = useState(false)
   const [locating, setLocating] = useState(false)
