@@ -318,8 +318,7 @@ def test_psc_parse_controls_and_parent_candidates():
         {"company_number": "08810260", "data": {"kind": "individual-person-with-significant-control", "name": "Ms Gone", "ceased_on": "2024-01-01"}},
         {"company_number": "01", "data": {"kind": "persons-with-significant-control-statement"}},
         {"company_number": "09", "data": {"kind": "corporate-entity-person-with-significant-control", "name": "Foreign Holdco", "identification": {"country_registered": "Luxembourg", "registration_number": "B12345"}}},
-        b"not json",
-    ]]
+    ]] + [b"not json"]
     rows = list(psc.parse(lines))
     assert rows[0] == ("07434180", "Robert Hitchins Limited", "corporate", "00686734", ["ownership-of-shares-75-to-100-percent", "voting-rights-75-to-100-percent"], True)
     assert rows[1][:5] == ("08810260", "Mr A Person", "individual", None, ["ownership-of-shares-25-to-50-percent"]) and rows[1][5] is False
