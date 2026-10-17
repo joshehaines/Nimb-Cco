@@ -271,6 +271,8 @@ export interface Business extends DataSourceTag {
   tenure?: Tenure
   operatorCompanyNumber?: string
   operatorName?: string
+  /** Registered charity number when the operator is a charity (Charity Commission register). */
+  operatorCharityNumber?: string
   freeholderName?: string
   freeholderCompanyNumber?: string
   hereditamentUarn?: string

@@ -408,7 +408,7 @@ async def get_business(req: Request, business_id: str):
         **tag(b), "businessId": b["business_id"], "name": b["name"], "sector": b["sector"], "subSector": b["sub_sector"], "address": b["address"], "postcode": b["postcode"],
         "uprn": str(b["uprn"]) if b["uprn"] else None, "location": {"type": "Point", "coordinates": [b["lon"], b["lat"]]}, "titleNumber": b["title_number"], "tenure": b["tenure"],
         "operatorCompanyNumber": b["operator_company_number"], "operatorName": b["operator_name"], "freeholderName": b["freeholder_name"], "freeholderCompanyNumber": b["freeholder_company_number"],
-        "hereditamentUarn": b["hereditament_uarn"], "epcCertificateId": b["epc_certificate_id"], "fhrsRating": b["fhrs_rating"], "distressFlags": list(b["distress_flags"] or []),
+        "hereditamentUarn": b["hereditament_uarn"], "epcCertificateId": b["epc_certificate_id"], "fhrsRating": b["fhrs_rating"], "distressFlags": list(b["distress_flags"] or []), "operatorCharityNumber": (str(b.get("operator_charity_number")) if b.get("operator_charity_number") else None),
         "registers": [{**tag(r), "register": r["register"], "registerId": r["register_id"], "name": r["name"], "providerName": r["provider_name"], "providerId": r["provider_id"], "status": r["status"],
                        "registeredAt": r["registered_at"].isoformat() if r["registered_at"] else None, "rating": r["rating"], "ratingDate": r["rating_date"].isoformat() if r["rating_date"] else None,
                        "capacity": r["capacity"], "capacityLabel": r["capacity_label"], "extra": json.loads(r["extra"]) if isinstance(r["extra"], str) else r["extra"]} for r in regs],

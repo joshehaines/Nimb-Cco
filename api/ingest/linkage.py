@@ -30,6 +30,8 @@ SECTOR_SQL = """case r.register
     when 'Ofsted' then 'Childcare'
     when 'NHSBSA' then 'Pharmacy'
     when 'FSA' then r.extra->>'sectorHint'
+    when 'NHS ODS' then case r.extra->>'kind' when 'dental' then 'Dental' else 'Medical' end
+    when 'CI Scotland' then case when coalesce((r.extra->>'careHome')::boolean, false) then 'Care Home' else 'Childcare' end
     else 'Other' end"""
 
 SUB_SECTOR_SQL = """case r.register
@@ -37,6 +39,8 @@ SUB_SECTOR_SQL = """case r.register
     when 'Ofsted' then r.extra->>'subtype'
     when 'FSA' then r.extra->>'businessType'
     when 'NHSBSA' then r.extra->>'contractType'
+    when 'NHS ODS' then case r.extra->>'kind' when 'dental' then 'Dental practice' else 'GP practice' end
+    when 'CI Scotland' then coalesce(r.extra->>'subtype', r.extra->>'careService')
     else null end"""
 
 # VOA descriptions read "CARE HOME AND PREMISES", "DAY NURSERY AND PREMISES", "PUBLIC HOUSE AND PREMISES"...
@@ -66,6 +70,11 @@ STEPS: list[tuple[str, str]] = [
         create index if not exists businesses_postcode_idx on businesses (postcode);
         create index if not exists titles_postcode_idx on titles (postcode) where postcode is not null;
         create index if not exists businesses_title_idx on businesses (title_number) where title_number is not null;
+        alter table businesses add column if not exists operator_charity_number bigint;
+        create table if not exists charities (charity_number bigint primary key, name text not null, status text, company_number text, address text, postcode text, income bigint,
+          insolvent boolean not null default false, in_administration boolean not null default false, registered date, source text not null default 'Charity Commission register',
+          licence licence_class not null default 'OGL', fetched_at timestamptz not null default now());
+        create index if not exists charities_norm_name_idx on charities (({norm_company_sql('name')}));
         create index if not exists businesses_address_trgm on businesses using gin (address gin_trgm_ops);
     """),
     ("businesses", f"""
@@ -79,12 +88,23 @@ STEPS: list[tuple[str, str]] = [
           and r.sector is not null
           and coalesce(r.name, r.provider_name) is not null and coalesce(r.name, '') <> 'REDACTED'
           and (r.register <> 'FSA' or r.sector in {FSA_SECTORS!r})
+          and not (r.register = 'NHS ODS' and exists (select 1 from businesses b2 where b2.postcode = r.postcode and b2.business_id like 'CQC:%'
+                                                      and b2.sector = r.sector and similarity(upper(b2.name), upper(coalesce(r.name, ''))) > 0.3))
         on conflict (business_id) do update set name = excluded.name, sector = excluded.sector, sub_sector = excluded.sub_sector, address = excluded.address,
             postcode = excluded.postcode, uprn = coalesce(excluded.uprn, businesses.uprn), geom = excluded.geom, operator_name = excluded.operator_name, fetched_at = now()
     """),
     ("business_registers", """
         insert into business_registers (business_id, register, register_id)
         select b.business_id, r.register, r.register_id from register_records r join businesses b on b.business_id = r.register || ':' || r.register_id
+        on conflict do nothing
+    """),
+    ("ods_attach", """
+        insert into business_registers (business_id, register, register_id)
+        select distinct on (r.register_id) b2.business_id, r.register, r.register_id
+        from register_records r join businesses b2 on b2.postcode = r.postcode and b2.business_id like 'CQC:%'
+        where r.register = 'NHS ODS' and b2.sector = case r.extra->>'kind' when 'dental' then 'Dental' else 'Medical' end
+          and similarity(upper(b2.name), upper(coalesce(r.name, ''))) > 0.3
+        order by r.register_id, similarity(upper(b2.name), upper(coalesce(r.name, ''))) desc
         on conflict do nothing
     """),
     ("titles", """
@@ -113,6 +133,18 @@ STEPS: list[tuple[str, str]] = [
         )
         update businesses b set operator_company_number = p.company_number from pick p where p.business_id = b.business_id
           and b.operator_company_number is distinct from p.company_number
+    """),
+    ("charity_operators", f"""
+        with cand as (
+          select b.business_id, ch.charity_number, ch.company_number, ch.income
+          from businesses b join charities ch on {norm_company_sql('ch.name')} = {NORM_B}
+          where b.operator_company_number is null and length({NORM_B}) >= 4
+        ), pick as (
+          select distinct on (business_id) business_id, charity_number, company_number from cand order by business_id, income desc nulls last
+        )
+        update businesses b set operator_charity_number = p.charity_number,
+               operator_company_number = coalesce(b.operator_company_number, (select company_number from companies c where c.company_number = p.company_number))
+        from pick p where p.business_id = b.business_id and b.operator_charity_number is distinct from p.charity_number
     """),
     ("ccod_titles", """
         with cand as (
@@ -180,6 +212,7 @@ STEPS: list[tuple[str, str]] = [
         with flags as (
           select b.business_id, array_remove(array[
             case when c.accounts_overdue then 'Late accounts' end,
+            case when exists (select 1 from charities ch where ch.charity_number = b.operator_charity_number and (ch.insolvent or ch.in_administration)) then 'Administration' end,
             case when jsonb_array_length(coalesce(c.gazette_notices, '[]'::jsonb)) > 0 then 'Gazette notice' end,
             case when c.status is not null and c.status not ilike 'active%' then 'Registration change' end,
             case when exists (select 1 from business_registers br join register_records r using (register, register_id)
