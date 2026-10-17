@@ -40,8 +40,8 @@ export function MapToolbar({ mapRef, containerRef, onBasemap }: { mapRef: Mutabl
       { enableHighAccuracy: true, timeout: 8000 },
     )
   }
-  const Btn = ({ title, onClick, active, children, disabled }: { title: string; onClick: () => void; active?: boolean; children: React.ReactNode; disabled?: boolean }) => (
-    <button type="button" title={title} aria-label={title} aria-pressed={active} disabled={disabled} onClick={onClick} className={cx('flex h-9 w-9 items-center justify-center rounded-md transition-colors disabled:opacity-40', active ? 'bg-brand-700 text-white' : 'text-ink-700 hover:bg-ink-100')}>
+  const Btn = ({ title, onClick, active, children, disabled, desktop }: { title: string; onClick: () => void; active?: boolean; children: React.ReactNode; disabled?: boolean; desktop?: boolean }) => (
+    <button type="button" title={title} aria-label={title} aria-pressed={active} disabled={disabled} onClick={onClick} className={cx('h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40', desktop ? 'hidden sm:flex' : 'flex', active ? 'bg-brand-700 text-white' : 'text-ink-700 hover:bg-ink-100')}>
       {children}
     </button>
   )
@@ -55,12 +55,12 @@ export function MapToolbar({ mapRef, containerRef, onBasemap }: { mapRef: Mutabl
           <button className="btn-ghost btn-sm -mr-1" onClick={cancelDraft} aria-label="Cancel tool"><X size={12} /></button>
         </div>
       )}
-      <div className="no-print absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-ink-200 bg-surface/95 p-1 shadow-lg backdrop-blur" role="toolbar" aria-label="Map tools">
+      <div className="scrollbar-none no-print absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-16px)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-lg border border-ink-200 bg-surface/95 p-1 shadow-lg backdrop-blur" role="toolbar" aria-label="Map tools">
         <Btn title="Map type" onClick={onBasemap}><Layers2 size={17} /></Btn>
-        <Btn title="Zoom in" onClick={() => map()?.zoomIn()}><ZoomIn size={17} /></Btn>
-        <Btn title="Zoom out" onClick={() => map()?.zoomOut()}><ZoomOut size={17} /></Btn>
+        <Btn desktop title="Zoom in" onClick={() => map()?.zoomIn()}><ZoomIn size={17} /></Btn>
+        <Btn desktop title="Zoom out" onClick={() => map()?.zoomOut()}><ZoomOut size={17} /></Btn>
         <Btn title="Reset north and tilt (right-drag to rotate)" onClick={() => map()?.resetNorthPitch()}><Compass size={17} /></Btn>
-        <Btn title={pitched ? 'Flat view' : '3D tilt'} active={pitched} onClick={() => { const p = !pitched; setPitched(p); map()?.easeTo({ pitch: p ? 55 : 0 }) }}><Mountain size={17} /></Btn>
+        <Btn desktop title={pitched ? 'Flat view' : '3D tilt'} active={pitched} onClick={() => { const p = !pitched; setPitched(p); map()?.easeTo({ pitch: p ? 55 : 0 }) }}><Mountain size={17} /></Btn>
         <span className="mx-1 h-6 w-px bg-ink-200" />
         <Btn title="Street View: click a road" active={tool === 'streetview'} onClick={() => pick('streetview')}><PersonStanding size={18} className={tool === 'streetview' ? '' : 'text-amber-500'} /></Btn>
         <Btn title="Measure a distance" active={tool === 'line'} onClick={() => pick('line')}><Ruler size={17} /></Btn>
