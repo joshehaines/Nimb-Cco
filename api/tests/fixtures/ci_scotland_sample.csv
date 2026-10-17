@@ -1,0 +1,4 @@
+CSNumber,CareService,Subtype,ServiceType,ServiceName,Address_line_1,Address_line_2,Address_line_3,Address_line_4,Service_town,Service_Postcode,ServiceProvider,SP_number,ServiceStatus,DateReg,Registered_Places,TotalBeds,MinGrade,MaxGrade,Publication_of_Latest_Grading,SIMD2020_Decile
+CS2003000001,Care Home Service,Older People,Private,Abbey Court,1 Abbey Road,,,,Glasgow,g40 1da,Abbey Care Ltd,SP2003000001,Active,01/04/2002,40,42,4,5,08/12/2024,5
+CS2003000002,Child Minding,,Private,Jane Smith,2 Road,,,,Glasgow,G40 1DB,Jane Smith,SP2,Active,01/04/2002,6,,5,5,08/12/2024,5
+CS2003000003,Day Care of Children,Day Care of Children (over 3s),Private,Little Stars Nursery,3 Road,,,,Edinburgh,EH1 1AA,Little Stars Ltd,SP3,Active,01/04/2010,60,,5,6,01/02/2025,8
