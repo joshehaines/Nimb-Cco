@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useUi } from '@/store/ui'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Minus, Plus, Share2, Check, FileText, Map as MapIcon, Printer } from 'lucide-react'
+import { ChevronRight, Minus, Plus, Share2, Check, FileText, Map as MapIcon } from 'lucide-react'
 import type { Business } from '@/data'
 import type { SiteBundle } from '@/hooks/useSite'
 import { Badge, KV, cx } from '@/components/ui'
 import { gbp, num, sqm, sqft, dateShort, monthsUntil } from '@/lib/format'
 import { dealScore } from '@/lib/dealScore'
 import { useClassFor, useClassForDescription, type UseClass } from '@/lib/useClasses'
-import { OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 import { PRICE_PAID_TYPE } from '@/data/real'
 import { OrderButton } from './InfoPanel'
 import { CompetitionPanel } from './CompetitionPanel'
@@ -91,7 +90,6 @@ export function SiteSummary({ bundle, b, onOrdered }: { bundle: SiteBundle; b: B
   const share = async () => {
     try { await navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* ignore */ }
   }
-  const addressLines = (t.address ?? `Title ${t.titleNumber}`).split(/,\s*/)   // INSPIRE-only titles carry no address
 
   return (
     <div className="space-y-2 bg-ink-50 p-3">
