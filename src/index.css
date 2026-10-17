@@ -197,3 +197,7 @@ body {
   .report table { page-break-inside: auto; }
   .report tr { page-break-inside: avoid; }
 }
+
+/* Horizontal chip rows that scroll without a visible bar. */
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }

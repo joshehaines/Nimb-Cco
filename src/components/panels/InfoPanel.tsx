@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, AlertTriangle, Printer, Copy, BellPlus } from 'lucide-react'
+import { X, Bookmark, BookmarkCheck, FileText, ExternalLink, Download, Building2, Printer, Copy, BellPlus, LocateFixed } from 'lucide-react'
 import { useAlerts } from '@/store/alerts'
 import { useAuth } from '@/auth'
 import { blankRule } from '@/lib/alerts'
@@ -48,7 +48,7 @@ export function InfoPanel() {
   )
 }
 
-function Header({ title, subtitle, onClose, badge }: { title: string; subtitle?: string; onClose: () => void; badge?: React.ReactNode }) {
+function Header({ title, subtitle, onClose, badge, actions }: { title: string; subtitle?: string; onClose: () => void; badge?: React.ReactNode; actions?: React.ReactNode }) {
   return (
     <header className="flex items-start gap-2 border-b border-ink-200 px-4 py-3">
       <div className="min-w-0 flex-1">
@@ -58,6 +58,7 @@ function Header({ title, subtitle, onClose, badge }: { title: string; subtitle?:
         </div>
         {subtitle && <div className="truncate text-xs text-ink-500">{subtitle}</div>}
       </div>
+      {actions}
       <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Close">
         <X size={16} />
       </button>
@@ -83,7 +84,6 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
   if (!bundle || loading) return <><Header title={business?.name ?? sel.id} onClose={onClose} /><Spinner label="Assembling site bundle…" /></>
   const t = bundle.title
   const b = business ?? bundle.businesses[0] ?? null
-  const distress = b?.distressFlags ?? []
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'ownership', label: 'Ownership' },
@@ -98,21 +98,24 @@ function SitePanel({ sel, onClose }: { sel: { type: 'title' | 'business'; id: st
     <>
       <Header
         title={b ? b.name : t.address}
-        subtitle={b ? `${b.address} · ${t.postcode}` : `${t.postcode} · ${t.titleNumber}`}
+        subtitle={(b ? [b.address, t.postcode] : [t.postcode, t.titleNumber]).filter((x) => x && x !== 'null').join(' · ')}
         onClose={onClose}
+        actions={
+          <span className="-mr-1 flex shrink-0 items-center">
+            <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-ghost btn-sm" title="Site report (opens a printable page)" aria-label="Site report"><Printer size={15} /></Link>
+            <Button size="sm" variant="ghost" title="Zoom to site" aria-label="Zoom to site" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}><LocateFixed size={15} /></Button>
+            <Button size="sm" variant="ghost" title="Copy link" aria-label="Copy link" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={15} /></Button>
+          </span>
+        }
         badge={<span className="flex items-center gap-1">{b ? <Badge tone="neutral"><span style={{ color: SECTOR_COLOURS[b.sector] }}>●</span> {b.sector}</Badge> : <Badge>{t.tenure}</Badge>}{(b ? b.source : t.source) === 'Synthetic' && <Badge tone="warning" title="Synthetic demo record: ownership, operator, registers and signals are generated, not real">Demo</Badge>}</span>}
       />
       <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-100 px-4 py-2">
         <Button size="sm" variant={watched ? 'secondary' : 'primary'} onClick={() => (watched ? removeWatch(watchlist.find((w) => w.entityId === t.titleNumber)!.id) : addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }))}>
           {watched ? <BookmarkCheck size={14} /> : <Bookmark size={14} />} {watched ? 'In My Sites' : 'Add to My Sites'}
         </Button>
-        <Link to={`/report/${t.titleNumber}`} target="_blank" className="btn-secondary btn-sm"><Printer size={14} /> Report</Link>
         {b && <Link to={`/appraisal/${b.businessId}`} target="_blank" className="btn-secondary btn-sm">Appraise</Link>}
         <Link to={`/catchment?lon=${bundle.centre[0]}&lat=${bundle.centre[1]}&label=${encodeURIComponent(b ? b.name : t.address)}`} className="btn-secondary btn-sm">Catchment</Link>
-        <Button size="sm" onClick={() => requestFlyTo(bundle.centre[0], bundle.centre[1], 18)}>Zoom</Button>
         <Button size="sm" title="Create an alert for anything that happens at or near this site" onClick={() => { if (!watched) addWatch({ entityType: 'title', entityId: t.titleNumber, label: b ? b.name : t.address }); const r = blankRule(useAuth.getState().user?.id ?? 'demo-agent', { name: `Watch ${b ? b.name : t.address}`, tag: 'Site watch', scope: { mode: 'sites', radiusM: 250, siteIds: [t.titleNumber, ...(b ? [b.businessId] : [])], postcodes: [], offices: [] }, frequency: 'instant' }); useAlerts.getState().upsertRule(r); navTo(`/alerts/rules/${r.id}`) }}><BellPlus size={14} /> Alert</Button>
-        <Button size="sm" onClick={() => navigator.clipboard?.writeText(window.location.href)}><Copy size={14} /> Link</Button>
-        {distress.length > 0 && <Badge tone="critical" className="ml-auto"><AlertTriangle size={11} /> {distress.length} signal{distress.length > 1 ? 's' : ''}</Badge>}
       </div>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto" tabIndex={0}>

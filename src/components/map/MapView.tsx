@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom'
 import { provider, type MapLayers } from '@/data'
 import { useUi, type BasemapId, type TitleColour } from '@/store/ui'
 import { BasemapControl } from './BasemapControl'
-import { MapLegend } from './MapLegend'
 import { MapToolbar, streetViewUrl } from './MapToolbar'
 import { DrawPanel } from './DrawPanel'
 import { LocationAnalysis } from './LocationAnalysis'
@@ -517,7 +516,6 @@ export function MapView() {
     <>
       <div ref={containerRef} className="h-full w-full" />
       <BasemapControl hasOsKey={!!osKey()} open={basemapOpen} onOpenChange={setBasemapOpen} />
-      <MapLegend />
       <MapToolbar mapRef={mapRef} containerRef={containerRef} onBasemap={() => setBasemapOpen((o) => !o)} />
       <DrawPanel />
       <LocationAnalysis />

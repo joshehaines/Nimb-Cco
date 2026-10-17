@@ -95,12 +95,8 @@ export function LocationAnalysis() {
   ]
   const onCount = (g: Group) => g.rows.filter((r) => (r.kind === 'layer' && layers[r.layer]) || (r.kind === 'constraint' && layers.constraints && constraintKinds.includes(r.constraint)) || (r.kind === 'pricePaid' && layers.pricePaid && (pricePaidFilter === 'all' || pricePaidFilter === r.value))).length
 
-  if (!locationOpen)
-    return (
-      <button className="no-print absolute right-0 top-1/2 z-20 flex -translate-y-1/2 items-center gap-1.5 rounded-l-md border border-r-0 border-ink-200 bg-surface px-1.5 py-3 text-xs font-semibold shadow [writing-mode:vertical-rl] rotate-180" onClick={() => setLocationOpen(true)} aria-label="Open Location Analysis">
-        <Radar size={14} className="rotate-90" /> Location Analysis
-      </button>
-    )
+  // Opened from the Layers popover; no permanent edge tab over the map.
+  if (!locationOpen) return null
   return (
     <aside className="no-print card absolute bottom-3 right-3 top-3 z-30 flex w-[320px] max-w-[calc(100%-24px)] flex-col overflow-hidden shadow-xl" role="region" aria-label="Location Analysis">
       <div className="flex items-center justify-between border-b border-ink-200 px-3 py-2">

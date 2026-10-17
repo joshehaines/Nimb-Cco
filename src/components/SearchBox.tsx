@@ -103,9 +103,9 @@ export function SearchBox() {
 
   const showList = open && q.trim().length >= 2
   return (
-    <div ref={ref} className="relative w-full max-w-xl">
+    <div ref={ref} className="relative w-full" data-tour="search">
       <div className="relative">
-        <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" />
+        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
         <input
           value={q}
           onChange={(e) => {
@@ -119,14 +119,14 @@ export function SearchBox() {
             if (e.key === 'Enter' && results[active]) go(results[active])
             if (e.key === 'Escape') setOpen(false)
           }}
-          placeholder={typeof window !== 'undefined' && window.innerWidth < 768 ? 'Search anything…' : 'Search a place, postcode, business, company, address, title or planning ref…  (⌘K)'}
+          placeholder={typeof window !== 'undefined' && window.innerWidth < 768 ? 'Search anything…' : 'Search places, postcodes, businesses, companies, titles, or "care homes in Bath"'}
           aria-label="Search"
-          className="input pl-8 pr-8"
+          className="h-10 w-full rounded-full border border-ink-200 bg-ink-50 pl-10 pr-14 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-400 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
-        {loading && <Loader2 size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-400" />}
+        {loading ? <Loader2 size={14} className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-ink-400" /> : <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-ink-200 bg-surface px-1.5 text-[10px] font-medium text-ink-500 md:block">⌘K</kbd>}
       </div>
       {showList && (results.length > 0 || (searched && !loading)) && (
-        <ul className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-md border border-ink-200 bg-surface py-1 shadow-xl" role="listbox">
+        <ul className="absolute z-50 mt-1.5 max-h-[70vh] w-full overflow-y-auto rounded-xl border border-ink-200 bg-surface py-1 shadow-xl" role="listbox">
           {results.length === 0 && (
             <li className="px-3 py-3 text-sm text-ink-500">Nothing matched “{q.trim()}”. Try a postcode, a town, part of a name, or a company number.</li>
           )}
