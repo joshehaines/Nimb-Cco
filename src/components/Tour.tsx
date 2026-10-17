@@ -8,16 +8,14 @@ interface Step { title: string; body: string; route?: string; target?: string }
 const STEPS: Step[] = [
   { title: 'Welcome', body: 'Property Intelligence brings ownership, operators, regulators, planning, rates, traffic and sales evidence onto one map, with Christie & Co sector registers that no mapping product carries. This tour takes a minute.' },
   { title: 'Search anything', body: 'Addresses, postcodes, title numbers, business and company names, planning references. Press ⌘K or Ctrl+K from any page.', target: 'search' },
-  { title: 'The map', body: 'You land on title plans only. Tick layers on the left to add businesses, Overture places, HM Land Registry sales, planning, traffic and constraints, and untick to take them off again. Click anything for its panel.', route: '/map', target: 'layers' },
-  { title: 'Sourcing', body: 'Fifteen filters across sector, tenure, owner type, rateable value, lease expiry, EPC, regulator rating and distress signals. Results sort by the likely-to-transact score and export to CSV or straight into the CRM.', route: '/sourcing', target: 'nav-sourcing' },
-  { title: 'Pipeline', body: 'Drag sites between stages. Fees are weighted by stage and every stage prints as a client report.', route: '/pipeline', target: 'nav-pipeline' },
-  { title: 'Comparables and catchment', body: 'Sold trading businesses with price per bed, place or room beside real Land Registry sales, and a catchment view that counts real supply against the population around any site.', route: '/comparables', target: 'nav-comparables' },
-  { title: 'Campaigns', body: 'Direct-to-owner letters with the licence gate built in: recipients known only from free ownership data stay blocked until the register is bought, and approval needs a recorded legitimate-interests assessment.', route: '/campaigns', target: 'nav-campaigns' },
-  { title: 'Export to CRM', body: 'Clean, de-duplicated accounts, contacts, sites and deals with stable external IDs, in the column layout your CRM imports. Every export is written to the audit log.', route: '/crm/export', target: 'nav-crm-export' },
-  { title: 'Settings', body: 'Your persona or account, an Ordnance Survey key for the basemap and this tour live under Settings at the bottom of the navigation.', target: 'settings' },
+  { title: 'The map', body: 'You land on title plans only. Use the sector chips to show those businesses, or open Layers to add sales, planning, traffic and constraints. Click anything for its panel.', route: '/map', target: 'layers' },
+  { title: 'Find', body: 'Sourcing filters every trading site by sector, tenure, owner type, rateable value, lease expiry, EPC and distress. Comparables and Catchment sit alongside it.', route: '/sourcing', target: 'nav-find' },
+  { title: 'Track', body: 'My sites, the deal pipeline, alerts and lease events. The red dot means unread alerts.', route: '/pipeline', target: 'nav-track' },
+  { title: 'Outreach', body: 'Direct-to-owner campaigns with the licence gate built in, and clean exports to the CRM. Every export is written to the audit log.', route: '/campaigns', target: 'nav-outreach' },
+  { title: 'Settings', body: 'Your initials at the bottom of the rail open settings: theme, an Ordnance Survey key for the basemap, this tour and sign out.', target: 'settings' },
 ]
 
-/** Nine-step guided tour. Highlights the element marked data-tour="<target>" and keeps a card near it. */
+/** Short guided tour, started from Settings. Highlights the element marked data-tour="<target>" and keeps a card near it. */
 export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [i, setI] = useState(0)
   const nav = useNavigate()

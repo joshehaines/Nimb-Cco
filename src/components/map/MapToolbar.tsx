@@ -1,5 +1,5 @@
 import { useEffect, useState, type MutableRefObject, type RefObject } from 'react'
-import { ZoomIn, ZoomOut, RotateCcw, RotateCw, Compass, Mountain, PersonStanding, Ruler, Pentagon, MapPin, LocateFixed, Maximize2, Minimize2, Layers2, X } from 'lucide-react'
+import { ZoomIn, ZoomOut, Compass, Mountain, PersonStanding, Ruler, Pentagon, MapPin, LocateFixed, Maximize2, Minimize2, Layers2, X } from 'lucide-react'
 import type { Map as MLMap } from 'maplibre-gl'
 import { useUi, type MapTool } from '@/store/ui'
 import { useShallow } from 'zustand/react/shallow'
@@ -59,9 +59,7 @@ export function MapToolbar({ mapRef, containerRef, onBasemap }: { mapRef: Mutabl
         <Btn title="Map type" onClick={onBasemap}><Layers2 size={17} /></Btn>
         <Btn title="Zoom in" onClick={() => map()?.zoomIn()}><ZoomIn size={17} /></Btn>
         <Btn title="Zoom out" onClick={() => map()?.zoomOut()}><ZoomOut size={17} /></Btn>
-        <Btn title="Rotate left" onClick={() => map()?.rotateTo((map()?.getBearing() ?? 0) - 30)}><RotateCcw size={16} /></Btn>
-        <Btn title="Reset north" onClick={() => map()?.resetNorthPitch()}><Compass size={17} /></Btn>
-        <Btn title="Rotate right" onClick={() => map()?.rotateTo((map()?.getBearing() ?? 0) + 30)}><RotateCw size={16} /></Btn>
+        <Btn title="Reset north and tilt (right-drag to rotate)" onClick={() => map()?.resetNorthPitch()}><Compass size={17} /></Btn>
         <Btn title={pitched ? 'Flat view' : '3D tilt'} active={pitched} onClick={() => { const p = !pitched; setPitched(p); map()?.easeTo({ pitch: p ? 55 : 0 }) }}><Mountain size={17} /></Btn>
         <span className="mx-1 h-6 w-px bg-ink-200" />
         <Btn title="Street View: click a road" active={tool === 'streetview'} onClick={() => pick('streetview')}><PersonStanding size={18} className={tool === 'streetview' ? '' : 'text-amber-500'} /></Btn>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Layers, ChevronLeft, SlidersHorizontal, EyeOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Layers, SlidersHorizontal, EyeOff, X, ChevronRight } from 'lucide-react'
 import { useUi, PIN_LAYERS, type LayerKey } from '@/store/ui'
 import { useShallow } from 'zustand/react/shallow'
-import { Checkbox, Chip, Collapsible, cx } from '@/components/ui'
+import { Checkbox, Chip, cx } from '@/components/ui'
 import { SECTORS } from '@/data/types'
 import { SECTOR_COLOURS, OWNER_CATEGORY_COLOURS } from '@/lib/sectors'
 import { CONSTRAINT_COLOURS } from './MapView'
@@ -57,108 +57,107 @@ const GROUPS: Group[] = [
   },
 ]
 
+const QUICK_SECTORS = SECTORS.filter((s) => s !== 'Other')
+
+/** Top-left of the map: one Layers button (a popover that is also the key), Filters, and one-tap sector chips. */
 export function LayerPanel({ hidden = false }: { hidden?: boolean }) {
-  const [open, setOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true))
-  const { layers, setLayer, clearPins, analysis, clearAnalysis, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour } = useUi(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, clearPins: s.clearPins, analysis: s.analysis, clearAnalysis: s.clearAnalysis, constraintKinds: s.constraintKinds, setConstraintKinds: s.setConstraintKinds, sectorFilter: s.sectorFilter, setSectorFilter: s.setSectorFilter, setShowFilters: s.setShowFilters, filters: s.filters, highlightIds: s.highlightIds, highlightLabel: s.highlightLabel, setHighlight: s.setHighlight, titleColour: s.titleColour, setTitleColour: s.setTitleColour })))
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
+  const { layers, setLayer, clearPins, analysis, clearAnalysis, constraintKinds, setConstraintKinds, sectorFilter, setSectorFilter, setShowFilters, filters, highlightIds, highlightLabel, setHighlight, titleColour, setTitleColour, setLocationOpen } = useUi(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, clearPins: s.clearPins, analysis: s.analysis, clearAnalysis: s.clearAnalysis, constraintKinds: s.constraintKinds, setConstraintKinds: s.setConstraintKinds, sectorFilter: s.sectorFilter, setSectorFilter: s.setSectorFilter, setShowFilters: s.setShowFilters, filters: s.filters, highlightIds: s.highlightIds, highlightLabel: s.highlightLabel, setHighlight: s.setHighlight, titleColour: s.titleColour, setTitleColour: s.setTitleColour, setLocationOpen: s.setLocationOpen })))
   const activeFilterCount = [filters.sectors.length, filters.tenure ? 1 : 0, filters.distressOnly ? 1 : 0, filters.distressFlags.length, filters.ownerCategories.length, filters.leaseExpiringWithinMonths ? 1 : 0, filters.epcWorseThan ? 1 : 0, filters.minRateableValue ? 1 : 0, filters.excludeConstraints.length, filters.distressedOwners ? 1 : 0, filters.distressedTenants ? 1 : 0, filters.minFootprintSqm || filters.maxFootprintSqm ? 1 : 0, filters.minSiteCoverage !== undefined || filters.maxSiteCoverage !== undefined ? 1 : 0, filters.leaseStartAfter || filters.leaseStartBefore || filters.leaseEndAfter || filters.leaseEndBefore ? 1 : 0].reduce((a, b) => a + b, 0)
-  const pinCount = PIN_LAYERS.filter((k) => layers[k]).length
-  const anyBusinessLayer = layers.businesses || layers.poi || layers.comparables
+  const onCount = (layers.titles ? 1 : 0) + PIN_LAYERS.filter((k) => layers[k]).length
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  const toggleSector = (s: (typeof QUICK_SECTORS)[number]) => {
+    const next = sectorFilter.includes(s) ? sectorFilter.filter((x) => x !== s) : [...sectorFilter, s]
+    setSectorFilter(next)
+    if (next.length && !layers.businesses) setLayer('businesses', true)
+  }
 
   if (hidden) return null
-  if (!open)
-    return (
-      <div className="absolute left-3 top-3 z-10 flex gap-2">
-        <button onClick={() => setOpen(true)} className="card flex items-center gap-2 px-3 py-2 text-sm font-medium" data-tour="layers">
-          <Layers size={16} /> Layers{pinCount > 0 ? <span className="rounded-full bg-brand-600 px-1.5 text-[10px] text-white">{pinCount}</span> : null}
-        </button>
-        <button onClick={() => setShowFilters(true)} className={cx('card flex items-center gap-2 px-3 py-2 text-sm font-medium', activeFilterCount > 0 && 'text-brand-700')}>
-          <SlidersHorizontal size={16} /> Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-        </button>
-      </div>
-    )
-
   return (
-    <div className="card absolute left-3 top-3 z-10 flex max-h-[calc(100%-24px)] w-[min(300px,calc(100%-24px))] flex-col overflow-hidden" data-tour="layers">
-      <div className="flex items-center justify-between border-b border-ink-200 px-3 py-2">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Layers size={16} /> Layers
-        </div>
-        <div className="flex items-center gap-1">
-          <button className={cx('btn-ghost btn-sm relative', activeFilterCount > 0 && 'text-brand-700')} onClick={() => setShowFilters(true)} title="Sourcing filters">
-            <SlidersHorizontal size={14} /> Filters
-            {activeFilterCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-brand-600 px-1 text-[9px] text-white">{activeFilterCount}</span>}
-          </button>
-          <button className="btn-ghost btn-sm" onClick={() => setOpen(false)} aria-label="Collapse">
-            <ChevronLeft size={14} />
-          </button>
+    <div ref={wrap} className="no-print pointer-events-none absolute left-3 right-3 top-3 z-20 flex flex-col items-start gap-2">
+      <div className="pointer-events-auto flex max-w-full items-center gap-2">
+        <button onClick={() => setOpen(!open)} aria-expanded={open} className={cx('card flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-medium shadow', open && 'ring-2 ring-brand-500/40')} data-tour="layers">
+          <Layers size={16} /> Layers{onCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[10px] text-white">{onCount}</span>}
+        </button>
+        <button onClick={() => setShowFilters(true)} className={cx('card flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-medium shadow', activeFilterCount > 0 && 'text-brand-700')}>
+          <SlidersHorizontal size={16} /> Filters{activeFilterCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[10px] text-white">{activeFilterCount}</span>}
+        </button>
+        <div className="scrollbar-none hidden min-w-0 items-center gap-1.5 overflow-x-auto rounded-full sm:flex" role="group" aria-label="Show businesses by sector">
+          {QUICK_SECTORS.map((s) => {
+            const on = sectorFilter.includes(s)
+            return (
+              <button key={s} type="button" onClick={() => toggleSector(s)} aria-pressed={on} className={cx('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm transition-colors', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-ink-200 bg-surface text-ink-700 hover:bg-ink-50')}>
+                <span className="h-2 w-2 rounded-full" style={{ background: on ? '#fff' : SECTOR_COLOURS[s] }} />{s}
+              </button>
+            )
+          })}
+          {sectorFilter.length > 0 && <button type="button" onClick={() => setSectorFilter([])} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-ink-600 hover:text-ink-900"><X size={12} /> All sectors</button>}
         </div>
       </div>
-      <div className="overflow-y-auto">
-        <div className="flex items-center justify-between gap-2 border-b border-ink-100 px-4 py-2 text-[11px] text-ink-500">
-          <span>{pinCount === 0 ? 'Tick a layer to add it to the map.' : `${pinCount} layer${pinCount === 1 ? '' : 's'} on the map`}</span>
-          {pinCount > 0 && <button className="flex items-center gap-1 font-medium text-brand-700 hover:underline" onClick={clearPins}><EyeOff size={12} /> Clear all</button>}
+
+      {(analysis || highlightIds.length > 0) && !open && (
+        <div className="pointer-events-auto flex flex-wrap gap-2">
+          {analysis && <span className="card flex items-center gap-2 px-2.5 py-1 text-xs text-teal-900 dark:text-teal-200"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-teal-700" />{analysis.label} · {analysis.radiusM >= 1000 ? `${analysis.radiusM / 1000} km` : `${analysis.radiusM} m`}<button className="text-ink-500 hover:text-ink-900" onClick={clearAnalysis} aria-label="Clear ring"><X size={12} /></button></span>}
+          {highlightIds.length > 0 && <span className="card flex items-center gap-2 px-2.5 py-1 text-xs text-amber-900 dark:text-amber-200"><span className="inline-block h-2.5 w-2.5 rounded-full border border-amber-700 bg-yellow-300" />{highlightIds.length} highlighted{highlightLabel ? ` · ${highlightLabel}` : ''}<button className="text-ink-500 hover:text-ink-900" onClick={() => setHighlight([])} aria-label="Clear highlight"><X size={12} /></button></span>}
         </div>
-        {analysis && (
-          <div className="flex items-center justify-between gap-2 border-b border-teal-200 dark:border-teal-900/60 bg-teal-50 dark:bg-teal-950/40 px-3 py-2 text-xs text-teal-900 dark:text-teal-200">
-            <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-teal-700" />{analysis.label} · {analysis.radiusM >= 1000 ? `${analysis.radiusM / 1000} km` : `${analysis.radiusM} m`} ring, {analysis.businessIds.length + analysis.poiIds.length} highlighted</span>
-            <button className="font-medium hover:underline" onClick={clearAnalysis}>clear</button>
+      )}
+
+      {open && (
+        <div className="card pointer-events-auto flex max-h-[calc(100vh-180px)] w-[min(300px,100%)] flex-col overflow-hidden shadow-xl" role="dialog" aria-label="Map layers">
+          <div className="flex items-center justify-between border-b border-ink-200 px-3 py-2 text-xs text-ink-500">
+            <span>{onCount === 0 ? 'Nothing on the map yet' : `${onCount} on the map`}</span>
+            <span className="flex items-center gap-3">
+              {onCount > 0 && <button className="flex items-center gap-1 font-medium text-brand-700 hover:underline" onClick={() => { clearPins(); setLayer('titles', false) }}><EyeOff size={12} /> Clear</button>}
+              <button className="text-ink-500 hover:text-ink-900" onClick={() => setOpen(false)} aria-label="Close layers"><X size={14} /></button>
+            </span>
           </div>
-        )}
-        {highlightIds.length > 0 && (
-          <div className="flex items-center justify-between gap-2 border-b border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-            <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-amber-700 bg-yellow-300" />{highlightIds.length} highlighted{highlightLabel ? ` · ${highlightLabel}` : ''}</span>
-            <button className="font-medium hover:underline" onClick={() => setHighlight([])}>clear</button>
+          <div className="overflow-y-auto py-1">
+            {GROUPS.map((g) => {
+              const rows = g.rows.filter((r) => !r.hidden)
+              if (!rows.length) return null
+              return (
+                <div key={g.title} className="px-3 pt-1.5">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-500">{g.title}</div>
+                  {rows.map((r) => (
+                    <div key={r.key} title={r.hint}>
+                      <Checkbox checked={layers[r.key]} onChange={(v) => setLayer(r.key, v)} swatch={r.swatch} label={r.label} />
+                      {r.key === 'titles' && layers.titles && (
+                        <div className="mb-1 ml-[26px]">
+                          <div className="flex gap-1" role="radiogroup" aria-label="Colour titles by">
+                            {([['none', 'Plain'], ['owner', 'Owner type'], ['tenure', 'Tenure']] as const).map(([v, l]) => <Chip key={v} label={l} selected={titleColour === v} onClick={() => setTitleColour(v)} />)}
+                          </div>
+                          {titleColour === 'owner' && <ul className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] text-ink-700">{Object.entries(OWNER_CATEGORY_COLOURS).filter(([k]) => k !== 'Other').map(([k, c]) => <li key={k} className="flex items-center gap-1.5 truncate"><span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: c }} />{k.replace('Limited Company or Public Limited Company', 'Company')}</li>)}</ul>}
+                          {titleColour === 'tenure' && <ul className="mt-1.5 flex gap-3 text-[11px] text-ink-700"><li className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#2f64b4]" />Freehold</li><li className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#c2410c]" />Leasehold</li></ul>}
+                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-500"><span className="h-2.5 w-2.5 rounded-sm border-2 border-dashed border-rose-700" />Dashed red: distress signal (zoom 16+)</div>
+                        </div>
+                      )}
+                      {r.key === 'constraints' && layers.constraints && (
+                        <div className="mb-1 ml-[26px] flex flex-wrap gap-1">
+                          {Object.entries(CONSTRAINT_COLOURS).map(([k, c]) => <Chip key={k} label={k} colour={c} selected={constraintKinds.includes(k)} onClick={() => setConstraintKinds(constraintKinds.includes(k) ? constraintKinds.filter((x) => x !== k) : [...constraintKinds, k])} />)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
-        )}
-        {GROUPS.map((g) => {
-          const on = g.rows.filter((r) => layers[r.key]).length
-          return (
-            <Collapsible key={g.title} title={g.title} right={on > 0 ? <span className="rounded-full bg-brand-50 px-1.5 text-[10px] font-semibold text-brand-700">{on}</span> : undefined}>
-              {g.rows.filter((r) => !r.hidden).map((r) => (
-                <Checkbox key={r.key} checked={layers[r.key]} onChange={(v) => setLayer(r.key, v)} swatch={r.swatch} hint={r.hint} label={<span className="flex items-center gap-1.5">{r.label}{r.demo && <span className="rounded bg-amber-100 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">Demo</span>}</span>} />
-              ))}
-            </Collapsible>
-          )
-        })}
-        <Collapsible title="Title colouring" defaultOpen={false}>
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {([['none', 'Plain'], ['owner', 'Proprietor type'], ['tenure', 'Tenure']] as const).map(([v, l]) => <Chip key={v} label={l} selected={titleColour === v} onClick={() => setTitleColour(v)} />)}
-          </div>
-          <ul className={cx('space-y-1 text-xs', titleColour !== 'owner' && 'hidden')}>
-            {Object.entries(OWNER_CATEGORY_COLOURS).map(([k, c]) => (
-              <li key={k} className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border border-black/10" style={{ background: c }} /> {k}
-              </li>
-            ))}
-          </ul>
-          <ul className="mt-1 space-y-1 text-xs"><li className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border-2 border-dashed border-rose-700" /> Dashed red: distress signal on occupier or owner (zoom 16+)</li><li className="text-ink-500">Titles draw from zoom 14.5.</li></ul>
-        </Collapsible>
-        {anyBusinessLayer && (
-          <Collapsible title="Sectors" right={sectorFilter.length ? <button className="text-[11px] text-brand-700" onClick={(e) => { e.stopPropagation(); setSectorFilter([]) }}>clear</button> : undefined}>
-            <div className="flex flex-wrap gap-1.5">
-              {SECTORS.filter((s) => s !== 'Other').map((s) => (
-                <Chip key={s} label={s} colour={SECTOR_COLOURS[s]} selected={sectorFilter.includes(s)} onClick={() => setSectorFilter(sectorFilter.includes(s) ? sectorFilter.filter((x) => x !== s) : [...sectorFilter, s])} />
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] text-ink-500">Pick sectors to show only those businesses. Red halo = distress signal on the operator or owner.</p>
-          </Collapsible>
-        )}
-        {layers.constraints && (
-          <Collapsible title="Constraint types">
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(CONSTRAINT_COLOURS).map(([k, c]) => (
-                <Chip key={k} label={k} colour={c} selected={constraintKinds.includes(k)} onClick={() => setConstraintKinds(constraintKinds.includes(k) ? constraintKinds.filter((x) => x !== k) : [...constraintKinds, k])} />
-              ))}
-            </div>
-          </Collapsible>
-        )}
-        {layers.footfall && (
-          <Collapsible title="Footfall legend" defaultOpen>
-            <div className="h-2 w-full rounded-full" style={{ background: 'linear-gradient(90deg,#fef3c7,#fcd34d,#f59e0b,#dc2626,#7f1d1d)' }} />
-            <div className="mt-1 flex justify-between text-[10px] text-ink-500"><span>Band 1</span><span>Band 9 (3,500+/day)</span></div>
-          </Collapsible>
-        )}
-      </div>
+          <button className="flex items-center justify-between border-t border-ink-200 px-3 py-2 text-left text-xs font-medium text-brand-700 hover:bg-ink-50" onClick={() => { setOpen(false); setLocationOpen(true) }}>
+            <span>All layers: tenure, constraints by type, market<span className="block font-normal text-ink-500">Grouped the way a site appraisal asks</span></span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
